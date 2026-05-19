@@ -33,8 +33,9 @@ INTERNAL_NOTE_ITEMS = {
 }
 CATEGORY_ORDER = [
     "飞书 CLI / 工作记录",
-    "代码与仓库",
-    "开发环境",
+    "Ubuntu 环境",
+    "n3mapping",
+    "RL 环境",
     "其他",
 ]
 SUBCATEGORY_ORDER = [
@@ -60,7 +61,6 @@ CATEGORY_RULES = [
             "monthly-docs",
             "skill",
             "文档",
-            "token",
             "多对话",
             "跨对话",
             "多机",
@@ -73,8 +73,58 @@ CATEGORY_RULES = [
             "二级列表",
         ),
     ),
-    ("代码与仓库", ("脚本", "代码", "仓库", "git", "commit", "push", "repo", "github")),
-    ("开发环境", ("rtk", "proxy", "bashrc", "环境", "安装", "授权", "配置")),
+    (
+        "n3mapping",
+        (
+            "n3mapping",
+            "ros_wrapper",
+            "humble",
+            "noetic",
+            "colcon",
+            "catkin",
+            "rviz",
+            "save_map",
+            "optimization.log",
+            "ros2",
+            "ros1",
+        ),
+    ),
+    (
+        "RL 环境",
+        (
+            "rl",
+            "robot_lab",
+            "go2w",
+            "isaac",
+            "isaac sim",
+            "isaac lab",
+            "seanav",
+            "sea-nav",
+            "him",
+            "unitree",
+            "applauncher",
+            "venv",
+            "虚拟环境",
+            "迁移包",
+            "多地形",
+            "训练",
+        ),
+    ),
+    (
+        "Ubuntu 环境",
+        (
+            "ubuntu",
+            "bash",
+            "bashrc",
+            "proxy",
+            "代理",
+            "rtk",
+            "codex",
+            "claude code",
+            "gemini cli",
+            "终端",
+        ),
+    ),
 ]
 SUBCATEGORY_RULES = [
     ("验证与测试", ("验证", "测试", "dry-run", "py_compile", "skill is valid")),
@@ -397,7 +447,10 @@ def normalize_section_groups(section: str) -> dict[str, dict[str, list[str]]]:
                 break
             has_child = next_level is not None and next_level > level
             if level == 0 and has_child:
-                if text in SUBCATEGORY_ORDER and text not in CATEGORY_ORDER:
+                if text == "其他":
+                    current_category = None
+                    current_subcategory = None
+                elif text in SUBCATEGORY_ORDER and text not in CATEGORY_ORDER:
                     current_category = None
                     current_subcategory = text
                 else:
@@ -416,10 +469,12 @@ def normalize_section_groups(section: str) -> dict[str, dict[str, list[str]]]:
                     target_category = category or categorize_item(content)
                     target_subcategory = subcategory or subcategorize_item(content)
                 elif current_category and current_subcategory and level > 1:
-                    target_category = current_category
+                    guessed_category = category or categorize_item(content)
+                    target_category = guessed_category if guessed_category != "其他" else current_category
                     target_subcategory = current_subcategory
                 elif current_category:
-                    target_category = current_category
+                    guessed_category = category or categorize_item(content)
+                    target_category = guessed_category if guessed_category != "其他" else current_category
                     target_subcategory = subcategory or subcategorize_item(content)
                 elif current_subcategory:
                     target_category = category or categorize_item(content)

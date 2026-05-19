@@ -21,8 +21,8 @@ references/monthly-docs.local.json
 - Newer dates must appear before older dates.
 - Each day is one H1 heading: `# MM-DD-YYYY`.
 - Content under each date must be grouped as unordered lists. Multiple nesting levels are allowed.
-- First-level bullets are work domains, such as `飞书 CLI / 工作记录`, `代码与仓库`, `开发环境`, and `其他`.
-- Subcategories such as `验证与测试`, `问题与风险`, and `开发环境` belong under the relevant work domain; do not promote them to first-level bullets when the actual work is about a specific domain.
+- First-level bullets are work domains, such as `飞书 CLI / 工作记录`, `Ubuntu 环境`, `n3mapping`, `RL 环境`, and `其他`.
+- Subcategories such as `工作内容`, `验证与测试`, `问题与风险`, `代码与仓库`, and `开发环境` belong under the relevant work domain; do not promote them to first-level bullets when the actual work is about a specific domain.
 - Do not add subheadings, tables, or prose paragraphs under a date.
 - Summarize verified work only: changed files, commands run, documents created, tests/builds, pushes, and remaining blockers.
 - Keep each bullet concrete and short. Mention uncertainty or unverified work explicitly.
