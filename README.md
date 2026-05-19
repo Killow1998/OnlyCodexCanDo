@@ -1,18 +1,20 @@
 # OnlyCodexCanDo
 
-Personal Codex skills repository.
+Public Codex skills repository.
 
 This repository stores reusable skills only. It is not a memory store and should not contain project history, chat summaries, credentials, Feishu document URLs, API endpoints, OpenID values, app IDs, tokens, or other private runtime configuration.
 
 ## Install
 
-Use Git:
+Clone with HTTPS:
 
 ```bash
 git clone https://github.com/Killow1998/OnlyCodexCanDo.git
 ```
 
 Then install a skill from this repository with your Codex skills installer, or copy the target folder under `skills/` into your local Codex skills directory.
+
+Maintainers who have write access may use SSH for pushing, but public users should use HTTPS for installation.
 
 ## Skills
 
@@ -25,7 +27,7 @@ Main behavior:
 - one Feishu/Lark document per month, titled `MM-YYYY 工作记录`;
 - each day is an H1 heading using `MM-DD-YYYY`;
 - newest days are kept above older days;
-- same-day items are grouped into first-level category bullets, with concrete work as second-level bullets;
+- same-day items are grouped as nested unordered lists: first-level bullets are work domains, with subcategories and concrete work nested below;
 - normal use goes through the helper script so multiple conversations append safely and duplicate bullets are avoided;
 - private Feishu document mappings stay in a local ignored registry, not in Git.
 
