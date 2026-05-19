@@ -33,6 +33,8 @@ Main behavior:
 
 Setup and authorization details are in [skills/lark-worklog-archive/references/setup.md](skills/lark-worklog-archive/references/setup.md).
 
+Development TODO is tracked in [skills/lark-worklog-archive/references/todo.md](skills/lark-worklog-archive/references/todo.md).
+
 ## Repository Rules
 
 - Keep only skill source, scripts, examples, and public setup references here.
