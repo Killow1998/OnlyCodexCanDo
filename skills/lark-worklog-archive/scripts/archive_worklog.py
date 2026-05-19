@@ -40,10 +40,10 @@ CATEGORY_ORDER = [
 ]
 SUBCATEGORY_ORDER = [
     "工作内容",
+    "代码与仓库",
+    "开发环境",
     "验证与测试",
     "问题与风险",
-    "开发环境",
-    "代码与仓库",
     "其他",
 ]
 CATEGORY_RULES = [
@@ -511,7 +511,7 @@ def merge_document(current: str, date: str, new_items: list[str]) -> str:
             remaining.append(normalize_date_section(section_date, section))
 
     clean_new_items = [item for item in new_items if not is_internal_note_item(item)]
-    new_groups = merge_groups(group_items(clean_new_items), old_groups)
+    new_groups = merge_groups(old_groups, group_items(clean_new_items))
     new_section = render_day_section(date, new_groups)
     parts = [new_section, *remaining]
     return "\n\n".join(part for part in parts if part).strip() + "\n"
