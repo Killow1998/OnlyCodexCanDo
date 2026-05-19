@@ -6,10 +6,10 @@ This repository stores reusable skills only. It is not a memory store and should
 
 ## Install
 
-Use SSH:
+Use Git:
 
 ```bash
-git clone git@github.com:Killow1998/OnlyCodexCanDo.git
+git clone https://github.com/Killow1998/OnlyCodexCanDo.git
 ```
 
 Then install a skill from this repository with your Codex skills installer, or copy the target folder under `skills/` into your local Codex skills directory.
