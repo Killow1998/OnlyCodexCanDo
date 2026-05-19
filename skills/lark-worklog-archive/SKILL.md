@@ -20,8 +20,9 @@ references/monthly-docs.local.json
 - Date headings use US style: `MM-DD-YYYY`.
 - Newer dates must appear before older dates.
 - Each day is one H1 heading: `# MM-DD-YYYY`.
-- Content under each date must be grouped as a two-level unordered list: first-level bullets are categories, second-level bullets are work items.
-- Prefer stable categories such as `飞书 CLI / 工作记录`, `代码与仓库`, `验证与测试`, `开发环境`, and `问题与风险`.
+- Content under each date must be grouped as unordered lists. Multiple nesting levels are allowed.
+- First-level bullets are work domains, such as `飞书 CLI / 工作记录`, `代码与仓库`, `开发环境`, and `其他`.
+- Subcategories such as `验证与测试`, `问题与风险`, and `开发环境` belong under the relevant work domain; do not promote them to first-level bullets when the actual work is about a specific domain.
 - Do not add subheadings, tables, or prose paragraphs under a date.
 - Summarize verified work only: changed files, commands run, documents created, tests/builds, pushes, and remaining blockers.
 - Keep each bullet concrete and short. Mention uncertainty or unverified work explicitly.
@@ -71,7 +72,7 @@ references/monthly-docs.local.json
 
 The helper chooses a document from the local monthly registry by the archive month. If the month is unknown, it first tries to search Feishu for an existing exact monthly title, then creates a new monthly document named `MM-YYYY 工作记录` if no match is available. The previous month's document remains unchanged as the archive.
 
-Inside a monthly document, the helper fetches the current Markdown, inserts `# MM-DD-YYYY` at the top when the date is new, or updates the existing same-date section. Items are normalized into category buckets and older dated sections stay below the newer dates.
+Inside a monthly document, the helper fetches the current Markdown, inserts `# MM-DD-YYYY` at the top when the date is new, or updates the existing same-date section. Items are normalized into domain buckets with nested subcategories, and older dated sections stay below the newer dates.
 
 For multiple Codex conversations, always use the helper instead of hand-running `docs +update overwrite`. Direct overwrite can lose another conversation's new bullets.
 

@@ -34,9 +34,15 @@ INTERNAL_NOTE_ITEMS = {
 CATEGORY_ORDER = [
     "飞书 CLI / 工作记录",
     "代码与仓库",
-    "验证与测试",
     "开发环境",
+    "其他",
+]
+SUBCATEGORY_ORDER = [
+    "工作内容",
+    "验证与测试",
     "问题与风险",
+    "开发环境",
+    "代码与仓库",
     "其他",
 ]
 CATEGORY_RULES = [
@@ -56,14 +62,25 @@ CATEGORY_RULES = [
             "文档",
             "token",
             "多对话",
+            "跨对话",
             "多机",
+            "跨 pc",
             "同日",
+            "revision",
+            "fetch/merge/retry",
+            "dry-run",
+            "分类",
+            "二级列表",
         ),
     ),
-    ("验证与测试", ("验证", "测试", "dry-run", "py_compile", "skill is valid")),
     ("代码与仓库", ("脚本", "代码", "仓库", "git", "commit", "push", "repo", "github")),
     ("开发环境", ("rtk", "proxy", "bashrc", "环境", "安装", "授权", "配置")),
+]
+SUBCATEGORY_RULES = [
+    ("验证与测试", ("验证", "测试", "dry-run", "py_compile", "skill is valid")),
     ("问题与风险", ("风险", "问题", "失败", "冲突", "修复", "漏洞")),
+    ("开发环境", ("rtk", "proxy", "bashrc", "环境", "安装", "授权", "配置")),
+    ("代码与仓库", ("脚本", "代码", "仓库", "git", "commit", "push", "repo", "github")),
 ]
 
 
@@ -222,25 +239,31 @@ def strip_item_marker(item: str) -> str:
     return item[2:].strip() if item.startswith("- ") else item.strip()
 
 
-def split_category_prefix(item: str) -> tuple[str | None, str]:
+def split_category_prefix(item: str) -> tuple[str | None, str | None, str]:
     text = strip_item_marker(item)
     if "::" in text:
-        category, content = text.split("::", 1)
-        category = category.strip()
-        content = content.strip()
-        if category and content:
-            return category, content
+        parts = [part.strip() for part in text.split("::") if part.strip()]
+        if len(parts) >= 3:
+            return parts[0], parts[1], "::".join(parts[2:]).strip()
+        if len(parts) == 2:
+            if parts[0] in CATEGORY_ORDER:
+                return parts[0], None, parts[1]
+            if parts[0] in SUBCATEGORY_ORDER:
+                return None, parts[0], parts[1]
+            return parts[0], None, parts[1]
     if "：" in text:
         category, content = text.split("：", 1)
         category = category.strip()
         content = content.strip()
         if category in CATEGORY_ORDER and content:
-            return category, content
-    return None, text
+            return category, None, content
+        if category in SUBCATEGORY_ORDER and content:
+            return None, category, content
+    return None, None, text
 
 
 def categorize_item(item: str) -> str:
-    explicit, text = split_category_prefix(item)
+    explicit, _, text = split_category_prefix(item)
     if explicit:
         return explicit
     lowered = text.lower()
@@ -250,8 +273,19 @@ def categorize_item(item: str) -> str:
     return "其他"
 
 
+def subcategorize_item(item: str) -> str:
+    _, explicit, text = split_category_prefix(item)
+    if explicit:
+        return explicit
+    lowered = text.lower()
+    for category, keywords in SUBCATEGORY_RULES:
+        if any(keyword.lower() in lowered for keyword in keywords):
+            return category
+    return "工作内容"
+
+
 def canonical_item(item: str) -> str:
-    _, text = split_category_prefix(item)
+    _, _, text = split_category_prefix(item)
     for escaped, plain in (("\\`", "`"), ("\\<", "<"), ("\\>", ">"), ("\\[", "["), ("\\]", "]")):
         text = text.replace(escaped, plain)
     return text.strip()
@@ -261,52 +295,80 @@ def is_internal_note_item(item: str) -> bool:
     return canonical_item(item) in INTERNAL_NOTE_ITEMS
 
 
-def ordered_categories(categories: dict[str, list[str]]) -> list[str]:
+def ordered_categories(categories: dict[str, dict[str, list[str]]]) -> list[str]:
     known = [category for category in CATEGORY_ORDER if category in categories]
     extra = sorted(category for category in categories if category not in CATEGORY_ORDER)
     return [*known, *extra]
 
 
-def add_group_item(groups: dict[str, list[str]], category: str, item: str) -> None:
+def ordered_subcategories(categories: dict[str, list[str]]) -> list[str]:
+    known = [category for category in SUBCATEGORY_ORDER if category in categories]
+    extra = sorted(category for category in categories if category not in SUBCATEGORY_ORDER)
+    return [*known, *extra]
+
+
+def add_group_item(groups: dict[str, dict[str, list[str]]], category: str, subcategory: str, item: str) -> None:
     if is_internal_note_item(item):
         return
-    groups.setdefault(category, [])
-    existing = {canonical_item(old) for old in groups[category]}
+    groups.setdefault(category, {})
+    groups[category].setdefault(subcategory, [])
+    existing = {canonical_item(old) for old in groups[category][subcategory]}
     if canonical_item(item) not in existing:
-        groups[category].append(f"- {canonical_item(item)}")
+        groups[category][subcategory].append(f"- {canonical_item(item)}")
 
 
-def group_items(items: list[str]) -> dict[str, list[str]]:
-    groups: dict[str, list[str]] = {}
+def group_items(items: list[str]) -> dict[str, dict[str, list[str]]]:
+    groups: dict[str, dict[str, list[str]]] = {}
     for item in items:
-        category, text = split_category_prefix(item)
-        add_group_item(groups, category or categorize_item(text), text)
+        category, subcategory, text = split_category_prefix(item)
+        add_group_item(groups, category or categorize_item(text), subcategory or subcategorize_item(text), text)
     return groups
 
 
-def merge_groups(base: dict[str, list[str]], incoming: dict[str, list[str]]) -> dict[str, list[str]]:
-    merged = {category: list(items) for category, items in base.items()}
-    for category, items in incoming.items():
-        for item in items:
-            add_group_item(merged, category, item)
+def merge_groups(
+    base: dict[str, dict[str, list[str]]],
+    incoming: dict[str, dict[str, list[str]]],
+) -> dict[str, dict[str, list[str]]]:
+    merged = {category: {sub: list(items) for sub, items in subgroups.items()} for category, subgroups in base.items()}
+    for category, subgroups in incoming.items():
+        for subcategory, items in subgroups.items():
+            for item in items:
+                add_group_item(merged, category, subcategory, item)
     return merged
 
 
-def render_day_section(date: str, groups: dict[str, list[str]]) -> str:
+def render_day_section(date: str, groups: dict[str, dict[str, list[str]]]) -> str:
     lines = [f"# {date}", ""]
     for category in ordered_categories(groups):
-        items = [item for item in groups[category] if not is_internal_note_item(item)]
-        if not items:
+        subgroups = groups[category]
+        if not any(items for items in subgroups.values()):
             continue
         lines.append(f"- {category}")
-        lines.extend(f"  - {canonical_item(item)}" for item in items)
+        for subcategory in ordered_subcategories(subgroups):
+            items = [item for item in subgroups[subcategory] if not is_internal_note_item(item)]
+            if not items:
+                continue
+            lines.append(f"  - {subcategory}")
+            lines.extend(f"    - {canonical_item(item)}" for item in items)
     return "\n".join(lines).strip()
 
 
-def normalize_section_groups(section: str) -> dict[str, list[str]]:
+def bullet_level(line: str) -> int | None:
+    match = re.match(r"^(\s*)-\s+(.+?)\s*$", line)
+    if not match:
+        return None
+    return match.group(1).replace("\t", "  ").count(" ") // 2
+
+
+def bullet_text(line: str) -> str:
+    return re.sub(r"^\s*-\s+", "", line).strip()
+
+
+def normalize_section_groups(section: str) -> dict[str, dict[str, list[str]]]:
     lines = section.splitlines()[1:]
-    groups: dict[str, list[str]] = {}
+    groups: dict[str, dict[str, list[str]]] = {}
     current_category: str | None = None
+    current_subcategory: str | None = None
     index = 0
     while index < len(lines):
         raw = lines[index]
@@ -314,42 +376,66 @@ def normalize_section_groups(section: str) -> dict[str, list[str]]:
         if not stripped:
             index += 1
             continue
-        if raw.startswith(("  - ", "\t- ")) and current_category:
-            nested_text = stripped[2:].strip()
-            if current_category in CATEGORY_ORDER:
-                add_group_item(groups, current_category, nested_text)
-            else:
-                combined = f"{current_category}：{nested_text}"
-                add_group_item(groups, categorize_item(combined), combined)
-            index += 1
-            continue
         if stripped.startswith("#"):
-            add_group_item(groups, "其他", stripped.lstrip("#").strip())
+            text = stripped.lstrip("#").strip()
+            add_group_item(groups, categorize_item(text), subcategorize_item(text), text)
             current_category = None
+            current_subcategory = None
             index += 1
             continue
-        if stripped.startswith("- "):
-            text = stripped[2:].strip()
-            next_nested = False
+        level = bullet_level(raw)
+        if level is not None:
+            text = bullet_text(raw)
+            next_level = None
             probe = index + 1
             while probe < len(lines):
                 next_raw = lines[probe]
                 if not next_raw.strip():
                     probe += 1
                     continue
-                next_nested = next_raw.startswith(("  - ", "\t- "))
+                next_level = bullet_level(next_raw)
                 break
-            if next_nested:
-                current_category = text
-                groups.setdefault(current_category, [])
+            has_child = next_level is not None and next_level > level
+            if level == 0 and has_child:
+                if text in SUBCATEGORY_ORDER and text not in CATEGORY_ORDER:
+                    current_category = None
+                    current_subcategory = text
+                else:
+                    current_category = text if text in CATEGORY_ORDER else categorize_item(text)
+                    current_subcategory = None
+                    groups.setdefault(current_category, {})
+            elif level == 1 and has_child:
+                if current_category:
+                    current_subcategory = text if text in SUBCATEGORY_ORDER else subcategorize_item(text)
+                    groups[current_category].setdefault(current_subcategory, [])
+                else:
+                    current_subcategory = text if text in SUBCATEGORY_ORDER else subcategorize_item(text)
             else:
-                category, content = split_category_prefix(text)
-                add_group_item(groups, category or categorize_item(content), content)
-                current_category = None
+                category, subcategory, content = split_category_prefix(text)
+                if level == 0:
+                    target_category = category or categorize_item(content)
+                    target_subcategory = subcategory or subcategorize_item(content)
+                elif current_category and current_subcategory and level > 1:
+                    target_category = current_category
+                    target_subcategory = current_subcategory
+                elif current_category:
+                    target_category = current_category
+                    target_subcategory = subcategory or subcategorize_item(content)
+                elif current_subcategory:
+                    target_category = category or categorize_item(content)
+                    target_subcategory = current_subcategory
+                else:
+                    target_category = category or categorize_item(content)
+                    target_subcategory = subcategory or subcategorize_item(content)
+                add_group_item(groups, target_category, target_subcategory, content)
+                if level == 0:
+                    current_category = None
+                    current_subcategory = None
             index += 1
             continue
-        add_group_item(groups, "其他", stripped)
+        add_group_item(groups, categorize_item(stripped), subcategorize_item(stripped), stripped)
         current_category = None
+        current_subcategory = None
         index += 1
     return groups
 
@@ -359,7 +445,7 @@ def normalize_date_section(section_date: str, section: str) -> str:
 
 
 def merge_document(current: str, date: str, new_items: list[str]) -> str:
-    old_groups: dict[str, list[str]] = {}
+    old_groups: dict[str, dict[str, list[str]]] = {}
     remaining: list[str] = []
     for section_date, section in split_sections(current):
         if section_date == date:
@@ -385,11 +471,17 @@ def markdown_to_xml(markdown: str, title: str) -> str:
         parts.append(f"<h1>{xml_escape(section_date)}</h1>")
         category_parts: list[str] = []
         for category in ordered_categories(groups):
-            items = groups[category]
-            if not items:
+            subgroups = groups[category]
+            if not any(items for items in subgroups.values()):
                 continue
-            item_xml = "".join(f"<li>{xml_escape(canonical_item(item))}</li>" for item in items)
-            category_parts.append(f"<li>{xml_escape(category)}<ul>{item_xml}</ul></li>")
+            subcategory_parts: list[str] = []
+            for subcategory in ordered_subcategories(subgroups):
+                items = subgroups[subcategory]
+                if not items:
+                    continue
+                item_xml = "".join(f"<li>{xml_escape(canonical_item(item))}</li>" for item in items)
+                subcategory_parts.append(f"<li>{xml_escape(subcategory)}<ul>{item_xml}</ul></li>")
+            category_parts.append(f"<li>{xml_escape(category)}<ul>{''.join(subcategory_parts)}</ul></li>")
         if category_parts:
             parts.append("<ul>" + "".join(category_parts) + "</ul>")
     return "".join(parts)
@@ -593,15 +685,21 @@ def update_section(doc: str, pattern: str, content: str, revision_id: int) -> bo
     return proc.returncode == 0
 
 
-def day_section_to_xml(date: str, groups: dict[str, list[str]]) -> str:
+def day_section_to_xml(date: str, groups: dict[str, dict[str, list[str]]]) -> str:
     xml = [f"<h1>{xml_escape(date)}</h1>"]
     category_parts: list[str] = []
     for category in ordered_categories(groups):
-        items = groups[category]
-        if not items:
+        subgroups = groups[category]
+        if not any(items for items in subgroups.values()):
             continue
-        item_xml = "".join(f"<li>{xml_escape(canonical_item(item))}</li>" for item in items)
-        category_parts.append(f"<li>{xml_escape(category)}<ul>{item_xml}</ul></li>")
+        subcategory_parts: list[str] = []
+        for subcategory in ordered_subcategories(subgroups):
+            items = subgroups[subcategory]
+            if not items:
+                continue
+            item_xml = "".join(f"<li>{xml_escape(canonical_item(item))}</li>" for item in items)
+            subcategory_parts.append(f"<li>{xml_escape(subcategory)}<ul>{item_xml}</ul></li>")
+        category_parts.append(f"<li>{xml_escape(category)}<ul>{''.join(subcategory_parts)}</ul></li>")
     if category_parts:
         xml.append("<ul>" + "".join(category_parts) + "</ul>")
     return "".join(xml)
@@ -637,7 +735,12 @@ def verify_items(doc: str, date: str, items: list[str]) -> None:
     sections = dict(split_sections(content))
     section = sections.get(date, "")
     section_groups = normalize_section_groups(section)
-    section_items = {canonical_item(item) for items in section_groups.values() for item in items}
+    section_items = {
+        canonical_item(item)
+        for subgroups in section_groups.values()
+        for items in subgroups.values()
+        for item in items
+    }
     missing = [item for item in items if canonical_item(item) not in section_items]
     if missing:
         raise SystemExit(f"Verification failed; missing archived item(s): {missing}")
@@ -698,13 +801,14 @@ def main() -> int:
     parser.add_argument("--no-search-existing", action="store_true", help="Do not search Feishu for an existing monthly doc before creating.")
     parser.add_argument("--register-doc", action="store_true", help="Save --doc as this month's registry entry after a successful update.")
     parser.add_argument("--force-overwrite", action="store_true", help="Always rewrite the monthly document instead of same-day block insertion.")
+    parser.add_argument("--normalize-only", action="store_true", help="Rewrite the current monthly document into the normalized list structure without requiring new items.")
     parser.add_argument("--allow-foreign-registry", action="store_true", help="Allow using a registry owned by a different Feishu user.")
     parser.add_argument("--retries", type=int, default=3, help="Retry on revision conflicts.")
     args = parser.parse_args()
 
     archive_day = parse_date(args.date) if args.date else today(args.tz)
     archive_date = display_date(archive_day)
-    items = read_items(args)
+    items = [] if args.normalize_only and not args.item and args.content is None else read_items(args)
     docs, owner_open_id = load_registry(args.registry)
     user_open_id = current_user_open_id()
     if owner_open_id and user_open_id and owner_open_id != user_open_id and not args.allow_foreign_registry:
@@ -725,9 +829,14 @@ def main() -> int:
             current, revision_id = fetch_doc(doc) if doc else ("", -1)
             existing_section = dict(split_sections(current)).get(archive_date, "")
             existing_groups = normalize_section_groups(existing_section)
-            existing_items = {canonical_item(item) for items in existing_groups.values() for item in items}
+            existing_items = {
+                canonical_item(item)
+                for subgroups in existing_groups.values()
+                for items in subgroups.values()
+                for item in items
+            }
             unique_items = [item for item in items if canonical_item(item) not in existing_items]
-            if not unique_items:
+            if not unique_items and not args.normalize_only:
                 print(f"No new worklog items for {archive_date}.")
                 return 0
             merged = merge_document(current, archive_date, unique_items)
@@ -736,6 +845,8 @@ def main() -> int:
                 if not doc:
                     print(f"\n[dry-run] would create monthly document: {month_title(archive_day)}", file=sys.stderr)
                 return 0
+            if args.normalize_only and not doc:
+                raise SystemExit("No monthly document found to normalize.")
             same_day_top = bool(split_sections(current) and split_sections(current)[0][0] == archive_date)
             if doc and same_day_top and not args.force_overwrite:
                 # Same-day grouping changes the current day section; use a section-level replace
@@ -760,7 +871,8 @@ def main() -> int:
         if not args.doc or args.register_doc:
             docs[key] = doc
             save_registry(args.registry, docs, owner_open_id or user_open_id)
-        verify_items(doc, archive_date, unique_items)
+        if unique_items:
+            verify_items(doc, archive_date, unique_items)
     print(f"Updated worklog {doc} for {archive_date} with {len(unique_items)} item(s).")
     print(f"Monthly document: {month_title(archive_day)}")
     return 0

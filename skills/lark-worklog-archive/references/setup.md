@@ -101,13 +101,16 @@ The content format must be:
 # 05-19-2026
 
 - 飞书 CLI / 工作记录
-  - Newest day goes first.
-  - Related items stay under the same category.
+  - 工作内容
+    - Newest day goes first.
+  - 验证与测试
+    - Related Feishu CLI checks stay under the Feishu CLI domain.
 
 # 05-18-2026
 
-- 验证与测试
-  - Older day moves down.
+- 代码与仓库
+  - 工作内容
+    - Older day moves down.
 ```
 
 ## Monthly Rollover
@@ -142,7 +145,7 @@ python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
 The helper:
 
 - uses a per-month file lock under `/tmp` so multiple local Codex conversations do not write at the same time;
-- replaces only the same-day section when possible, so grouped appends do not rewrite unrelated dates;
+- replaces only the same-day section when possible, so grouped multi-level appends do not rewrite unrelated dates;
 - fetches the newest Feishu revision immediately before writing;
 - updates with `--revision-id` and retries on conflicts;
 - fetches again after writing and verifies the submitted bullets are present.
