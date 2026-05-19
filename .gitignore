@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+.serena/
+skills/lark-worklog-archive/references/monthly-docs.local.json

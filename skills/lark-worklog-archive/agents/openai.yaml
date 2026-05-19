@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lark Worklog Archive"
+  short_description: "Archive daily Codex work into a Feishu/Lark document."
+  default_prompt: "今日归档：总结今天通过 Codex 完成的工作，并更新飞书工作记录。"
