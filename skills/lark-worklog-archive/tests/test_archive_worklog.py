@@ -48,7 +48,7 @@ class FakeLark:
         self.search_results: list[dict] = []
         self.calls: list[list[str]] = []
 
-    def __call__(self, args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
+    def __call__(self, args: list[str], check: bool = True, **kwargs) -> subprocess.CompletedProcess[str]:
         self.calls.append(list(args))
         if args == ["auth", "status"]:
             return self.completed(args, {"userOpenId": self.user_open_id})
@@ -748,6 +748,34 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertEqual(captured["errors"], "replace")
         self.assertIn("授权成功", proc.stdout)
 
+    def test_run_lark_suppresses_success_stderr_by_default(self) -> None:
+        def fake_run(args, **kwargs):
+            return subprocess.CompletedProcess(args, 0, '{"ok": true}', "debug progress\n")
+
+        with (
+            mock.patch.object(self.mod, "RUN_LARK_VERBOSE", False),
+            mock.patch.object(self.mod, "lark_cli_command", return_value="lark-cli.cmd"),
+            mock.patch.object(self.mod.subprocess, "run", fake_run),
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+        ):
+            proc = self.mod.run_lark(["auth", "status"])
+        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(stderr.getvalue(), "")
+
+    def test_run_lark_prints_success_stderr_when_verbose(self) -> None:
+        def fake_run(args, **kwargs):
+            return subprocess.CompletedProcess(args, 0, '{"ok": true}', "debug progress\n")
+
+        with (
+            mock.patch.object(self.mod, "RUN_LARK_VERBOSE", True),
+            mock.patch.object(self.mod, "lark_cli_command", return_value="lark-cli.cmd"),
+            mock.patch.object(self.mod.subprocess, "run", fake_run),
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+        ):
+            proc = self.mod.run_lark(["auth", "status"])
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("debug progress", stderr.getvalue())
+
     def test_run_lark_writes_long_content_to_utf8_temp_file_and_cleans_up(self) -> None:
         captured: dict[str, object] = {}
         temp_path_holder: dict[str, str] = {}
@@ -803,9 +831,12 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn('lark-cli.cmd', setup)
         self.assertIn("Windows Terminal", setup)
         self.assertIn("$env:LARK_CLI_NO_PROXY", setup)
-        self.assertIn("python skills/lark-worklog-archive/scripts/check.py", setup)
+        self.assertIn("release check commands", setup)
+        self.assertIn("python skills/lark-worklog-archive/scripts/check.py", skill)
         self.assertNotIn("python3 skills/", setup)
-        self.assertIn("Use Windows Terminal", skill)
+        self.assertLessEqual(len(skill.splitlines()), 100)
+        self.assertLessEqual(len(skill.encode("utf-8")), 5000)
+        self.assertIn("references/setup.md", skill)
 
     def test_install_node_version_parser_flags_old_node(self) -> None:
         install = load_install_module()
@@ -1119,6 +1150,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         ]
         self.mod.run_lark = fake
         self.assertEqual(self.mod.find_doc_by_title("05-2026 工作记录"), "https://example.com/docx/doc-test")
+        self.assertEqual(fake.count_calls(["docs", "+search"]), 1)
 
     def test_init_existing_only_registers_found_doc_without_creating(self) -> None:
         fake = FakeLark("")

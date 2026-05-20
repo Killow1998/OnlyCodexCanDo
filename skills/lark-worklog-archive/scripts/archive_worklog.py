@@ -42,6 +42,7 @@ DEFAULT_FAILED_QUEUE = os.path.join(os.path.expanduser("~"), ".local", "state", 
 LARK_CONTENT_INLINE_LIMIT = 8000
 LARK_SECTION_REPLACE_ARG_LIMIT = 12000
 LARK_CONTENT_TMP_DIR = ".lark-worklog-archive-tmp"
+RUN_LARK_VERBOSE = bool(os.environ.get("LARK_WORKLOG_VERBOSE"))
 DATE_HEADING = re.compile(r"(?m)^#{1,6} ((?:\d{4}-\d{2}-\d{2})|(?:\d{2}-\d{2}-\d{4}))\s*$")
 INTERNAL_NOTE_ITEMS = {
     "今日通过 Codex/Agent 完成的工作",
@@ -278,8 +279,10 @@ def redact(value: str) -> str:
     return value
 
 
-def print_redacted(value: str, file=sys.stderr) -> None:
+def print_redacted(value: str, file=None) -> None:
     if value:
+        if file is None:
+            file = sys.stderr
         print(redact(value), file=file, end="" if value.endswith("\n") else "\n")
 
 
@@ -383,7 +386,7 @@ def run_lark(args: list[str], check: bool = True) -> subprocess.CompletedProcess
         if proc.stdout:
             print_redacted(proc.stdout)
         raise SystemExit(proc.returncode)
-    if check and proc.stderr:
+    if check and proc.stderr and RUN_LARK_VERBOSE:
         print_redacted(proc.stderr)
     return proc
 
@@ -1127,6 +1130,8 @@ def search_docs_by_title(title: str) -> list[dict]:
                 continue
             seen.add(url)
             matches.append(item)
+        if matches:
+            break
     return matches
 
 
@@ -1251,8 +1256,8 @@ def verify_items(doc: str, date: str, items: list[str]) -> int:
     section_items = {
         verification_key(item)
         for subgroups in section_groups.values()
-        for items in subgroups.values()
-        for item in items
+        for sub_items in subgroups.values()
+        for item in sub_items
     }
     missing = [canonical_item(item) for item in items if verification_key(item) not in section_items]
     if missing:
@@ -1665,8 +1670,8 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
             existing_items = {
                 canonical_item(item)
                 for subgroups in existing_groups.values()
-                for items in subgroups.values()
-                for item in items
+                for sub_items in subgroups.values()
+                for item in sub_items
             }
             unique_items = [item for item in items if canonical_item(item) not in existing_items]
             written_items = list(unique_items)
@@ -1870,6 +1875,7 @@ def print_repair_result(args: argparse.Namespace, result: RepairResult) -> None:
 
 
 def main() -> int:
+    global RUN_LARK_VERBOSE
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--doc", default=os.environ.get("LARK_WORKLOG_DOC"))
     parser.add_argument("--registry", default=default_registry_path())
@@ -1906,6 +1912,7 @@ def main() -> int:
     parser.add_argument("--print-doc", action="store_true", help="Print the full document locator after a successful init or archive.")
     parser.add_argument("--retries", type=int, default=3, help="Retry on revision conflicts.")
     args = parser.parse_args()
+    RUN_LARK_VERBOSE = bool(args.verbose or os.environ.get("LARK_WORKLOG_VERBOSE"))
 
     archive_day = parse_date(args.date) if args.date else today(args.tz)
     archive_date = display_date(archive_day)
@@ -1923,7 +1930,7 @@ def main() -> int:
         print_repair_result(args, result)
         return 0
 
-    items = [] if args.normalize_only and not args.item and args.content is None else read_items(args)
+    items = read_items(args)
     preview_metadata = load_registry_metadata(args.registry)
     if args.team:
         preview_metadata = normalized_registry_metadata(args, preview_metadata, None)

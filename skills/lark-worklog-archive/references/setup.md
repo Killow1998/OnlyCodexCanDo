@@ -115,23 +115,7 @@ python skills/lark-worklog-archive/scripts/archive_worklog.py --init --existing-
 
 ## Daily Use
 
-The user should be able to say:
-
-- 今日归档
-- 记录今天工作
-- sync this work to the Feishu worklog
-
-Codex should summarize verified work only, preview non-trivial classification, then write through the helper:
-
-```bash
-python skills/lark-worklog-archive/scripts/archive_worklog.py \
-  --preview \
-  --item "飞书 CLI / 工作记录::工作内容::完成 X，并通过 Y 验证。"
-
-python skills/lark-worklog-archive/scripts/archive_worklog.py \
-  --item "飞书 CLI / 工作记录::工作内容::完成 X，并通过 Y 验证。" \
-  --item "飞书 CLI / 工作记录::验证与测试::运行 Z 测试通过。"
-```
+Refer to the Workflow section in [SKILL.md](../SKILL.md) for the daily archive workflow. The user triggers archiving by saying "今日归档", "记录今天工作", or similar.
 
 If the work produced a document, issue, PR, or commit that should be easy to open later, include a Markdown link in the item:
 
@@ -167,6 +151,8 @@ Items under `工作内容` are stored as `作者：事项`.
 
 ## Repair And Checks
 
+Refer to the Checks section in [SKILL.md](../SKILL.md) for `--doctor` and release check commands.
+
 Preview classification:
 
 ```bash
@@ -189,12 +175,6 @@ Repair the current month:
 python skills/lark-worklog-archive/scripts/archive_worklog.py \
   --normalize-only \
   --all-dates
-```
-
-Run release checks:
-
-```bash
-python skills/lark-worklog-archive/scripts/check.py
 ```
 
 ## Updating Documentation Safely
