@@ -295,6 +295,18 @@ class ArchiveWorklogTests(unittest.TestCase):
 """
         self.assertEqual(self.mod.section_signature(actual), self.mod.section_signature(expected))
 
+    def test_repair_notes_report_excessive_markdown_escaping(self) -> None:
+        section = r"""# 05-20-2026
+
+- 飞书 CLI / 工作记录
+  - 验证与测试
+    - 运行 python -B -m unittest discover -s skills\\\\\\\\\lark-worklog-archive\\\\\\\\\tests。
+  - 开发环境
+    - 清理 \\\*\\\*pycache\\\*\\\* 目录。
+"""
+        notes = self.mod.repair_notes(section)
+        self.assertIn("05-20-2026: 2 item(s) contain excessive Markdown/Windows path escaping", notes)
+
     def test_verify_items_accepts_prefixed_items_and_windows_path_round_trip(self) -> None:
         fake = FakeLark(
             r"""# 05-20-2026

@@ -872,7 +872,10 @@ def replace_document_section(current: str, target_date: str, replacement: str) -
 def top_level_repair_notes(section_date: str, section: str) -> list[str]:
     notes: list[str] = []
     lines = section.splitlines()[1:]
+    visual_escape_count = 0
     for index, raw in enumerate(lines):
+        if re.search(r"\\{4,}", raw) or re.search(r"\\+\*", raw):
+            visual_escape_count += 1
         if bullet_level(raw) != 0:
             continue
         text = bullet_text(raw)
@@ -901,6 +904,8 @@ def top_level_repair_notes(section_date: str, section: str) -> list[str]:
         preview = "; ".join(unknown[:3])
         suffix = "" if len(unknown) <= 3 else f"; +{len(unknown) - 3} more"
         notes.append(f"{section_date}: {len(unknown)} item(s) remain in fallback '{FALLBACK_CATEGORY}/{FALLBACK_SUBCATEGORY}': {preview}{suffix}")
+    if visual_escape_count:
+        notes.append(f"{section_date}: {visual_escape_count} item(s) contain excessive Markdown/Windows path escaping")
     return notes
 
 
