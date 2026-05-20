@@ -7,10 +7,11 @@ description: Archive daily Codex or agent work into the user's Feishu/Lark workl
 
 Use this skill to append a concise daily work archive into the user's monthly Feishu/Lark worklog document.
 
-Current monthly registry:
+The repository ships only public examples. Each machine keeps its real monthly registry in an ignored local file or the user config directory:
 
 ```text
-references/monthly-docs.local.json
+skills/lark-worklog-archive/references/monthly-docs.local.json
+$HOME/.config/lark-worklog-archive/monthly-docs.json
 ```
 
 ## Output Rules

@@ -56,6 +56,8 @@
   - 标题敏感文档优先用包含 `<title>...</title>` 的 XML 更新；仅正文里的 `# 标题` 不能证明飞书文档标题已更新。
   - 如果出现 `partial_success` 或 tokenization warning，必须检查文档是否完整。
   - helper 对较长的 `--content` 自动写入 UTF-8 临时文件并传 `@<temp-file>`，调用后清理临时文件。
+  - 临时 `@file` 固定放在被 Git 忽略的 `.lark-worklog-archive-tmp/` 下，同时忽略旧式 `lark-worklog-content-*.xml`。
+  - 临时文件清理失败不会覆盖成功的 lark-cli 调用结果。
 
 - [x] 修复 `--normalize-only --date` 真实文档修复风险。
   - 现场验证发现 Markdown `str_replace` 修复某一天时可能破坏日期标题或文档标题。
@@ -63,6 +65,8 @@
   - 单测改为要求 `overwrite` 路径并验证目标日期和相邻日期标题仍存在。
   - 修复写回后飞书 Markdown 转义反斜杠和下划线导致 verification 误报失败的问题，改用 section 语义签名比较。
   - 同日追加改为 guarded section replace：优先替换当天 section，失败或验证不匹配时 fallback 全文 rewrite。
+  - section replace 验证失败时使用 replace 前的 clean merged document 做 fallback overwrite，避免基于损坏后的 latest 重新 merge。
+  - same-day section pattern/content 过长时跳过 str_replace，直接走全文 rewrite，避免 Windows 命令行长度限制。
   - 跳过飞书 round-trip 后产生的纯分类名占位项，例如 `其他/工作内容/工作内容`。
   - `--force-overwrite` 会跳过 section replace 和 block insert，强制走全文 rewrite。
   - bare filename 的 registry/cache/failed queue 路径可直接使用，不再对空 dirname 调用 `os.makedirs("")`。
@@ -170,6 +174,7 @@
 - [x] 优化同日追加路径。
   - 能局部更新当天 section 时优先尝试 section replace。
   - section replace 失败或验证不匹配时 fallback 到全文 rewrite，不能丢失用户提交的 item。
+  - fallback 使用 section replace 前的 clean merged document；pattern/content 过长时直接跳过 str_replace。
   - 新日期优先 block insert；`--force-overwrite` 跳过 block insert。
   - 结构迁移、异常文档、all-dates repair 或冲突恢复时可能走全文 rewrite。
   - 已有测试覆盖 same-day `str_replace`、fallback overwrite、force overwrite 和 new-day `block_insert_after`。

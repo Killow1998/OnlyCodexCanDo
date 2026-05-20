@@ -79,7 +79,10 @@ class FakeLark:
                 inserted = xml_day_section_to_markdown(content_xml)
                 self.markdown = "\n\n".join(part for part in (inserted, self.markdown.strip()) if part)
             elif command == "overwrite":
-                self.markdown = xml_document_to_markdown(value_after(args, "--content"))
+                content = value_after(args, "--content")
+                if content.startswith("@"):
+                    content = Path(content[1:]).read_text(encoding="utf-8")
+                self.markdown = xml_document_to_markdown(content)
             else:
                 return subprocess.CompletedProcess(["lark-cli", *args], 1, "", f"unsupported command {command}")
             self.revision += 1
@@ -175,9 +178,21 @@ class ArchiveWorklogTests(unittest.TestCase):
         with mock.patch.object(self.mod, "ZoneInfo", side_effect=self.mod.ZoneInfoNotFoundError):
             self.assertIsInstance(self.mod.today("Asia/Shanghai"), self.mod.dt.date)
             self.assertIsInstance(self.mod.today("UTC"), self.mod.dt.date)
+            self.assertIsInstance(self.mod.today("utc"), self.mod.dt.date)
             with self.assertRaises(SystemExit) as raised:
                 self.mod.today("Mars/Base")
         self.assertIn("Install the Python tzdata package", str(raised.exception))
+
+    def test_redact_masks_lark_secrets_and_bearer_tokens(self) -> None:
+        text = (
+            "app_secret: secret-value tenant_access_token=tenant-token "
+            "Authorization: Bearer abc.def.ghi refresh_token='refresh-value'"
+        )
+        redacted = self.mod.redact(text)
+        self.assertNotIn("secret-value", redacted)
+        self.assertNotIn("tenant-token", redacted)
+        self.assertNotIn("abc.def.ghi", redacted)
+        self.assertNotIn("refresh-value", redacted)
 
     def test_grouping_and_legacy_domain_migration(self) -> None:
         section = """# 05-19-2026
@@ -436,6 +451,14 @@ class ArchiveWorklogTests(unittest.TestCase):
 - 飞书 CLI / 工作记录
   - 工作内容
     - 创建 lark-worklog-archive Skill。
+  - 验证与测试
+    - 保留旧验证。
+
+# 05-19-2026
+
+- Go2-W 实机开发
+  - 工作内容
+    - 保留相邻日期。
 """
         )
         fake.corrupt_str_replace = True
@@ -457,7 +480,41 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("str_replace", fake.commands())
         self.assertIn("overwrite", fake.commands())
         self.assertTrue(fake.markdown.startswith("# 05-20-2026"))
+        self.assertIn("创建 lark-worklog-archive Skill。", fake.markdown)
+        self.assertIn("保留旧验证。", fake.markdown)
         self.assertIn("安装到全局 Codex skills。", fake.markdown)
+        self.assertIn("# 05-19-2026", fake.markdown)
+        self.assertIn("保留相邻日期。", fake.markdown)
+
+    def test_main_same_day_long_section_skips_section_replace(self) -> None:
+        old_item = "旧内容" + "x" * 6500
+        fake = FakeLark(
+            f"""# 05-20-2026
+
+- 飞书 CLI / 工作记录
+  - 工作内容
+    - {old_item}
+"""
+        )
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            with argv(
+                "--doc",
+                fake.doc,
+                "--registry",
+                str(Path(tempdir) / "registry.json"),
+                "--no-lock",
+                "--date",
+                "2026-05-20",
+                "--item",
+                "飞书 CLI / 工作记录::工作内容::新增短内容。",
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(self.mod.main(), 0)
+        self.assertIn("overwrite", fake.commands())
+        self.assertNotIn("str_replace", fake.commands())
+        self.assertIn(old_item, fake.markdown)
+        self.assertIn("新增短内容。", fake.markdown)
 
     def test_main_same_day_force_overwrite_skips_section_replace(self) -> None:
         fake = FakeLark(
@@ -698,10 +755,11 @@ class ArchiveWorklogTests(unittest.TestCase):
         def fake_run(args, **kwargs):
             captured["args"] = args
             content_arg = args[args.index("--content") + 1]
-            self.assertTrue(content_arg.startswith("@./"))
+            self.assertTrue(content_arg.startswith("@./.lark-worklog-archive-tmp/"))
             self.assertFalse(Path(content_arg[1:]).is_absolute())
             temp_path = str(Path(content_arg[1:]).resolve())
             temp_path_holder["path"] = temp_path
+            self.assertEqual(Path(temp_path).parent.name, ".lark-worklog-archive-tmp")
             self.assertTrue(Path(temp_path).exists())
             self.assertEqual(Path(temp_path).read_text(encoding="utf-8"), "<p>一</p>\n<p>二</p>")
             return subprocess.CompletedProcess(args, 0, '{"ok": true}', "")
@@ -716,6 +774,21 @@ class ArchiveWorklogTests(unittest.TestCase):
                     self.mod.run_lark(["docs", "+update", "--content", "<p>一</p>\r\n<p>二</p>"])
         self.assertEqual(captured["args"][0], "lark-cli.cmd")
         self.assertFalse(Path(temp_path_holder["path"]).exists())
+
+    def test_run_lark_does_not_fail_if_temp_cleanup_fails(self) -> None:
+        def fake_run(args, **kwargs):
+            return subprocess.CompletedProcess(args, 0, '{"ok": true}', "")
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            with self.chdir(tempdir):
+                with (
+                    mock.patch.object(self.mod, "LARK_CONTENT_INLINE_LIMIT", 4),
+                    mock.patch.object(self.mod, "lark_cli_command", return_value="lark-cli.cmd"),
+                    mock.patch.object(self.mod.subprocess, "run", fake_run),
+                    mock.patch.object(self.mod.os, "unlink", side_effect=OSError("locked")),
+                ):
+                    proc = self.mod.run_lark(["docs", "+update", "--content", "<p>long</p>"])
+        self.assertEqual(proc.returncode, 0)
 
     def test_release_check_uses_current_python_interpreter(self) -> None:
         text = CHECK_PATH.read_text(encoding="utf-8")
@@ -960,6 +1033,42 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("overwrite", fake.commands())
         self.assertIn("Repair report:", output.getvalue())
         self.assertIn("Repaired worklog 05-2026 工作记录 for all dates.", output.getvalue())
+        self.assertIn("清理旧迁移遗留的未知分类", fake.markdown)
+        self.assertIn("安装并配置 RTK。", fake.markdown)
+
+    def test_normalize_only_all_dates_verifies_after_overwrite(self) -> None:
+        fake = FakeLark(
+            """# 05-20-2026
+
+- 验证与测试
+  - 清理旧迁移遗留的未知分类。
+"""
+        )
+        original_call = fake.__call__
+
+        def corrupt_overwrite(args: list[str], check: bool = True):
+            proc = original_call(args, check)
+            if args[:2] == ["docs", "+update"] and value_after(args, "--command") == "overwrite":
+                fake.markdown = "# 05-20-2026\n\n- 其他\n  - 工作内容\n    - 损坏。"
+            return proc
+
+        self.mod.run_lark = corrupt_overwrite
+        with tempfile.TemporaryDirectory() as tempdir:
+            with argv(
+                "--doc",
+                fake.doc,
+                "--registry",
+                str(Path(tempdir) / "registry.json"),
+                "--no-lock",
+                "--normalize-only",
+                "--all-dates",
+                "--date",
+                "2026-05-20",
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        self.mod.main()
+        self.assertIn("Repair verification failed", str(raised.exception))
 
     def test_old_flat_registry_schema_still_loads(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

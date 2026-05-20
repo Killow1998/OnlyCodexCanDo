@@ -40,6 +40,8 @@ DEFAULT_CATEGORY_RULES = os.path.join(os.path.expanduser("~"), ".config", "lark-
 DEFAULT_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "lark-worklog-archive", "cache.json")
 DEFAULT_FAILED_QUEUE = os.path.join(os.path.expanduser("~"), ".local", "state", "lark-worklog-archive", "failed-queue.jsonl")
 LARK_CONTENT_INLINE_LIMIT = 8000
+LARK_SECTION_REPLACE_ARG_LIMIT = 12000
+LARK_CONTENT_TMP_DIR = ".lark-worklog-archive-tmp"
 DATE_HEADING = re.compile(r"(?m)^#{1,6} ((?:\d{4}-\d{2}-\d{2})|(?:\d{2}-\d{2}-\d{4}))\s*$")
 INTERNAL_NOTE_ITEMS = {
     "今日通过 Codex/Agent 完成的工作",
@@ -268,10 +270,11 @@ def redact(value: str) -> str:
     value = re.sub(r"\bou_[A-Za-z0-9_-]{8,}\b", "<redacted-open-id>", value)
     value = re.sub(r"\bcli_[A-Za-z0-9_-]{8,}\b", "<redacted-app-id>", value)
     value = re.sub(
-        r"(?i)\b((?:access|refresh)[_-]?token|secret)([\"'\s:=]+)([^,\s\"']+)",
+        r"(?i)\b((?:tenant_)?access[_-]?token|refresh[_-]?token|app[_-]?secret|secret)([\"'\s:=]+)([^,\s\"']+)",
         r"\1\2<redacted>",
         value,
     )
+    value = re.sub(r"(?i)(Authorization\s*:\s*Bearer\s+)[A-Za-z0-9._~+/=-]+", r"\1<redacted>", value)
     return value
 
 
@@ -296,12 +299,14 @@ def lark_content_arg(content: str) -> tuple[str, str | None]:
     content = content.replace("\r\n", "\n").replace("\r", "\n")
     if content.startswith("@") or len(content) <= LARK_CONTENT_INLINE_LIMIT:
         return content, None
+    tmp_dir = os.path.join(os.getcwd(), LARK_CONTENT_TMP_DIR)
+    os.makedirs(tmp_dir, exist_ok=True)
     handle = tempfile.NamedTemporaryFile(
         "w",
         encoding="utf-8",
         newline="\n",
         delete=False,
-        dir=os.getcwd(),
+        dir=tmp_dir,
         prefix="lark-worklog-content-",
         suffix=".xml",
     )
@@ -370,7 +375,7 @@ def run_lark(args: list[str], check: bool = True) -> subprocess.CompletedProcess
         for path in cleanup:
             try:
                 os.unlink(path)
-            except FileNotFoundError:
+            except OSError:
                 pass
     if check and proc.returncode != 0:
         if proc.stderr:
@@ -415,7 +420,7 @@ def today(tz_name: str) -> dt.date:
     except ZoneInfoNotFoundError:
         if tz_name == "Asia/Shanghai":
             tzinfo = dt.timezone(dt.timedelta(hours=8), name="Asia/Shanghai")
-        elif tz_name == "UTC":
+        elif tz_name.upper() == "UTC":
             tzinfo = dt.timezone.utc
         else:
             raise SystemExit(
@@ -1189,6 +1194,10 @@ def update_section(doc: str, pattern: str, content: str, revision_id: int) -> bo
     return proc.returncode == 0
 
 
+def section_replace_args_are_safe(pattern: str, content: str) -> bool:
+    return len(pattern) + len(content) <= LARK_SECTION_REPLACE_ARG_LIMIT
+
+
 def day_section_to_xml(date: str, groups: dict[str, dict[str, list[str]]]) -> str:
     xml = [f"<h1>{xml_escape(date)}</h1>"]
     category_parts: list[str] = []
@@ -1584,7 +1593,8 @@ def run_doctor(args: argparse.Namespace, archive_day: dt.date) -> int:
     docs: dict[str, str] = {}
     owner_open_id: str | None = None
     metadata: dict = {}
-    if os.path.exists(args.registry):
+    registry_path = expanded_path(args.registry)
+    if os.path.exists(registry_path):
         try:
             docs, owner_open_id = load_registry(args.registry)
             metadata = load_registry_metadata(args.registry)
@@ -1688,8 +1698,10 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
                 break
             if doc and same_day_top and existing_section and not has_prefix_content and not args.force_overwrite:
                 merged_section = dict(split_sections(merged)).get(archive_date, "")
+                fallback_merged = merged
                 if (
-                    not markdown_section_replace_is_risky(existing_section)
+                    section_replace_args_are_safe(existing_section, merged_section)
+                    and not markdown_section_replace_is_risky(existing_section)
                     and not markdown_section_replace_is_risky(merged_section)
                     and update_section(doc, existing_section, merged_section, revision_id)
                 ):
@@ -1698,9 +1710,8 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
                     if section_signature(latest_section) == section_signature(merged_section):
                         cached_revision_id = latest_revision_id
                         break
-                    current = latest
-                    revision_id = latest_revision_id
-                    merged = merge_document(current, archive_date, unique_items)
+                    if update_doc(doc, markdown_to_xml(fallback_merged, title), latest_revision_id, title=title):
+                        break
             if not existing_section and not has_prefix_content and not args.force_overwrite:
                 xml_content, xml_revision = fetch_doc_xml(doc)
                 title_id = find_title_id(xml_content)
@@ -1750,9 +1761,15 @@ def repair_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date:
                 return RepairResult(doc, title, dates, False)
             if not update_doc(doc, markdown_to_xml(normalized, title), revision_id, title=title):
                 raise SystemExit("Repair failed during full-document rewrite.")
+            latest, latest_revision_id = fetch_doc(doc)
+            latest_sections = dict(split_sections(latest))
+            expected_sections = dict(split_sections(normalized))
+            for section_date in dates:
+                if section_signature(latest_sections.get(section_date, "")) != section_signature(expected_sections.get(section_date, "")):
+                    raise SystemExit(f"Repair verification failed for {section_date}.")
             print_repair_notes(notes)
             if not args.no_cache:
-                remember_doc_cache(args.cache, args.registry, key, title, doc, revision_id)
+                remember_doc_cache(args.cache, args.registry, key, title, doc, latest_revision_id)
             return RepairResult(doc, title, dates, True)
 
         sections = dict(split_sections(current))
@@ -1875,7 +1892,7 @@ def main() -> int:
     parser.add_argument("--no-search-existing", action="store_true", help="Do not search Feishu for an existing monthly doc before creating.")
     parser.add_argument("--existing-only", action="store_true", help="Use only an existing monthly document; never create a new one.")
     parser.add_argument("--register-doc", action="store_true", help="Save --doc as this month's registry entry after a successful update.")
-    parser.add_argument("--force-overwrite", action="store_true", help="Always rewrite the monthly document instead of same-day block insertion.")
+    parser.add_argument("--force-overwrite", action="store_true", help="Rewrite the monthly document instead of same-day section replace or new-day block insert.")
     parser.add_argument("--normalize-only", action="store_true", help="Rewrite the current monthly document into the normalized list structure without requiring new items.")
     parser.add_argument("--all-dates", action="store_true", help="With --normalize-only, repair every dated section in the monthly document.")
     parser.add_argument("--team", action="store_true", help="Explicitly opt into a team shared worklog registry for init/write/repair.")

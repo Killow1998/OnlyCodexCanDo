@@ -1,5 +1,7 @@
 __pycache__/
 *.pyc
 .serena/
+.lark-worklog-archive-tmp/
+lark-worklog-content-*.xml
 skills/lark-worklog-archive/references/monthly-docs.local.json
 skills/lark-worklog-archive/references/category-rules.local.json
