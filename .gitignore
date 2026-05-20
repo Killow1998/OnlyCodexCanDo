@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 .serena/
 skills/lark-worklog-archive/references/monthly-docs.local.json
+skills/lark-worklog-archive/references/category-rules.local.json

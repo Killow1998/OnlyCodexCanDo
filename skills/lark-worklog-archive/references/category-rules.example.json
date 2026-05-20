@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "category_order": [
+    "飞书 CLI / 工作记录",
+    "Ubuntu 环境",
+    "n3mapping",
+    "RL 环境",
+    "其他"
+  ],
+  "subcategory_order": [
+    "工作内容",
+    "代码与仓库",
+    "开发环境",
+    "验证与测试",
+    "问题与风险",
+    "其他"
+  ],
+  "fallback_category": "其他",
+  "fallback_subcategory": "工作内容",
+  "category_rules": [
+    {
+      "name": "飞书 CLI / 工作记录",
+      "keywords": [
+        "飞书",
+        "feishu",
+        "lark",
+        "lark-cli",
+        "工作记录",
+        "归档",
+        "月度",
+        "registry",
+        "monthly-docs",
+        "skill",
+        "文档",
+        "多对话",
+        "跨对话",
+        "多机",
+        "跨 pc",
+        "同日",
+        "revision",
+        "fetch/merge/retry",
+        "dry-run",
+        "分类",
+        "二级列表"
+      ]
+    },
+    {
+      "name": "n3mapping",
+      "keywords": [
+        "n3mapping",
+        "ros_wrapper",
+        "humble",
+        "noetic",
+        "colcon",
+        "catkin",
+        "rviz",
+        "save_map",
+        "optimization.log",
+        "ros2",
+        "ros1"
+      ]
+    },
+    {
+      "name": "RL 环境",
+      "keywords": [
+        "rl",
+        "robot_lab",
+        "go2w",
+        "isaac",
+        "isaac sim",
+        "isaac lab",
+        "seanav",
+        "sea-nav",
+        "him",
+        "unitree",
+        "applauncher",
+        "venv",
+        "虚拟环境",
+        "迁移包",
+        "多地形",
+        "训练"
+      ]
+    },
+    {
+      "name": "Ubuntu 环境",
+      "keywords": [
+        "ubuntu",
+        "bash",
+        "bashrc",
+        "proxy",
+        "代理",
+        "rtk",
+        "codex",
+        "claude code",
+        "gemini cli",
+        "终端"
+      ]
+    }
+  ],
+  "subcategory_rules": [
+    {
+      "name": "验证与测试",
+      "keywords": [
+        "验证",
+        "测试",
+        "dry-run",
+        "py_compile",
+        "skill is valid"
+      ]
+    },
+    {
+      "name": "问题与风险",
+      "keywords": [
+        "风险",
+        "问题",
+        "失败",
+        "冲突",
+        "修复",
+        "漏洞"
+      ]
+    },
+    {
+      "name": "开发环境",
+      "keywords": [
+        "rtk",
+        "proxy",
+        "bashrc",
+        "环境",
+        "安装",
+        "授权",
+        "配置"
+      ]
+    },
+    {
+      "name": "代码与仓库",
+      "keywords": [
+        "脚本",
+        "代码",
+        "仓库",
+        "git",
+        "commit",
+        "push",
+        "repo",
+        "github"
+      ]
+    }
+  ]
+}

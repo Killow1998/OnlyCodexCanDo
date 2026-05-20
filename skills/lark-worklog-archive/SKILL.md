@@ -89,6 +89,25 @@ Use `--dry-run` before writing if the bullet list is long or the current documen
 
 Do not commit private registries, document addresses, OpenID values, app IDs, tokens, or API endpoints. The repository contains only `monthly-docs.example.json`; each user keeps real mappings in an ignored local registry or a private config path.
 
+## Category Rules
+
+Default domain and subcategory rules are built in. To customize them, copy `references/category-rules.example.json` to an ignored local path:
+
+```bash
+cp skills/lark-worklog-archive/references/category-rules.example.json \
+  skills/lark-worklog-archive/references/category-rules.local.json
+```
+
+The helper also accepts `$HOME/.config/lark-worklog-archive/category-rules.json`, `LARK_WORKLOG_CATEGORY_RULES`, or `--category-rules <path>`.
+
+Check classification without touching Feishu:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+  --classify-only \
+  --item "验证 n3mapping Humble launch smoke。"
+```
+
 ## Sharing With Friends
 
 Friends can use the skill and the same script, but they must use their own local registry.

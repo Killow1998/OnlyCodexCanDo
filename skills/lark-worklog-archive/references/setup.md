@@ -154,6 +154,29 @@ The helper:
 
 Cross-PC edits can still race if two machines update at exactly the same time. The revision retry reduces that risk, and the final verification catches obvious lost writes. If a conflict remains, rerun the same archive command.
 
+## Category Rules
+
+The public template is:
+
+```text
+skills/lark-worklog-archive/references/category-rules.example.json
+```
+
+Real custom rules should stay local and untracked:
+
+```text
+skills/lark-worklog-archive/references/category-rules.local.json
+$HOME/.config/lark-worklog-archive/category-rules.json
+```
+
+Preview classification without writing to Feishu:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+  --classify-only \
+  --item "验证 n3mapping Humble launch smoke。"
+```
+
 ## Sharing With Other People
 
 The local registry has an `owner_open_id` to prevent another Feishu account from accidentally writing into the original user's worklog document.

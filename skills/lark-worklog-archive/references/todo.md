@@ -18,18 +18,20 @@
   - 自动解释常见错误：权限不足、token 过期、用户未授权、doc 不存在、registry 未配置。
   - 输出必须短，不打印 access token 或完整文档内容。
 
-- [ ] 把分类规则改成可配置。
+- [x] 把分类规则改成可配置。
   - 增加公开模板：`references/category-rules.example.json`。
   - 支持本机私有配置：`references/category-rules.local.json` 或 `$HOME/.config/lark-worklog-archive/category-rules.json`。
   - 支持 work domains、subcategories、keyword priority、fallback domain。
   - 当前默认域保留：`飞书 CLI / 工作记录`、`Ubuntu 环境`、`n3mapping`、`RL 环境`、`其他`。
   - 提供命令检查某条 bullet 会被归到哪里。
+  - 初版命令：`archive_worklog.py --classify-only --item "..."`，可配 `--category-rules <path>`。
 
-- [ ] 写自动测试，而不是只靠脚本级手工验证。
+- [x] 写自动测试，而不是只靠脚本级手工验证。
   - 建 `tests/`，覆盖日期解析、section split、旧结构迁移、多级列表解析、分类、去重、XML 输出。
   - 为飞书 CLI 调用做 fake runner，不依赖真实飞书网络。
   - 覆盖 normalize-only、same-day update、new-day insert、registry owner guard。
   - 加一条敏感信息扫描测试，确保 example/config/docs 不含真实 URL、OpenID、App ID、token。
+  - 初版测试入口：`python3 -m unittest discover -s skills/lark-worklog-archive/tests`。
 
 - [ ] 设计团队共享 worklog 模式。
   - 明确个人 worklog、团队共享 worklog 两种模式。
