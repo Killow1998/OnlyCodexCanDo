@@ -2,6 +2,13 @@
 
 ## 2026-05-20
 
+### Breaking: summary-style worklog structure
+
+- Changed the default daily structure from old log-like sections such as `工作内容`, `代码与仓库`, `开发环境`, `验证与测试`, and `问题与风险` to `背景与目标`, `工作内容`, `结果`, and `问题与下一步`.
+- Added [worklog-writing-guide.md](worklog-writing-guide.md) so Agent writes for weekly reports, retrospectives, and context recovery instead of command-by-command logging.
+- Old section names are migration inputs only: `代码与仓库` and `验证与测试` move to `结果`, `开发环境` moves to `工作内容`, and `问题与风险` moves to `问题与下一步`.
+- If anyone uses an older version, update the skill as soon as possible and ask Agent to rewrite existing daily or weekly entries according to the new guide instead of appending more old-format fragments.
+
 ### Cross-platform and Windows hardening
 
 - Added POSIX/Windows file locking support with `fcntl` / `msvcrt` and system temp lock files.

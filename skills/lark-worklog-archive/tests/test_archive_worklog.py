@@ -210,11 +210,11 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("Ubuntu 环境", groups)
         self.assertIn("RL 环境", groups)
         self.assertEqual(
-            self.flatten(groups["飞书 CLI / 工作记录"]["验证与测试"]),
+            self.flatten(groups["飞书 CLI / 工作记录"]["结果"]),
             ["清理旧迁移遗留的未知分类，确认跨对话并发保护内容归入飞书 CLI 分类。"],
         )
         self.assertEqual(
-            self.flatten(groups["Ubuntu 环境"]["开发环境"]),
+            self.flatten(groups["Ubuntu 环境"]["工作内容"]),
             ["安装并配置 RTK，用于 Codex、Claude Code、Gemini CLI 的命令输出压缩与 token 节省。"],
         )
 
@@ -232,7 +232,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         groups = self.mod.normalize_section_groups(section)
         self.assertNotIn("工作内容", groups.get("其他", {}).get("工作内容", []))
         self.assertNotIn("代码与仓库", groups.get("其他", {}).get("代码与仓库", []))
-        self.assertIn("Windows 路径已本机验证。", self.flatten(groups["其他"]["验证与测试"]))
+        self.assertIn("Windows 路径已本机验证。", self.flatten(groups["其他"]["结果"]))
 
     def test_merge_document_appends_same_subcategory_after_existing_items(self) -> None:
         current = """# 05-19-2026
@@ -260,7 +260,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         xml = self.mod.markdown_to_xml(markdown, "05-2026 工作记录")
         self.assertIn("<li>飞书 CLI / 工作记录<ul>", xml)
         self.assertIn("<li>工作内容<ul><li>创建 Skill。</li></ul></li>", xml)
-        self.assertIn("<li>验证与测试<ul><li>Skill 校验通过。</li></ul></li>", xml)
+        self.assertIn("<li>结果<ul><li>Skill 校验通过。</li></ul></li>", xml)
 
     def test_markdown_to_xml_renders_work_item_links(self) -> None:
         markdown = """# 05-20-2026
@@ -664,6 +664,19 @@ class ArchiveWorklogTests(unittest.TestCase):
             self.mod.apply_category_config(self.mod.load_category_config(str(rules)))
         self.assertEqual(self.mod.categorize_item("PowerShell wrapper"), "Windows 域")
 
+    def test_legacy_subcategory_prefixes_are_migrated_to_summary_sections(self) -> None:
+        cases = {
+            "代码与仓库": "结果",
+            "验证与测试": "结果",
+            "开发环境": "工作内容",
+            "问题与风险": "问题与下一步",
+        }
+        for old, new in cases.items():
+            with self.subTest(old=old):
+                rendered = self.mod.merge_document("", "05-20-2026", [f"飞书 CLI / 工作记录::{old}::迁移旧分类。"])
+                self.assertIn(f"  - {new}\n    - 迁移旧分类。", rendered)
+                self.assertNotIn(f"  - {old}\n", rendered)
+
     def test_doctor_reports_bad_category_rules_instead_of_import_crashing(self) -> None:
         fake = FakeLark("")
         self.mod.run_lark = fake
@@ -686,7 +699,7 @@ class ArchiveWorklogTests(unittest.TestCase):
             output = io.StringIO()
             with contextlib.redirect_stdout(output):
                 self.assertEqual(self.mod.main(), 0)
-        self.assertIn("n3mapping :: 验证与测试 :: 验证 n3mapping Humble launch smoke。", output.getvalue())
+        self.assertIn("n3mapping :: 结果 :: 验证 n3mapping Humble launch smoke。", output.getvalue())
 
     def test_preview_does_not_call_lark_and_prints_short_grouping(self) -> None:
         def fail_lark(args, check=True):
@@ -705,7 +718,7 @@ class ArchiveWorklogTests(unittest.TestCase):
                 self.assertEqual(self.mod.main(), 0)
         text = output.getvalue()
         self.assertIn("Preview: 05-2026 工作记录 / 05-20-2026", text)
-        self.assertIn("- 飞书 CLI / 工作记录\n  - 代码与仓库\n    - 新增 doctor/init/preview 入口。", text)
+        self.assertIn("- 飞书 CLI / 工作记录\n  - 结果\n    - 新增 doctor/init/preview 入口。", text)
 
     def test_lark_cli_command_prefers_environment_override(self) -> None:
         with mock.patch.dict(os.environ, {"LARK_CLI": "/custom/lark-cli"}, clear=False):
@@ -837,6 +850,15 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertLessEqual(len(skill.splitlines()), 100)
         self.assertLessEqual(len(skill.encode("utf-8")), 5000)
         self.assertIn("references/setup.md", skill)
+        self.assertIn("references/worklog-writing-guide.md", skill)
+
+    def test_category_rules_example_uses_summary_subcategories(self) -> None:
+        rules = json.loads((SKILL_DIR / "references" / "category-rules.example.json").read_text(encoding="utf-8"))
+        self.assertEqual(rules["subcategory_order"], ["背景与目标", "工作内容", "结果", "问题与下一步"])
+        names = {rule["name"] for rule in rules["subcategory_rules"]}
+        self.assertEqual(names, {"背景与目标", "工作内容", "结果", "问题与下一步"})
+        self.assertNotIn("代码与仓库", rules["subcategory_order"])
+        self.assertNotIn("验证与测试", rules["subcategory_order"])
 
     def test_install_node_version_parser_flags_old_node(self) -> None:
         install = load_install_module()
@@ -954,7 +976,7 @@ class ArchiveWorklogTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            with argv("--team", "--registry", str(registry), "--no-lock", "--date", "2026-05-20", "--item", "完成飞书 CLI 归档。"):
+            with argv("--team", "--registry", str(registry), "--no-lock", "--date", "2026-05-20", "--item", "工作内容::完成飞书 CLI 归档。"):
                 with self.assertRaises(SystemExit) as raised:
                     self.mod.main()
         self.assertIn("requires --author", str(raised.exception))
@@ -1028,7 +1050,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("overwrite", fake.commands())
         self.assertNotIn("str_replace", fake.commands())
         self.assertIn("moved top-level subcategory '验证与测试'", output.getvalue())
-        self.assertIn("- 飞书 CLI / 工作记录\n  - 验证与测试", fake.markdown)
+        self.assertIn("- 飞书 CLI / 工作记录\n  - 结果", fake.markdown)
         self.assertIn("# 05-20-2026", fake.markdown)
         self.assertIn("# 05-19-2026", fake.markdown)
 

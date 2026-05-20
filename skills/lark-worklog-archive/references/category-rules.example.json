@@ -5,15 +5,14 @@
     "Ubuntu 环境",
     "n3mapping",
     "RL 环境",
+    "Go2-W 实机开发",
     "其他"
   ],
   "subcategory_order": [
+    "背景与目标",
     "工作内容",
-    "代码与仓库",
-    "开发环境",
-    "验证与测试",
-    "问题与风险",
-    "其他"
+    "结果",
+    "问题与下一步"
   ],
   "fallback_category": "其他",
   "fallback_subcategory": "工作内容",
@@ -27,21 +26,26 @@
         "lark-cli",
         "工作记录",
         "归档",
-        "月度",
+        "周报",
+        "复盘",
         "registry",
         "monthly-docs",
         "skill",
-        "文档",
-        "多对话",
-        "跨对话",
-        "多机",
-        "跨 pc",
-        "同日",
-        "revision",
-        "fetch/merge/retry",
-        "dry-run",
-        "分类",
-        "二级列表"
+        "文档"
+      ]
+    },
+    {
+      "name": "Ubuntu 环境",
+      "keywords": [
+        "ubuntu",
+        "bash",
+        "bashrc",
+        "proxy",
+        "代理",
+        "rtk",
+        "codex",
+        "reconnect",
+        "终端"
       ]
     },
     {
@@ -55,7 +59,6 @@
         "catkin",
         "rviz",
         "save_map",
-        "optimization.log",
         "ros2",
         "ros1"
       ]
@@ -65,83 +68,82 @@
       "keywords": [
         "rl",
         "robot_lab",
-        "go2w",
         "isaac",
         "isaac sim",
         "isaac lab",
         "seanav",
         "sea-nav",
         "him",
-        "unitree",
-        "applauncher",
-        "venv",
         "虚拟环境",
-        "迁移包",
-        "多地形",
-        "训练"
+        "训练",
+        "复现"
       ]
     },
     {
-      "name": "Ubuntu 环境",
+      "name": "Go2-W 实机开发",
       "keywords": [
-        "ubuntu",
-        "bash",
-        "bashrc",
-        "proxy",
-        "代理",
-        "rtk",
-        "codex",
-        "claude code",
-        "gemini cli",
-        "终端"
+        "go2-w",
+        "go2w 主机",
+        "实机",
+        "unitree 主机",
+        "远程 codex",
+        "部署"
       ]
     }
   ],
   "subcategory_rules": [
     {
-      "name": "验证与测试",
+      "name": "背景与目标",
       "keywords": [
-        "验证",
-        "测试",
-        "dry-run",
-        "py_compile",
-        "skill is valid"
+        "背景",
+        "目标",
+        "动机",
+        "为了",
+        "需要",
+        "希望",
+        "原因",
+        "解决"
       ]
     },
     {
-      "name": "问题与风险",
+      "name": "工作内容",
+      "keywords": [
+        "实现",
+        "配置",
+        "修改",
+        "整理",
+        "推进",
+        "安装",
+        "授权",
+        "修复",
+        "搭建"
+      ]
+    },
+    {
+      "name": "结果",
+      "keywords": [
+        "完成",
+        "通过",
+        "提交",
+        "验证",
+        "测试",
+        "产出",
+        "已可用",
+        "commit",
+        "push"
+      ]
+    },
+    {
+      "name": "问题与下一步",
       "keywords": [
         "风险",
         "问题",
         "失败",
         "冲突",
-        "修复",
-        "漏洞"
-      ]
-    },
-    {
-      "name": "开发环境",
-      "keywords": [
-        "rtk",
-        "proxy",
-        "bashrc",
-        "环境",
-        "安装",
-        "授权",
-        "配置"
-      ]
-    },
-    {
-      "name": "代码与仓库",
-      "keywords": [
-        "脚本",
-        "代码",
-        "仓库",
-        "git",
-        "commit",
-        "push",
-        "repo",
-        "github"
+        "未完成",
+        "下一步",
+        "继续",
+        "仍需"
       ]
     }
   ]

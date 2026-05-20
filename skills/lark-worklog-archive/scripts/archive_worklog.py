@@ -49,6 +49,7 @@ INTERNAL_NOTE_ITEMS = {
     "后续记录格式",
     "每天记录：目标、使用 Agent 完成的开发内容、关键命令/文件、验证结果、遗留问题。",
     "同类内容合并到分类 bullet 下，具体工作作为二级无序列表记录。",
+    "按事项记录背景与目标、工作内容、结果、问题与下一步；命令、文件、测试和提交只作为证据。",
     "约定每一天使用一级标题 `# YYYY-MM-DD`，标题下只写无序列表，不再使用二级标题或小节标题。",
 }
 BUILTIN_CATEGORY_ORDER = [
@@ -56,19 +57,25 @@ BUILTIN_CATEGORY_ORDER = [
     "Ubuntu 环境",
     "n3mapping",
     "RL 环境",
+    "Go2-W 实机开发",
     "其他",
 ]
 BUILTIN_SUBCATEGORY_ORDER = [
+    "背景与目标",
     "工作内容",
-    "代码与仓库",
-    "开发环境",
-    "验证与测试",
-    "问题与风险",
-    "其他",
+    "结果",
+    "问题与下一步",
 ]
 BUILTIN_FALLBACK_CATEGORY = "其他"
 BUILTIN_FALLBACK_SUBCATEGORY = "工作内容"
 TEAM_SIGNED_SUBCATEGORY = "工作内容"
+LEGACY_SUBCATEGORY_MAP = {
+    "代码与仓库": "结果",
+    "验证与测试": "结果",
+    "开发环境": "工作内容",
+    "问题与风险": "问题与下一步",
+    "其他": "工作内容",
+}
 BUILTIN_CATEGORY_RULES = [
     (
         "飞书 CLI / 工作记录",
@@ -94,6 +101,8 @@ BUILTIN_CATEGORY_RULES = [
             "dry-run",
             "分类",
             "二级列表",
+            "周报",
+            "复盘",
         ),
     ),
     (
@@ -134,6 +143,17 @@ BUILTIN_CATEGORY_RULES = [
         ),
     ),
     (
+        "Go2-W 实机开发",
+        (
+            "go2-w",
+            "go2w 主机",
+            "实机",
+            "unitree 主机",
+            "远程 codex",
+            "部署",
+        ),
+    ),
+    (
         "Ubuntu 环境",
         (
             "ubuntu",
@@ -150,10 +170,10 @@ BUILTIN_CATEGORY_RULES = [
     ),
 ]
 BUILTIN_SUBCATEGORY_RULES = [
-    ("验证与测试", ("验证", "测试", "dry-run", "py_compile", "skill is valid")),
-    ("问题与风险", ("风险", "问题", "失败", "冲突", "修复", "漏洞")),
-    ("开发环境", ("rtk", "proxy", "bashrc", "环境", "安装", "授权", "配置")),
-    ("代码与仓库", ("脚本", "代码", "仓库", "git", "commit", "push", "repo", "github")),
+    ("背景与目标", ("背景", "目标", "动机", "为了", "需要", "希望", "原因", "解决")),
+    ("问题与下一步", ("风险", "问题", "失败", "冲突", "漏洞", "未完成", "下一步", "继续", "仍需")),
+    ("结果", ("完成", "通过", "提交", "验证", "测试", "产出", "已可用", "commit", "push", "ok", "green")),
+    ("工作内容", ("实现", "配置", "修改", "整理", "推进", "安装", "授权", "修复", "重写", "搭建")),
 ]
 CATEGORY_ORDER = list(BUILTIN_CATEGORY_ORDER)
 SUBCATEGORY_ORDER = list(BUILTIN_SUBCATEGORY_ORDER)
@@ -547,17 +567,25 @@ def strip_item_marker(item: str) -> str:
     return item[2:].strip() if item.startswith("- ") else item.strip()
 
 
+def canonical_subcategory_name(name: str) -> str | None:
+    clean = name.strip()
+    if clean in SUBCATEGORY_ORDER:
+        return clean
+    return LEGACY_SUBCATEGORY_MAP.get(clean)
+
+
 def split_category_prefix(item: str) -> tuple[str | None, str | None, str]:
     text = strip_item_marker(item)
     if "::" in text:
         parts = [part.strip() for part in text.split("::") if part.strip()]
         if len(parts) >= 3:
-            return parts[0], parts[1], "::".join(parts[2:]).strip()
+            return parts[0], canonical_subcategory_name(parts[1]) or parts[1], "::".join(parts[2:]).strip()
         if len(parts) == 2:
             if parts[0] in CATEGORY_ORDER:
                 return parts[0], None, parts[1]
-            if parts[0] in SUBCATEGORY_ORDER:
-                return None, parts[0], parts[1]
+            subcategory = canonical_subcategory_name(parts[0])
+            if subcategory:
+                return None, subcategory, parts[1]
             return parts[0], None, parts[1]
     if "：" in text:
         category, content = text.split("：", 1)
@@ -565,8 +593,9 @@ def split_category_prefix(item: str) -> tuple[str | None, str | None, str]:
         content = content.strip()
         if category in CATEGORY_ORDER and content:
             return category, None, content
-        if category in SUBCATEGORY_ORDER and content:
-            return None, category, content
+        subcategory = canonical_subcategory_name(category)
+        if subcategory and content:
+            return None, subcategory, content
     return None, None, text
 
 
@@ -779,22 +808,22 @@ def normalize_section_groups(section: str) -> dict[str, dict[str, list[str]]]:
                 if text == "其他":
                     current_category = None
                     current_subcategory = None
-                elif text in SUBCATEGORY_ORDER and text not in CATEGORY_ORDER:
+                elif canonical_subcategory_name(text) and text not in CATEGORY_ORDER:
                     current_category = None
-                    current_subcategory = text
+                    current_subcategory = canonical_subcategory_name(text)
                 else:
                     current_category = text if text in CATEGORY_ORDER else categorize_item(text)
                     current_subcategory = None
                     groups.setdefault(current_category, {})
             elif level == 1 and has_child:
                 if current_category:
-                    current_subcategory = text if text in SUBCATEGORY_ORDER else subcategorize_item(text)
+                    current_subcategory = canonical_subcategory_name(text) or subcategorize_item(text)
                     groups[current_category].setdefault(current_subcategory, [])
                 else:
-                    current_subcategory = text if text in SUBCATEGORY_ORDER else subcategorize_item(text)
+                    current_subcategory = canonical_subcategory_name(text) or subcategorize_item(text)
             else:
                 category, subcategory, content = split_category_prefix(text)
-                if content in CATEGORY_ORDER or content in SUBCATEGORY_ORDER:
+                if content in CATEGORY_ORDER or canonical_subcategory_name(content):
                     index += 1
                     continue
                 if level == 0:
@@ -908,8 +937,9 @@ def top_level_repair_notes(section_date: str, section: str) -> list[str]:
         has_child = next_level is not None and next_level > 0
         if not has_child:
             continue
-        if text in SUBCATEGORY_ORDER and text not in CATEGORY_ORDER:
-            notes.append(f"{section_date}: moved top-level subcategory '{text}' under item-derived work domains")
+        mapped_subcategory = canonical_subcategory_name(text)
+        if mapped_subcategory and text not in CATEGORY_ORDER:
+            notes.append(f"{section_date}: moved top-level subcategory '{text}' to '{mapped_subcategory}' under item-derived work domains")
         elif text not in CATEGORY_ORDER and text != FALLBACK_CATEGORY:
             notes.append(f"{section_date}: classified top-level '{text}' as '{categorize_item(text)}'")
     groups = normalize_section_groups(section)
