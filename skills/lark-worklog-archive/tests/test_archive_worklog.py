@@ -375,6 +375,65 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("Team registry requires explicit --team", str(raised.exception))
         self.assertEqual(fake.commands(), [])
 
+    def test_team_work_content_requires_author(self) -> None:
+        fake = FakeLark("# 05-20-2026\n\n- old")
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry = Path(tempdir) / "registry.json"
+            registry.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "mode": "team",
+                        "team_id": "shared-dev",
+                        "allowed_user_open_ids": ["ou_test"],
+                        "docs": {"2026-05": fake.doc},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with argv("--team", "--registry", str(registry), "--no-lock", "--date", "2026-05-20", "--item", "完成飞书 CLI 归档。"):
+                with self.assertRaises(SystemExit) as raised:
+                    self.mod.main()
+        self.assertIn("requires --author", str(raised.exception))
+
+    def test_team_work_content_is_signed_by_author(self) -> None:
+        fake = FakeLark("# 05-20-2026\n\n- 飞书 CLI / 工作记录\n  - 工作内容\n    - Alice：创建团队文档。")
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry = Path(tempdir) / "registry.json"
+            registry.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "mode": "team",
+                        "team_id": "shared-dev",
+                        "allowed_user_open_ids": ["ou_test"],
+                        "docs": {"2026-05": fake.doc},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with argv(
+                "--team",
+                "--author",
+                "Bob",
+                "--registry",
+                str(registry),
+                "--no-lock",
+                "--date",
+                "2026-05-20",
+                "--item",
+                "飞书 CLI / 工作记录::工作内容::完善团队署名。",
+                "--item",
+                "飞书 CLI / 工作记录::验证与测试::验证团队归档。",
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(self.mod.main(), 0)
+        self.assertIn("Alice：创建团队文档。", fake.markdown)
+        self.assertIn("Bob：完善团队署名。", fake.markdown)
+        self.assertIn("验证团队归档。", fake.markdown)
+
     def test_normalize_only_specific_date_uses_section_replace(self) -> None:
         fake = FakeLark(
             """# 05-20-2026

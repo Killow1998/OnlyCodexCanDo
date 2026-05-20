@@ -154,7 +154,7 @@ python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
   --init --team --team-id "<team-name>" --title-prefix "<team-title>"
 ```
 
-Team registries require `--team` for every write or repair command so a team document is not updated accidentally.
+Team registries require `--team` for every write or repair command so a team document is not updated accidentally. Team archive writes must also pass `--author "<display-name>"` or set `LARK_WORKLOG_AUTHOR`; items under `工作内容` are stored as `作者：事项` so multiple people can contribute to the same work domain without losing attribution.
 
 ## Token Use
 

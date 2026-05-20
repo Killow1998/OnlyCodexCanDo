@@ -172,7 +172,14 @@ python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
   --title-prefix "<team-title>"
 ```
 
-Team registry writes and repairs require `--team` on every command. Optional `--allow-user-open-id` values stay local and must not be committed.
+Team registry writes and repairs require `--team` on every command. Archive writes also require `--author "<display-name>"` or `LARK_WORKLOG_AUTHOR`, so `工作内容` entries are written as `作者：事项`. Optional `--allow-user-open-id` values stay local and must not be committed.
+
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+  --team \
+  --author "Alice" \
+  --item "飞书 CLI / 工作记录::工作内容::完善授权向导。"
+```
 
 ## Token Budget
 

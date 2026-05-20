@@ -54,6 +54,7 @@ BUILTIN_SUBCATEGORY_ORDER = [
 ]
 BUILTIN_FALLBACK_CATEGORY = "其他"
 BUILTIN_FALLBACK_SUBCATEGORY = "工作内容"
+TEAM_SIGNED_SUBCATEGORY = "工作内容"
 BUILTIN_CATEGORY_RULES = [
     (
         "飞书 CLI / 工作记录",
@@ -484,6 +485,34 @@ def canonical_item(item: str) -> str:
     for escaped, plain in (("\\`", "`"), ("\\<", "<"), ("\\>", ">"), ("\\[", "["), ("\\]", "]")):
         text = text.replace(escaped, plain)
     return text.strip()
+
+
+def has_author_signature(text: str) -> bool:
+    return bool(re.match(r"^[^：:\s][^：:]{0,31}[：:]\s*\S+", text.strip()))
+
+
+def author_name(args: argparse.Namespace, metadata: dict) -> str | None:
+    value = args.author or os.environ.get("LARK_WORKLOG_AUTHOR") or metadata.get("default_author")
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def sign_team_items(items: list[str], metadata: dict, author: str | None) -> list[str]:
+    if metadata.get("mode") != "team":
+        return items
+    result: list[str] = []
+    for item in items:
+        category, subcategory, text = split_category_prefix(item)
+        final_category = category or categorize_item(text)
+        final_subcategory = subcategory or subcategorize_item(text)
+        clean = canonical_item(text)
+        if final_subcategory == TEAM_SIGNED_SUBCATEGORY and clean and not has_author_signature(clean):
+            if not author:
+                raise SystemExit("Team work content requires --author or LARK_WORKLOG_AUTHOR so entries can be attributed.")
+            clean = f"{author}：{clean}"
+        result.append(f"{final_category}::{final_subcategory}::{clean}")
+    return result
 
 
 def is_internal_note_item(item: str) -> bool:
@@ -1378,6 +1407,7 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
     if args.team:
         metadata = normalized_registry_metadata(args, metadata, user_open_id)
     ensure_registry_access(args, owner_open_id, metadata, user_open_id)
+    items = sign_team_items(items, metadata, author_name(args, metadata))
     title = document_title(archive_day, metadata)
     key = month_key(archive_day)
     doc = args.doc or docs.get(key)
@@ -1603,6 +1633,7 @@ def main() -> int:
     parser.add_argument("--all-dates", action="store_true", help="With --normalize-only, repair every dated section in the monthly document.")
     parser.add_argument("--team", action="store_true", help="Explicitly opt into a team shared worklog registry for init/write/repair.")
     parser.add_argument("--team-id", help="Team identifier stored in a team registry. Required when creating one.")
+    parser.add_argument("--author", default=os.environ.get("LARK_WORKLOG_AUTHOR"), help="Author display name for team work-content attribution.")
     parser.add_argument("--allow-user-open-id", action="append", help="Allowed user OpenID for a team registry. Repeat as needed; kept only in the local registry.")
     parser.add_argument("--share-policy", help="Human-readable team sharing policy stored in the local registry, such as manual or workspace.")
     parser.add_argument("--title-prefix", help="Optional title prefix for team monthly documents.")
@@ -1629,8 +1660,12 @@ def main() -> int:
         return 0
 
     items = [] if args.normalize_only and not args.item and args.content is None else read_items(args)
+    preview_metadata = load_registry_metadata(args.registry)
+    if args.team:
+        preview_metadata = normalized_registry_metadata(args, preview_metadata, None)
+    items = sign_team_items(items, preview_metadata, author_name(args, preview_metadata))
     if args.preview:
-        print_group_preview(month_title(archive_day), archive_date, items)
+        print_group_preview(document_title(archive_day, preview_metadata), archive_date, items)
         return 0
     if args.classify_only:
         for item in items:
@@ -1652,7 +1687,7 @@ def main() -> int:
         result = archive_worklog(args, archive_day, archive_date, items)
     except SystemExit as exc:
         if args.queue_failed:
-            append_failed_queue(args.failed_queue, args.registry, archive_date, month_title(archive_day), items, str(exc))
+            append_failed_queue(args.failed_queue, args.registry, archive_date, document_title(archive_day, preview_metadata), items, str(exc))
             print(f"Queued failed worklog item(s) for {archive_date}: {args.failed_queue}", file=sys.stderr)
         raise
     if queued_items and not result.dry_run:
