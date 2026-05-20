@@ -42,6 +42,11 @@ class FakeLark:
         if args[:2] == ["docs", "+fetch"]:
             content = self.xml if "--detail" in args else self.markdown
             return self.completed(args, {"data": {"document": {"content": content, "revision_id": self.revision}}})
+        if args[:2] == ["docs", "+create"]:
+            content = value_after(args, "--content")
+            self.markdown = xml_day_section_to_markdown(content)
+            self.revision += 1
+            return self.completed(args, {"data": {"document": {"url": self.doc, "revision_id": self.revision}}})
         if args[:2] == ["docs", "+update"]:
             command = value_after(args, "--command")
             if command == "str_replace":
@@ -194,9 +199,12 @@ class ArchiveWorklogTests(unittest.TestCase):
                 "--item",
                 "飞书 CLI / 工作记录::工作内容::安装到全局 Codex skills。",
             ):
-                with contextlib.redirect_stdout(io.StringIO()):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
                     self.assertEqual(self.mod.main(), 0)
         self.assertIn("str_replace", fake.commands())
+        self.assertIn("Updated worklog 05-2026 工作记录 for 05-19-2026 with 1 item(s).", output.getvalue())
+        self.assertNotIn(fake.doc, output.getvalue())
         self.assertLess(fake.markdown.index("创建 lark-worklog-archive Skill。"), fake.markdown.index("安装到全局 Codex skills。"))
 
     def test_main_new_day_uses_block_insert_after(self) -> None:
@@ -254,6 +262,74 @@ class ArchiveWorklogTests(unittest.TestCase):
             with contextlib.redirect_stdout(output):
                 self.assertEqual(self.mod.main(), 0)
         self.assertIn("n3mapping :: 验证与测试 :: 验证 n3mapping Humble launch smoke。", output.getvalue())
+
+    def test_preview_does_not_call_lark_and_prints_short_grouping(self) -> None:
+        def fail_lark(args, check=True):
+            raise AssertionError(f"lark-cli should not be called: {args}")
+
+        self.mod.run_lark = fail_lark
+        with argv(
+            "--preview",
+            "--date",
+            "2026-05-20",
+            "--item",
+            "飞书 CLI / 工作记录::代码与仓库::新增 doctor/init/preview 入口。",
+        ):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(self.mod.main(), 0)
+        text = output.getvalue()
+        self.assertIn("Preview: 05-2026 工作记录 / 05-20-2026", text)
+        self.assertIn("- 飞书 CLI / 工作记录\n  - 代码与仓库\n    - 新增 doctor/init/preview 入口。", text)
+
+    def test_doctor_checks_registry_without_printing_doc_locator(self) -> None:
+        fake = FakeLark("# 05-20-2026\n\n- 飞书 CLI / 工作记录\n  - 工作内容\n    - existing")
+        self.mod.run_lark = fake
+        self.mod.shutil.which = lambda command: f"/usr/bin/{command}"
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry = Path(tempdir) / "registry.json"
+            registry.write_text(
+                json.dumps({"schema_version": 1, "owner_open_id": "ou_test", "docs": {"2026-05": fake.doc}}),
+                encoding="utf-8",
+            )
+            with argv("--doctor", "--registry", str(registry), "--date", "2026-05-20"):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    self.assertEqual(self.mod.main(), 0)
+        text = output.getvalue()
+        self.assertIn("[ok] current month: 05-2026 工作记录 readable; revision 1", text)
+        self.assertNotIn(fake.doc, text)
+
+    def test_init_creates_monthly_doc_and_schema_versioned_registry(self) -> None:
+        fake = FakeLark("")
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry = Path(tempdir) / "registry.json"
+            with argv(
+                "--init",
+                "--registry",
+                str(registry),
+                "--no-lock",
+                "--no-search-existing",
+                "--date",
+                "2026-05-20",
+            ):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    self.assertEqual(self.mod.main(), 0)
+            payload = json.loads(registry.read_text(encoding="utf-8"))
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["docs"]["2026-05"], fake.doc)
+        self.assertIn("Created worklog 05-2026 工作记录", output.getvalue())
+        self.assertNotIn(fake.doc, output.getvalue())
+
+    def test_old_flat_registry_schema_still_loads(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry = Path(tempdir) / "registry.json"
+            registry.write_text(json.dumps({"2026-05": "doc-old", "title_template": "legacy"}), encoding="utf-8")
+            docs, owner = self.mod.load_registry(str(registry))
+        self.assertEqual(docs, {"2026-05": "doc-old"})
+        self.assertIsNone(owner)
 
     def test_registry_owner_guard_blocks_foreign_registry(self) -> None:
         fake = FakeLark("# 05-19-2026\n\n- old")

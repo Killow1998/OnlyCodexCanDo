@@ -10,9 +10,11 @@ Clone with HTTPS:
 
 ```bash
 git clone https://github.com/Killow1998/OnlyCodexCanDo.git
+cd OnlyCodexCanDo
+python3 skills/lark-worklog-archive/scripts/install.py
 ```
 
-Then install a skill from this repository with your Codex skills installer, or copy the target folder under `skills/` into your local Codex skills directory.
+The install script copies the skill into your local Codex skills directory and skips local private registries.
 
 Maintainers who have write access may use SSH for pushing, but public users should use HTTPS for installation.
 

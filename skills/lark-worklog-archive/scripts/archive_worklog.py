@@ -10,6 +10,7 @@ import html
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -144,6 +145,15 @@ CATEGORY_RULES = list(BUILTIN_CATEGORY_RULES)
 SUBCATEGORY_RULES = list(BUILTIN_SUBCATEGORY_RULES)
 
 
+class ArchiveResult:
+    def __init__(self, doc: str, title: str, date: str, item_count: int, dry_run: bool = False):
+        self.doc = doc
+        self.title = title
+        self.date = date
+        self.item_count = item_count
+        self.dry_run = dry_run
+
+
 def default_registry_path() -> str:
     if os.environ.get("LARK_WORKLOG_REGISTRY"):
         return os.environ["LARK_WORKLOG_REGISTRY"]
@@ -225,6 +235,30 @@ def apply_category_config(config: dict) -> None:
 apply_category_config(load_category_config(default_category_rules_path()))
 
 
+def redact(value: str) -> str:
+    value = re.sub(r"https?://[^\s)>\"]+", "<redacted-url>", value)
+    value = re.sub(r"\bou_[A-Za-z0-9_-]{8,}\b", "<redacted-open-id>", value)
+    value = re.sub(r"\bcli_[A-Za-z0-9_-]{8,}\b", "<redacted-app-id>", value)
+    value = re.sub(
+        r"(?i)\b((?:access|refresh)[_-]?token|secret)([\"'\s:=]+)([^,\s\"']+)",
+        r"\1\2<redacted>",
+        value,
+    )
+    return value
+
+
+def print_redacted(value: str, file=sys.stderr) -> None:
+    if value:
+        print(redact(value), file=file, end="" if value.endswith("\n") else "\n")
+
+
+def compact_error(value: str, limit: int = 180) -> str:
+    clean = " ".join(redact(value).split())
+    if len(clean) > limit:
+        return f"{clean[: limit - 3]}..."
+    return clean
+
+
 def run_lark(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.setdefault("LARK_CLI_NO_PROXY", "1")
@@ -238,12 +272,12 @@ def run_lark(args: list[str], check: bool = True) -> subprocess.CompletedProcess
     )
     if check and proc.returncode != 0:
         if proc.stderr:
-            print(proc.stderr, file=sys.stderr, end="")
+            print_redacted(proc.stderr)
         if proc.stdout:
-            print(proc.stdout, file=sys.stderr, end="")
+            print_redacted(proc.stdout)
         raise SystemExit(proc.returncode)
     if check and proc.stderr:
-        print(proc.stderr, file=sys.stderr, end="")
+        print_redacted(proc.stderr)
     return proc
 
 
@@ -790,9 +824,9 @@ def update_doc(doc: str, content_xml: str, revision_id: int, title: str | None =
     if proc.returncode == 0:
         return True
     if proc.stderr:
-        print(proc.stderr, file=sys.stderr, end="")
+        print_redacted(proc.stderr)
     if proc.stdout:
-        print(proc.stdout, file=sys.stderr, end="")
+        print_redacted(proc.stdout)
     return False
 
 
@@ -884,13 +918,20 @@ def verify_items(doc: str, date: str, items: list[str]) -> None:
         raise SystemExit(f"Verification failed; missing archived item(s): {missing}")
 
 
-def current_user_open_id() -> str | None:
+def auth_status_payload() -> tuple[dict | None, str | None]:
     proc = run_lark(["auth", "status"], check=False)
     if proc.returncode != 0:
-        return None
+        return None, compact_error(proc.stderr or proc.stdout or "auth status failed")
     try:
         payload = json.loads(proc.stdout)
     except json.JSONDecodeError:
+        return None, "auth status returned non-JSON output"
+    return payload if isinstance(payload, dict) else None, None
+
+
+def current_user_open_id() -> str | None:
+    payload, _ = auth_status_payload()
+    if not payload:
         return None
     value = payload.get("userOpenId")
     return str(value) if value else None
@@ -901,7 +942,13 @@ def load_registry(path: str) -> tuple[dict[str, str], str | None]:
         return {}, None
     with open(path, "r", encoding="utf-8") as handle:
         payload = json.load(handle)
-    docs = payload.get("docs", payload)
+    if not isinstance(payload, dict):
+        return {}, None
+    docs = payload.get("docs")
+    if docs is None:
+        docs = {key: value for key, value in payload.items() if re.fullmatch(r"\d{4}-\d{2}", str(key))}
+    if not isinstance(docs, dict):
+        docs = {}
     owner = payload.get("owner_open_id")
     return {str(key): str(value) for key, value in docs.items()}, str(owner) if owner else None
 
@@ -909,6 +956,7 @@ def load_registry(path: str) -> tuple[dict[str, str], str | None]:
 def save_registry(path: str, docs: dict[str, str], owner_open_id: str | None = None) -> bool:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     payload = {
+        "schema_version": 1,
         "owner_open_id": owner_open_id,
         "title_template": "MM-YYYY 工作记录",
         "date_heading_template": "MM-DD-YYYY",
@@ -926,37 +974,129 @@ def save_registry(path: str, docs: dict[str, str], owner_open_id: str | None = N
     return True
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--doc", default=os.environ.get("LARK_WORKLOG_DOC"))
-    parser.add_argument("--registry", default=default_registry_path())
-    parser.add_argument("--category-rules", default=default_category_rules_path(), help="Path to a local category rules JSON file.")
-    parser.add_argument("--date", default=None, help="Archive date, YYYY-MM-DD or MM-DD-YYYY. Defaults to today.")
-    parser.add_argument("--tz", default=os.environ.get("LARK_WORKLOG_TZ", "Asia/Shanghai"))
-    parser.add_argument("--item", action="append", help="Worklog bullet item. Repeat as needed.")
-    parser.add_argument("--content", help="Newline-separated bullet items.")
-    parser.add_argument("--classify-only", action="store_true", help="Print how provided items would be classified and exit.")
-    parser.add_argument("--dry-run", action="store_true", help="Print the merged Markdown only.")
-    parser.add_argument("--no-lock", action="store_true", help="Disable local month lock.")
-    parser.add_argument("--no-search-existing", action="store_true", help="Do not search Feishu for an existing monthly doc before creating.")
-    parser.add_argument("--register-doc", action="store_true", help="Save --doc as this month's registry entry after a successful update.")
-    parser.add_argument("--force-overwrite", action="store_true", help="Always rewrite the monthly document instead of same-day block insertion.")
-    parser.add_argument("--normalize-only", action="store_true", help="Rewrite the current monthly document into the normalized list structure without requiring new items.")
-    parser.add_argument("--allow-foreign-registry", action="store_true", help="Allow using a registry owned by a different Feishu user.")
-    parser.add_argument("--retries", type=int, default=3, help="Retry on revision conflicts.")
-    args = parser.parse_args()
+def read_optional_items(args: argparse.Namespace) -> list[str]:
+    try:
+        return read_items(args)
+    except SystemExit as exc:
+        if str(exc).startswith("No archive items provided"):
+            return []
+        raise
 
-    apply_category_config(load_category_config(args.category_rules))
-    archive_day = parse_date(args.date) if args.date else today(args.tz)
-    archive_date = display_date(archive_day)
-    items = [] if args.normalize_only and not args.item and args.content is None else read_items(args)
-    if args.classify_only:
-        for item in items:
-            category, subcategory, text = split_category_prefix(item)
-            final_category = category or categorize_item(text)
-            final_subcategory = subcategory or subcategorize_item(text)
-            print(f"{final_category} :: {final_subcategory} :: {canonical_item(text)}")
-        return 0
+
+def print_group_preview(title: str, date: str, items: list[str]) -> None:
+    clean_items = [item for item in items if not is_internal_note_item(item)]
+    groups = group_items(clean_items)
+    print(f"Preview: {title} / {date}")
+    print(f"New items: {len(clean_items)}")
+    for category in ordered_categories(groups):
+        subgroups = groups[category]
+        if not any(values for values in subgroups.values()):
+            continue
+        print(f"- {category}")
+        for subcategory in ordered_subcategories(subgroups):
+            values = subgroups[subcategory]
+            if not values:
+                continue
+            print(f"  - {subcategory}")
+            for item in values:
+                print(f"    - {canonical_item(item)}")
+
+
+def check_doc_readable(doc: str) -> tuple[bool, str]:
+    proc = run_lark(
+        [
+            "docs",
+            "+fetch",
+            "--api-version",
+            "v2",
+            "--as",
+            "user",
+            "--doc",
+            doc,
+            "--doc-format",
+            "markdown",
+        ],
+        check=False,
+    )
+    if proc.returncode != 0:
+        return False, compact_error(proc.stderr or proc.stdout or "fetch failed")
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return False, "fetch returned non-JSON output"
+    document = payload.get("data", {}).get("document", {}) if isinstance(payload, dict) else {}
+    revision = document.get("revision_id", "unknown")
+    return True, f"readable; revision {revision}"
+
+
+def run_doctor(args: argparse.Namespace, archive_day: dt.date) -> int:
+    checks: list[tuple[str, str, str, str | None]] = []
+
+    def add(status: str, name: str, detail: str, fix: str | None = None) -> None:
+        checks.append((status, name, detail, fix))
+
+    lark_path = shutil.which("lark-cli")
+    if lark_path:
+        add("ok", "lark-cli", lark_path)
+    else:
+        add("fail", "lark-cli", "not found", "npx @larksuite/cli@latest install")
+
+    payload: dict | None = None
+    user_open_id: str | None = None
+    if lark_path:
+        payload, auth_error = auth_status_payload()
+        if payload:
+            user_open_id = str(payload.get("userOpenId") or "")
+            add("ok", "auth", "authorized user" if user_open_id else "authorized; userOpenId missing")
+        else:
+            add(
+                "fail",
+                "auth",
+                auth_error or "not authorized",
+                'env LARK_CLI_NO_PROXY=1 lark-cli auth login --recommend --domain docs,drive,markdown --scope "search:docs:read"',
+            )
+
+    try:
+        load_category_config(args.category_rules)
+        add("ok", "category rules", args.category_rules or "built-in defaults")
+    except SystemExit as exc:
+        add("fail", "category rules", str(exc), "fix the JSON file or remove LARK_WORKLOG_CATEGORY_RULES")
+
+    docs: dict[str, str] = {}
+    owner_open_id: str | None = None
+    if os.path.exists(args.registry):
+        try:
+            docs, owner_open_id = load_registry(args.registry)
+            add("ok", "registry", args.registry)
+        except (OSError, json.JSONDecodeError) as exc:
+            add("fail", "registry", compact_error(str(exc)), "replace it with a valid monthly-docs JSON file")
+    else:
+        add("warn", "registry", "not found", f"{sys.argv[0]} --init --registry {args.registry}")
+
+    if owner_open_id and user_open_id and owner_open_id != user_open_id:
+        add("fail", "registry owner", "authorized user does not match registry owner", "use your own registry or pass --allow-foreign-registry intentionally")
+    elif owner_open_id:
+        add("ok", "registry owner", "matches authorized user" if user_open_id else "stored")
+
+    key = month_key(archive_day)
+    doc = docs.get(key)
+    if doc and payload:
+        readable, detail = check_doc_readable(doc)
+        add("ok" if readable else "fail", "current month", f"{month_title(archive_day)} {detail}")
+    elif doc:
+        add("warn", "current month", f"{month_title(archive_day)} configured; auth not checked")
+    else:
+        add("warn", "current month", f"{month_title(archive_day)} not in registry", f"{sys.argv[0]} --init")
+
+    for status, name, detail, fix in checks:
+        print(f"[{status}] {name}: {detail}")
+        if fix:
+            print(f"  fix: {fix}")
+    return 1 if any(status == "fail" for status, _, _, _ in checks) else 0
+
+
+def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date: str, items: list[str]) -> ArchiveResult:
+    title = month_title(archive_day)
     docs, owner_open_id = load_registry(args.registry)
     user_open_id = current_user_open_id()
     if owner_open_id and user_open_id and owner_open_id != user_open_id and not args.allow_foreign_registry:
@@ -968,10 +1108,11 @@ def main() -> int:
     key = month_key(archive_day)
     doc = args.doc or docs.get(key)
     if not doc and not args.no_search_existing:
-        doc = find_doc_by_title(month_title(archive_day))
-        if doc:
-            print(f"Found existing monthly document: {doc}", file=sys.stderr)
+        doc = find_doc_by_title(title)
+        if doc and args.verbose:
+            print(f"Found existing monthly document: {title}", file=sys.stderr)
 
+    written_items: list[str] = []
     with month_lock(key, enabled=not args.no_lock):
         for attempt in range(1, args.retries + 1):
             current, revision_id = fetch_doc(doc) if doc else ("", -1)
@@ -984,15 +1125,18 @@ def main() -> int:
                 for item in items
             }
             unique_items = [item for item in items if canonical_item(item) not in existing_items]
+            written_items = list(unique_items)
             if not unique_items and not args.normalize_only:
-                print(f"No new worklog items for {archive_date}.")
-                return 0
+                if doc and (not args.doc or args.register_doc):
+                    docs[key] = doc
+                    save_registry(args.registry, docs, owner_open_id or user_open_id)
+                return ArchiveResult(doc or "", title, archive_date, 0)
             merged = merge_document(current, archive_date, unique_items)
             if args.dry_run:
                 print(merged, end="")
                 if not doc:
-                    print(f"\n[dry-run] would create monthly document: {month_title(archive_day)}", file=sys.stderr)
-                return 0
+                    print(f"\n[dry-run] would create monthly document: {title}", file=sys.stderr)
+                return ArchiveResult(doc or "", title, archive_date, len(unique_items), dry_run=True)
             if args.normalize_only and not doc:
                 raise SystemExit("No monthly document found to normalize.")
             same_day_top = bool(split_sections(current) and split_sections(current)[0][0] == archive_date)
@@ -1003,7 +1147,7 @@ def main() -> int:
                 if existing_section and update_section(doc, existing_section, merged_section, revision_id):
                     break
             if not doc:
-                doc = create_doc(month_title(archive_day), markdown_to_xml(merged, month_title(archive_day)))
+                doc = create_doc(title, markdown_to_xml(merged, title))
                 break
             if not existing_section:
                 xml_content, xml_revision = fetch_doc_xml(doc)
@@ -1011,7 +1155,7 @@ def main() -> int:
                 new_groups = group_items(unique_items)
                 if title_id and insert_after_block(doc, title_id, day_section_to_xml(archive_date, new_groups), xml_revision):
                     break
-            if update_doc(doc, markdown_to_xml(merged, month_title(archive_day)), revision_id, title=month_title(archive_day)):
+            if update_doc(doc, markdown_to_xml(merged, title), revision_id, title=title):
                 break
             if attempt == args.retries:
                 raise SystemExit("Update failed after revision-conflict retries.")
@@ -1019,10 +1163,114 @@ def main() -> int:
         if not args.doc or args.register_doc:
             docs[key] = doc
             save_registry(args.registry, docs, owner_open_id or user_open_id)
-        if unique_items:
-            verify_items(doc, archive_date, unique_items)
-    print(f"Updated worklog {doc} for {archive_date} with {len(unique_items)} item(s).")
-    print(f"Monthly document: {month_title(archive_day)}")
+        if written_items:
+            verify_items(doc, archive_date, written_items)
+    return ArchiveResult(doc or "", title, archive_date, len(written_items))
+
+
+def run_init(args: argparse.Namespace, archive_day: dt.date, archive_date: str) -> int:
+    items = read_optional_items(args)
+    if items:
+        args.register_doc = True
+        result = archive_worklog(args, archive_day, archive_date, items)
+        print_archive_result(args, result)
+        print(f"Registry: {args.registry}")
+        return 0
+
+    user_open_id = current_user_open_id()
+    if not user_open_id:
+        raise SystemExit(
+            "lark-cli user auth is not ready. "
+            'Run: env LARK_CLI_NO_PROXY=1 lark-cli auth login --recommend --domain docs,drive,markdown --scope "search:docs:read"'
+        )
+    docs, owner_open_id = load_registry(args.registry)
+    if owner_open_id and owner_open_id != user_open_id and not args.allow_foreign_registry:
+        raise SystemExit(
+            "Registry owner does not match the authorized Feishu user. "
+            "Use another --registry path or pass --allow-foreign-registry intentionally."
+        )
+
+    key = month_key(archive_day)
+    title = month_title(archive_day)
+    doc = args.doc or docs.get(key)
+    action = "Registered"
+    with month_lock(key, enabled=not args.no_lock):
+        if not doc and not args.no_search_existing:
+            doc = find_doc_by_title(title)
+        if not doc:
+            doc = create_doc(title, markdown_to_xml("", title))
+            action = "Created"
+        docs[key] = doc
+        save_registry(args.registry, docs, owner_open_id or user_open_id)
+    print(f"{action} worklog {title} in registry {args.registry}.")
+    if args.print_doc:
+        print(f"Document: {doc}")
+    return 0
+
+
+def print_archive_result(args: argparse.Namespace, result: ArchiveResult) -> None:
+    if result.dry_run:
+        return
+    if result.item_count == 0 and not args.normalize_only:
+        print(f"No new worklog items for {result.date}.")
+    elif args.normalize_only and result.item_count == 0:
+        print(f"Normalized worklog {result.title} for {result.date}.")
+    else:
+        print(f"Updated worklog {result.title} for {result.date} with {result.item_count} item(s).")
+    if args.print_doc and result.doc:
+        print(f"Document: {result.doc}")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--doc", default=os.environ.get("LARK_WORKLOG_DOC"))
+    parser.add_argument("--registry", default=default_registry_path())
+    parser.add_argument("--category-rules", default=default_category_rules_path(), help="Path to a local category rules JSON file.")
+    parser.add_argument("--date", default=None, help="Archive date, YYYY-MM-DD or MM-DD-YYYY. Defaults to today.")
+    parser.add_argument("--tz", default=os.environ.get("LARK_WORKLOG_TZ", "Asia/Shanghai"))
+    parser.add_argument("--item", action="append", help="Worklog bullet item. Repeat as needed.")
+    parser.add_argument("--content", help="Newline-separated bullet items.")
+    parser.add_argument("--preview", action="store_true", help="Print a short target and classification preview without touching Feishu.")
+    parser.add_argument("--doctor", action="store_true", help="Check local lark-cli, auth, registry, current month, and category rule readiness.")
+    parser.add_argument("--init", action="store_true", help="Create or register the current monthly document in the local registry.")
+    parser.add_argument("--classify-only", action="store_true", help="Print how provided items would be classified and exit.")
+    parser.add_argument("--dry-run", action="store_true", help="Print the merged Markdown only. Use --preview for a short output.")
+    parser.add_argument("--no-lock", action="store_true", help="Disable local month lock.")
+    parser.add_argument("--no-search-existing", action="store_true", help="Do not search Feishu for an existing monthly doc before creating.")
+    parser.add_argument("--register-doc", action="store_true", help="Save --doc as this month's registry entry after a successful update.")
+    parser.add_argument("--force-overwrite", action="store_true", help="Always rewrite the monthly document instead of same-day block insertion.")
+    parser.add_argument("--normalize-only", action="store_true", help="Rewrite the current monthly document into the normalized list structure without requiring new items.")
+    parser.add_argument("--allow-foreign-registry", action="store_true", help="Allow using a registry owned by a different Feishu user.")
+    parser.add_argument("--verbose", action="store_true", help="Print extra operational messages without dumping document content.")
+    parser.add_argument("--print-doc", action="store_true", help="Print the full document locator after a successful init or archive.")
+    parser.add_argument("--retries", type=int, default=3, help="Retry on revision conflicts.")
+    args = parser.parse_args()
+
+    archive_day = parse_date(args.date) if args.date else today(args.tz)
+    archive_date = display_date(archive_day)
+
+    if args.doctor:
+        return run_doctor(args, archive_day)
+
+    apply_category_config(load_category_config(args.category_rules))
+
+    if args.init:
+        return run_init(args, archive_day, archive_date)
+
+    items = [] if args.normalize_only and not args.item and args.content is None else read_items(args)
+    if args.preview:
+        print_group_preview(month_title(archive_day), archive_date, items)
+        return 0
+    if args.classify_only:
+        for item in items:
+            category, subcategory, text = split_category_prefix(item)
+            final_category = category or categorize_item(text)
+            final_subcategory = subcategory or subcategorize_item(text)
+            print(f"{final_category} :: {final_subcategory} :: {canonical_item(text)}")
+        return 0
+
+    result = archive_worklog(args, archive_day, archive_date, items)
+    print_archive_result(args, result)
     return 0
 
 

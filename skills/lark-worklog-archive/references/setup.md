@@ -2,7 +2,17 @@
 
 Use the official `lark-cli`.
 
-## Install
+## Install Skill And CLI
+
+From the public skill repository:
+
+```bash
+git clone https://github.com/Killow1998/OnlyCodexCanDo.git
+cd OnlyCodexCanDo
+python3 skills/lark-worklog-archive/scripts/install.py
+```
+
+Install or verify the official Feishu/Lark CLI:
 
 ```bash
 npx @larksuite/cli@latest install
@@ -57,6 +67,18 @@ Check auth:
 
 ```bash
 env LARK_CLI_NO_PROXY=1 lark-cli auth status
+```
+
+Then initialize the local monthly registry and current month document:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py --init
+```
+
+Run a short readiness check at any time:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py --doctor
 ```
 
 ## Update The Worklog Manually
@@ -173,9 +195,11 @@ Preview classification without writing to Feishu:
 
 ```bash
 python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
-  --classify-only \
+  --preview \
   --item "验证 n3mapping Humble launch smoke。"
 ```
+
+For classification-only output without document target information, use `--classify-only`.
 
 ## Sharing With Other People
 
@@ -197,7 +221,7 @@ Do not commit real document addresses, user OpenID values, app IDs, tokens, or A
 
 ## Token-Friendly Use
 
-Use the helper for normal archiving. It prints a short result and keeps full document JSON inside the script process. Avoid `--dry-run` and manual `docs +fetch` unless debugging, because those print document content into the agent context.
+Use the helper for normal archiving. It prints a short result and keeps full document JSON inside the script process. Use `--preview` for routine checks. Avoid `--dry-run` and manual `docs +fetch` unless debugging, because those print document content into the agent context. The full document locator is printed only when `--print-doc` is passed.
 
 ## Time Handling
 

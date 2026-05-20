@@ -4,19 +4,21 @@
 
 ## P0 - 明天优先
 
-- [ ] 做一个正式安装入口。
+- [x] 做一个正式安装入口。
   - 提供 `scripts/install.py` 或等价安装脚本。
   - 支持从 public GitHub HTTPS 安装 Skill。
   - 检查 `lark-cli`、Node/npm、Python 版本、Codex skills 目录。
   - 安装后提示用户重启 Codex。
   - 不把本机 registry 或任何私有配置写入仓库。
+  - 初版入口：`python3 skills/lark-worklog-archive/scripts/install.py`。
 
-- [ ] 做首次授权向导。
+- [x] 做首次授权向导。
   - 增加 `scripts/doctor.py` 或 `scripts/setup_worklog.py`。
   - 检查 `lark-cli auth status`、缺失 scopes、当前身份是否为 user。
   - 给出最小授权命令和 device-code/no-wait 流程。
   - 自动解释常见错误：权限不足、token 过期、用户未授权、doc 不存在、registry 未配置。
   - 输出必须短，不打印 access token 或完整文档内容。
+  - 初版入口：`archive_worklog.py --doctor` 和 `archive_worklog.py --init`；授权命令保留在 `setup.md`。
 
 - [x] 把分类规则改成可配置。
   - 增加公开模板：`references/category-rules.example.json`。
@@ -41,24 +43,26 @@
 
 ## P1 - 可用性完善
 
-- [ ] 增加 `doctor` 命令。
+- [x] 增加 `doctor` 命令。
   - 检查 lark-cli 是否安装。
   - 检查 auth 是否有效。
   - 检查 registry 是否存在、是否能解析当前月文档。
   - 检查当前月文档是否可读写。
   - 检查分类规则是否能加载。
   - 给出最短修复命令。
+  - 初版只做读取校验；写权限在实际归档时通过 revision update 和最终 verification 校验。
 
-- [ ] 增加 `init` 命令。
+- [x] 增加 `init` 命令。
   - 为新用户创建本机 registry。
   - 搜索或创建当前月文档。
   - 写入一条可选初始化记录。
   - 生成不会进入 Git 的本机配置。
 
-- [ ] 增加 `preview` 命令。
+- [x] 增加 `preview` 命令。
   - 只输出本次新增 bullet 的分类结果和目标文档标题。
   - 默认不打印整篇飞书文档。
   - 需要全文 diff 时显式传 `--verbose` 或 `--full-diff`。
+  - 初版入口：`archive_worklog.py --preview --item "..."`；全文仍走 `--dry-run`。
 
 - [ ] 增加文档修复命令。
   - `normalize-only` 继续保留。
@@ -73,10 +77,11 @@
 
 ## P2 - Token 消耗控制
 
-- [ ] 默认输出继续保持短结果。
+- [x] 默认输出继续保持短结果。
   - 成功时只输出文档标题、日期、新增条目数。
-  - 不打印完整 doc URL，除非 `--verbose`。
-  - 不打印完整文档内容，除非 `--dry-run --full`.
+  - 不打印完整 doc URL，除非 `--print-doc`。
+  - 不打印完整文档内容，除非 `--dry-run`.
+  - 当前完整文档定位信息只在显式传 `--print-doc` 时输出。
 
 - [ ] 减少 fetch 内容进入 Agent 上下文。
   - 正常归档尽量只让脚本内部处理 JSON。
@@ -99,15 +104,17 @@
 
 ## P3 - 质量与安全
 
-- [ ] 定义 registry schema version。
+- [x] 定义 registry schema version。
   - 为 `monthly-docs.example.json` 增加 `schema_version`。
   - 兼容旧 registry。
   - 提供迁移函数。
+  - 当前 `load_registry()` 兼容旧的平铺月度映射，`save_registry()` 写出 `schema_version: 1`。
 
-- [ ] 增强隐私保护。
+- [x] 增强隐私保护。
   - 所有日志中脱敏 doc URL、OpenID、App ID。
   - 添加 `--print-doc` 才输出完整文档定位信息。
   - 默认错误提示中只输出 action 和原因，不输出 token。
+  - 后续仍可继续扩展更严格的错误分类。
 
 - [ ] 增强冲突恢复。
   - 冲突后重新 fetch/merge/retry。
@@ -133,7 +140,7 @@
 
 ## 明天建议顺序
 
-1. 先补测试框架和 fake lark runner，防止继续改坏归档逻辑。
-2. 再做可配置分类规则，把今天硬编码的领域分类迁出脚本。
-3. 然后做 `doctor/init/preview` 三个用户入口。
-4. 最后整理 README/setup，减少默认加载内容和 token 消耗。
+1. 设计团队共享 worklog 模式，明确权限、registry schema 和冲突策略。
+2. 增加文档修复命令的日期范围控制与迁移报告。
+3. 增加本地轻量缓存和失败重放队列，继续降低 token 消耗并提高跨 PC 恢复能力。
+4. 增加 release/check 脚本，把测试、Skill validate、敏感扫描和全局安装一致性检查合并。

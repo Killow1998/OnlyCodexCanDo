@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "title_template": "MM-YYYY 工作记录",
   "date_heading_template": "MM-DD-YYYY",
   "docs": {}

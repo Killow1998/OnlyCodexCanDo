@@ -36,11 +36,18 @@ references/monthly-docs.local.json
 3. Confirm `lark-cli` is installed and authorized:
 
    ```bash
-   command -v lark-cli
-   env LARK_CLI_NO_PROXY=1 lark-cli auth status
+   python3 skills/lark-worklog-archive/scripts/archive_worklog.py --doctor
    ```
 
-4. Run the archive helper:
+4. Preview the target month/date and classification when the items are non-trivial:
+
+   ```bash
+   python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+     --preview \
+     --item "完成 X，并通过 Y 验证。"
+   ```
+
+5. Run the archive helper:
 
    ```bash
    python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
@@ -59,7 +66,7 @@ references/monthly-docs.local.json
 
    The helper handles concurrent local conversations with a per-month lock, uses Feishu revision IDs for optimistic retry, and verifies that the submitted bullets exist after the update. If today's date is already the active top section, it replaces only that day's section so category buckets stay coherent without rewriting unrelated dates.
 
-5. Fetch the current monthly document after updating and verify the newest date is at the top:
+6. Fetch the current monthly document after updating only when debugging or auditing a structural change:
 
    ```bash
    env LARK_CLI_NO_PROXY=1 lark-cli docs +fetch \
@@ -72,6 +79,12 @@ references/monthly-docs.local.json
 ## Updating Behavior
 
 The helper chooses a document from the local monthly registry by the archive month. If the month is unknown, it first tries to search Feishu for an existing exact monthly title, then creates a new monthly document named `MM-YYYY 工作记录` if no match is available. The previous month's document remains unchanged as the archive.
+
+For first setup on a machine, initialize the local registry and current monthly document:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py --init
+```
 
 Inside a monthly document, the helper fetches the current Markdown, inserts `# MM-DD-YYYY` at the top when the date is new, or updates the existing same-date section. Items are normalized into domain buckets with nested subcategories, and older dated sections stay below the newer dates.
 
@@ -123,8 +136,14 @@ They still need their own `lark-cli` app config and user authorization. See [ref
 
 ## Token Use
 
-Normal archive runs print only a short success message. The script parses `lark-cli` JSON internally and does not dump full document content unless `--dry-run` or explicit fetch commands are used. Prefer the helper over manual fetch/update commands for token efficiency.
+Normal archive runs print only the document title, archive date, and added item count. The script parses `lark-cli` JSON internally and does not dump full document content unless `--dry-run` or explicit fetch commands are used. It does not print the full document locator unless `--print-doc` is passed. Prefer `--preview` over `--dry-run` for routine checks.
 
 ## Setup On A New PC
 
 Read [references/setup.md](references/setup.md) when `lark-cli` is missing, auth is invalid, or the user asks how to install/authorize Feishu CLI.
+
+After cloning this public repository, install the skill locally with:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/install.py
+```
