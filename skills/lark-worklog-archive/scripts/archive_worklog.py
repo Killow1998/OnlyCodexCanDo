@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import fcntl
 import hashlib
 import html
 import json
@@ -14,11 +13,22 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from contextlib import contextmanager
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
 from zoneinfo import ZoneInfo
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows fallback
+    fcntl = None
+
+try:
+    import msvcrt
+except ImportError:  # pragma: no cover - POSIX fallback
+    msvcrt = None
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -222,7 +232,7 @@ def load_category_config(path: str | None = None) -> dict:
         return config
     if not os.path.exists(path):
         raise SystemExit(f"Category rules file not found: {path}")
-    with open(path, "r", encoding="utf-8") as handle:
+    with open(path, "r", encoding="utf-8-sig") as handle:
         payload = json.load(handle)
     if not isinstance(payload, dict):
         raise SystemExit(f"Category rules file must be a JSON object: {path}")
@@ -252,10 +262,6 @@ def apply_category_config(config: dict) -> None:
     CATEGORY_RULES = list(config["category_rules"])
     SUBCATEGORY_RULES = list(config["subcategory_rules"])
 
-
-apply_category_config(load_category_config(default_category_rules_path()))
-
-
 def redact(value: str) -> str:
     value = re.sub(r"https?://[^\s)>\"]+", "<redacted-url>", value)
     value = re.sub(r"\bou_[A-Za-z0-9_-]{8,}\b", "<redacted-open-id>", value)
@@ -280,13 +286,30 @@ def compact_error(value: str, limit: int = 180) -> str:
     return clean
 
 
+def lark_cli_command() -> str | None:
+    configured = os.environ.get("LARK_CLI")
+    if configured:
+        return configured
+    names = ("lark-cli.cmd", "lark-cli.exe", "lark-cli") if os.name == "nt" else ("lark-cli",)
+    for name in names:
+        path = shutil.which(name)
+        if path:
+            return path
+    return None
+
+
 def run_lark(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.setdefault("LARK_CLI_NO_PROXY", "1")
+    command = lark_cli_command()
+    if not command:
+        raise SystemExit("lark-cli not found. Run: npx @larksuite/cli@latest install")
     proc = subprocess.run(
-        ["lark-cli", *args],
+        [command, *args],
         env=env,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
@@ -307,13 +330,25 @@ def month_lock(key: str, enabled: bool = True):
     if not enabled:
         yield
         return
-    path = os.path.join("/tmp", f"lark-worklog-archive-{key}.lock")
-    with open(path, "w", encoding="utf-8") as handle:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+    path = os.path.join(tempfile.gettempdir(), f"lark-worklog-archive-{key}.lock")
+    with open(path, "a+b") as handle:
+        handle.seek(0, os.SEEK_END)
+        if handle.tell() == 0:
+            handle.write(b"0")
+            handle.flush()
+        handle.seek(0)
+        if fcntl is not None:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        elif msvcrt is not None:
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
         try:
             yield
         finally:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            handle.seek(0)
+            if fcntl is not None:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            elif msvcrt is not None:
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def today(tz_name: str) -> dt.date:
@@ -490,9 +525,18 @@ def canonical_item(item: str) -> str:
         ("\\]", "]"),
         ("\\(", "("),
         ("\\)", ")"),
+        ("\\_", "_"),
     ):
         text = text.replace(escaped, plain)
     return text.strip()
+
+
+def verification_key(item: str) -> str:
+    text = canonical_item(item)
+    # Lark Markdown may round-trip Windows paths with different escaping.
+    # Verification should prove the content is present, not enforce a backslash style.
+    text = re.sub(r"\\+", r"\\", text)
+    return text
 
 
 def inline_markdown_to_xml(text: str) -> str:
@@ -721,6 +765,35 @@ def normalize_document_sections(current: str) -> str:
     return "\n\n".join(sections).strip() + "\n" if sections else ""
 
 
+def section_signature(section: str) -> dict[str, dict[str, list[str]]]:
+    groups = normalize_section_groups(section)
+    return {
+        category: {
+            subcategory: [verification_key(item) for item in items]
+            for subcategory, items in subgroups.items()
+            if items
+        }
+        for category, subgroups in groups.items()
+        if any(items for items in subgroups.values())
+    }
+
+
+def replace_document_section(current: str, target_date: str, replacement: str) -> str:
+    sections: list[str] = []
+    replaced = False
+    for section_date, section in split_sections(current):
+        if not section_date:
+            continue
+        if section_date == target_date:
+            sections.append(replacement.strip())
+            replaced = True
+        elif section.strip():
+            sections.append(section.strip())
+    if not replaced:
+        raise SystemExit(f"No section found for {target_date}. Use --all-dates to repair the whole month.")
+    return "\n\n".join(sections).strip() + "\n" if sections else ""
+
+
 def top_level_repair_notes(section_date: str, section: str) -> list[str]:
     notes: list[str] = []
     lines = section.splitlines()[1:]
@@ -899,35 +972,71 @@ def find_url(value: dict) -> str | None:
     token = value.get("token") or value.get("obj_token") or value.get("file_token")
     if isinstance(token, str) and token:
         return token
+    for child in value.values():
+        if isinstance(child, dict):
+            nested = find_url(child)
+            if nested:
+                return nested
+        elif isinstance(child, list):
+            for item in child:
+                if isinstance(item, dict):
+                    nested = find_url(item)
+                    if nested:
+                        return nested
     return None
 
 
-def find_doc_by_title(title: str) -> str | None:
-    proc = run_lark(
-        [
+def search_docs_by_title(title: str) -> list[dict]:
+    attempts = [
+        (
+            f'intitle:"{title}"',
+            '{"only_title":true,"doc_types":["DOC","DOCX"]}',
+        ),
+        (
+            title,
+            '{"only_title":true,"doc_types":["DOC","DOCX"]}',
+        ),
+        (
+            title,
+            None,
+        ),
+    ]
+    matches: list[dict] = []
+    seen: set[str] = set()
+    for query, filter_value in attempts:
+        args = [
             "docs",
             "+search",
             "--as",
             "user",
             "--query",
-            f'intitle:"{title}"',
-            "--filter",
-            '{"only_title":true,"doc_types":["DOC","DOCX"]}',
+            query,
             "--page-size",
             "10",
-        ],
-        check=False,
-    )
-    if proc.returncode != 0:
-        return None
-    try:
-        payload = json.loads(proc.stdout)
-    except json.JSONDecodeError:
-        return None
-    for item in iter_dicts(payload):
-        candidate_title = item.get("title") or item.get("name") or item.get("title_highlighted")
-        if not isinstance(candidate_title, str) or strip_tags(candidate_title) != title:
+        ]
+        if filter_value:
+            args.extend(["--filter", filter_value])
+        proc = run_lark(args, check=False)
+        if proc.returncode != 0:
             continue
+        try:
+            payload = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            continue
+        for item in iter_dicts(payload):
+            candidate_title = item.get("title") or item.get("name") or item.get("title_highlighted")
+            if not isinstance(candidate_title, str) or strip_tags(candidate_title) != title:
+                continue
+            url = find_url(item)
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            matches.append(item)
+    return matches
+
+
+def find_doc_by_title(title: str) -> str | None:
+    for item in search_docs_by_title(title):
         url = find_url(item)
         if url:
             return url
@@ -1041,12 +1150,12 @@ def verify_items(doc: str, date: str, items: list[str]) -> int:
     section = sections.get(date, "")
     section_groups = normalize_section_groups(section)
     section_items = {
-        canonical_item(item)
+        verification_key(item)
         for subgroups in section_groups.values()
         for items in subgroups.values()
         for item in items
     }
-    missing = [item for item in items if canonical_item(item) not in section_items]
+    missing = [canonical_item(item) for item in items if verification_key(item) not in section_items]
     if missing:
         raise SystemExit(f"Verification failed; missing archived item(s): {missing}")
     return revision_id
@@ -1352,7 +1461,7 @@ def run_doctor(args: argparse.Namespace, archive_day: dt.date) -> int:
     def add(status: str, name: str, detail: str, fix: str | None = None) -> None:
         checks.append((status, name, detail, fix))
 
-    lark_path = shutil.which("lark-cli")
+    lark_path = lark_cli_command()
     if lark_path:
         add("ok", "lark-cli", lark_path)
     else:
@@ -1370,13 +1479,13 @@ def run_doctor(args: argparse.Namespace, archive_day: dt.date) -> int:
                 "fail",
                 "auth",
                 auth_error or "not authorized",
-                'env LARK_CLI_NO_PROXY=1 lark-cli auth login --recommend --domain docs,drive,markdown --scope "search:docs:read"',
+                'lark-cli auth login --recommend --domain docs,drive,markdown --scope "search:docs:read"',
             )
 
     try:
         load_category_config(args.category_rules)
         add("ok", "category rules", args.category_rules or "built-in defaults")
-    except SystemExit as exc:
+    except (OSError, json.JSONDecodeError, SystemExit) as exc:
         add("fail", "category rules", str(exc), "fix the JSON file or remove LARK_WORKLOG_CATEGORY_RULES")
 
     docs: dict[str, str] = {}
@@ -1473,6 +1582,11 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
                 return ArchiveResult(doc or "", title, archive_date, len(unique_items), dry_run=True)
             if args.normalize_only and not doc:
                 raise SystemExit("No monthly document found to normalize.")
+            if args.existing_only and not doc:
+                raise SystemExit(
+                    f"No existing monthly worklog found for {title}. "
+                    "Run --init --existing-only after registering an existing document, or rerun without --existing-only to create one."
+                )
             same_day_top = bool(split_sections(current) and split_sections(current)[0][0] == archive_date)
             if doc and same_day_top and not args.force_overwrite:
                 # Same-day grouping changes the current day section; use a section-level replace
@@ -1552,11 +1666,12 @@ def repair_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date:
             if not args.no_cache:
                 remember_doc_cache(args.cache, args.registry, key, title, doc, revision_id)
             return RepairResult(doc, title, [archive_date], False)
-        if not update_section(doc, existing_section, normalized_section, revision_id):
-            raise SystemExit("Repair failed during section replacement. Re-fetch and retry.")
+        repaired_document = replace_document_section(current, archive_date, normalized_section)
+        if not update_doc(doc, markdown_to_xml(repaired_document, title), revision_id, title=title):
+            raise SystemExit("Repair failed during full-document rewrite.")
         latest, latest_revision_id = fetch_doc(doc)
         repaired = dict(split_sections(latest)).get(archive_date, "")
-        if normalize_date_section(archive_date, repaired).strip() != normalized_section.strip():
+        if section_signature(repaired) != section_signature(normalized_section):
             raise SystemExit(f"Repair verification failed for {archive_date}.")
         print_repair_notes(notes)
         if not args.no_cache:
@@ -1577,7 +1692,7 @@ def run_init(args: argparse.Namespace, archive_day: dt.date, archive_date: str) 
     if not user_open_id:
         raise SystemExit(
             "lark-cli user auth is not ready. "
-            'Run: env LARK_CLI_NO_PROXY=1 lark-cli auth login --recommend --domain docs,drive,markdown --scope "search:docs:read"'
+            'Run: lark-cli auth login --recommend --domain docs,drive,markdown --scope "search:docs:read"'
         )
     docs, owner_open_id = load_registry(args.registry)
     metadata = normalized_registry_metadata(args, load_registry_metadata(args.registry), user_open_id)
@@ -1591,6 +1706,11 @@ def run_init(args: argparse.Namespace, archive_day: dt.date, archive_date: str) 
         if not doc and not args.no_search_existing:
             doc = find_doc_by_title(title)
         if not doc:
+            if args.existing_only:
+                raise SystemExit(
+                    f"No existing monthly worklog found for {title}. "
+                    "Pass --doc to register a known document, or rerun --init without --existing-only to create one."
+                )
             doc = create_doc(title, markdown_to_xml("", title))
             action = "Created"
         docs[key] = doc
@@ -1649,6 +1769,7 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="Print the merged Markdown only. Use --preview for a short output.")
     parser.add_argument("--no-lock", action="store_true", help="Disable local month lock.")
     parser.add_argument("--no-search-existing", action="store_true", help="Do not search Feishu for an existing monthly doc before creating.")
+    parser.add_argument("--existing-only", action="store_true", help="Use only an existing monthly document; never create a new one.")
     parser.add_argument("--register-doc", action="store_true", help="Save --doc as this month's registry entry after a successful update.")
     parser.add_argument("--force-overwrite", action="store_true", help="Always rewrite the monthly document instead of same-day block insertion.")
     parser.add_argument("--normalize-only", action="store_true", help="Rewrite the current monthly document into the normalized list structure without requiring new items.")

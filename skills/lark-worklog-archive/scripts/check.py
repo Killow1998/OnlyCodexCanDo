@@ -26,7 +26,9 @@ FORBIDDEN_PATTERNS = [
 
 def run(name: str, args: list[str]) -> bool:
     print(f"[run] {name}")
-    proc = subprocess.run(args, cwd=REPO_ROOT, text=True, check=False)
+    env = os.environ.copy()
+    env.setdefault("PYTHONUTF8", "1")
+    proc = subprocess.run(args, cwd=REPO_ROOT, env=env, text=True, encoding="utf-8", errors="replace", check=False)
     if proc.returncode == 0:
         print(f"[ok] {name}")
         return True
@@ -65,6 +67,18 @@ def sensitive_scan() -> bool:
             print(f"  {item}")
         return False
     print("[ok] sensitive scan")
+    return True
+
+
+def cache_dir_scan() -> bool:
+    print("[run] cache directory scan")
+    caches = sorted(path for path in SKILL_DIR.rglob("__pycache__") if path.is_dir())
+    if caches:
+        print("[fail] cache directory scan")
+        for path in caches:
+            print(f"  {path.relative_to(REPO_ROOT)}")
+        return False
+    print("[ok] cache directory scan")
     return True
 
 
@@ -110,14 +124,17 @@ def main() -> int:
     parser.add_argument("--skip-global", action="store_true", help="Skip comparing the global installed skill copy.")
     args = parser.parse_args()
 
+    python = sys.executable
+    syntax_code = "import pathlib, sys; [compile(pathlib.Path(p).read_text(encoding='utf-8'), p, 'exec') for p in sys.argv[1:]]"
     checks = [
-        run("unit tests", ["python3", "-m", "unittest", "discover", "-s", str(SKILL_DIR / "tests")]),
-        run("py_compile", ["python3", "-m", "py_compile", str(SKILL_DIR / "scripts" / "archive_worklog.py"), str(SKILL_DIR / "scripts" / "install.py"), str(SKILL_DIR / "scripts" / "check.py")]),
+        run("unit tests", [python, "-B", "-m", "unittest", "discover", "-s", str(SKILL_DIR / "tests")]),
+        run("syntax check", [python, "-B", "-c", syntax_code, str(SKILL_DIR / "scripts" / "archive_worklog.py"), str(SKILL_DIR / "scripts" / "install.py"), str(SKILL_DIR / "scripts" / "check.py")]),
         sensitive_scan(),
-        run("install dry-run", ["python3", str(SKILL_DIR / "scripts" / "install.py"), "--dry-run"]),
+        cache_dir_scan(),
+        run("install dry-run", [python, str(SKILL_DIR / "scripts" / "install.py"), "--dry-run"]),
     ]
     if QUICK_VALIDATE.exists():
-        checks.append(run("skill validate", ["python3", str(QUICK_VALIDATE), str(SKILL_DIR.relative_to(REPO_ROOT))]))
+        checks.append(run("skill validate", [python, str(QUICK_VALIDATE), str(SKILL_DIR.relative_to(REPO_ROOT))]))
     else:
         print(f"[warn] skill validate skipped; not found: {QUICK_VALIDATE}")
     if not args.skip_global:

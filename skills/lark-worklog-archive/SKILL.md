@@ -33,18 +33,20 @@ references/monthly-docs.local.json
 
 ## Workflow
 
+Use Windows Terminal with a PowerShell profile on Windows. Use `python` there and `python3` on Unix systems where `python` is not Python 3. Use `lark-cli.cmd` on Windows if PowerShell blocks `lark-cli.ps1`.
+
 1. Collect today's actual work from the conversation, tool outputs, git diff, command history, or user-provided summary.
 2. Convert it to bullet items. Do not invent work.
 3. Confirm `lark-cli` is installed and authorized:
 
    ```bash
-   python3 skills/lark-worklog-archive/scripts/archive_worklog.py --doctor
+   python skills/lark-worklog-archive/scripts/archive_worklog.py --doctor
    ```
 
 4. Preview the target month/date and classification when the items are non-trivial:
 
    ```bash
-   python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+   python skills/lark-worklog-archive/scripts/archive_worklog.py \
      --preview \
      --item "完成 X，并通过 Y 验证。"
    ```
@@ -52,7 +54,7 @@ references/monthly-docs.local.json
 5. Run the archive helper:
 
    ```bash
-   python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+   python skills/lark-worklog-archive/scripts/archive_worklog.py \
      --item "完成 X，并通过 Y 验证。" \
      --item "修改 Z，遗留问题是 W。"
    ```
@@ -60,10 +62,17 @@ references/monthly-docs.local.json
    Or pass a prepared bullet list through stdin:
 
    ```bash
+   python -c "import sys; sys.stdout.write('- 完成 X。\n- 通过 Y 验证。\n')" |
+   python skills/lark-worklog-archive/scripts/archive_worklog.py
+   ```
+
+   Unix shells can also use:
+
+   ```bash
    printf '%s\n' \
      '- 完成 X。' \
      '- 通过 Y 验证。' |
-   python3 skills/lark-worklog-archive/scripts/archive_worklog.py
+   python skills/lark-worklog-archive/scripts/archive_worklog.py
    ```
 
    The helper handles concurrent local conversations with a per-month lock, uses Feishu revision IDs for optimistic retry, and verifies that the submitted bullets exist after the update. If today's date is already the active top section, it replaces only that day's section so category buckets stay coherent without rewriting unrelated dates.
@@ -71,7 +80,7 @@ references/monthly-docs.local.json
 6. Fetch the current monthly document after updating only when debugging or auditing a structural change:
 
    ```bash
-   env LARK_CLI_NO_PROXY=1 lark-cli docs +fetch \
+   LARK_CLI_NO_PROXY=1 lark-cli docs +fetch \
      --api-version v2 \
      --as user \
      --doc "<doc-url-printed-by-archive_worklog.py>" \
@@ -80,12 +89,24 @@ references/monthly-docs.local.json
 
 ## Updating Behavior
 
-The helper chooses a document from the local monthly registry by the archive month. If the month is unknown, it first tries to search Feishu for an existing exact monthly title, then creates a new monthly document named `MM-YYYY 工作记录` if no match is available. The previous month's document remains unchanged as the archive.
+The helper chooses a document from the local monthly registry by the archive month. If the month is unknown, it first tries to search Feishu for an existing exact monthly title. Use `--existing-only` during reinstall/recovery when the user already has a worklog and a new document would be wrong; in that mode the helper fails instead of creating. Without `--existing-only`, the helper may create a new monthly document named `MM-YYYY 工作记录` if no match is available. The previous month's document remains unchanged as the archive.
 
-For first setup on a machine, initialize the local registry and current monthly document:
+For reinstall or a machine where the user already has a worklog, initialize the local registry from an existing monthly document only:
 
 ```bash
-python3 skills/lark-worklog-archive/scripts/archive_worklog.py --init
+python skills/lark-worklog-archive/scripts/archive_worklog.py --init --existing-only
+```
+
+If search cannot find the existing document, pass its URL/token manually:
+
+```bash
+python skills/lark-worklog-archive/scripts/archive_worklog.py --init --existing-only --doc "<existing-doc-url-or-token>"
+```
+
+For first setup on a machine where no current-month worklog exists, initialize the local registry and allow the helper to create the current monthly document:
+
+```bash
+python skills/lark-worklog-archive/scripts/archive_worklog.py --init
 ```
 
 Inside a monthly document, the helper fetches the current Markdown, inserts `# MM-DD-YYYY` at the top when the date is new, or updates the existing same-date section. Items are normalized into domain buckets with nested subcategories, and older dated sections stay below the newer dates.
@@ -109,11 +130,11 @@ Use `--dry-run` before writing if the bullet list is long or the current documen
 To repair existing document structure without adding new bullets:
 
 ```bash
-python3 skills/lark-worklog-archive/scripts/archive_worklog.py --normalize-only --date 05-20-2026
-python3 skills/lark-worklog-archive/scripts/archive_worklog.py --normalize-only --all-dates
+python skills/lark-worklog-archive/scripts/archive_worklog.py --normalize-only --date 05-20-2026
+python skills/lark-worklog-archive/scripts/archive_worklog.py --normalize-only --all-dates
 ```
 
-`--normalize-only --date` replaces only that day's section. `--all-dates` rewrites the monthly document and prints a migration report.
+`--normalize-only --date` normalizes one target day, then writes the repaired monthly document with a guarded full-document rewrite so the Feishu title and date headings survive the repair. `--all-dates` rewrites the monthly document and prints a migration report.
 
 Do not commit private registries, document addresses, OpenID values, app IDs, tokens, or API endpoints. The repository contains only `monthly-docs.example.json`; each user keeps real mappings in an ignored local registry or a private config path.
 
@@ -122,8 +143,7 @@ Do not commit private registries, document addresses, OpenID values, app IDs, to
 Default domain and subcategory rules are built in. To customize them, copy `references/category-rules.example.json` to an ignored local path:
 
 ```bash
-cp skills/lark-worklog-archive/references/category-rules.example.json \
-  skills/lark-worklog-archive/references/category-rules.local.json
+python -c "import shutil; shutil.copyfile('skills/lark-worklog-archive/references/category-rules.example.json', 'skills/lark-worklog-archive/references/category-rules.local.json')"
 ```
 
 The helper also accepts `$HOME/.config/lark-worklog-archive/category-rules.json`, `LARK_WORKLOG_CATEGORY_RULES`, or `--category-rules <path>`.
@@ -131,7 +151,7 @@ The helper also accepts `$HOME/.config/lark-worklog-archive/category-rules.json`
 Check classification without touching Feishu:
 
 ```bash
-python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+python skills/lark-worklog-archive/scripts/archive_worklog.py \
   --classify-only \
   --item "验证 n3mapping Humble launch smoke。"
 ```
@@ -143,8 +163,15 @@ Friends can use the skill and the same script, but they must use their own local
 For another person, set a personal registry path:
 
 ```bash
-export LARK_WORKLOG_REGISTRY="$HOME/.config/lark-worklog-archive/monthly-docs.json"
-python3 skills/lark-worklog-archive/scripts/archive_worklog.py --item "初始化我的工作记录。"
+LARK_WORKLOG_REGISTRY="$HOME/.config/lark-worklog-archive/monthly-docs.json" \
+python skills/lark-worklog-archive/scripts/archive_worklog.py --item "初始化我的工作记录。"
+```
+
+Windows PowerShell:
+
+```powershell
+$env:LARK_WORKLOG_REGISTRY="$HOME\.config\lark-worklog-archive\monthly-docs.json"
+python skills/lark-worklog-archive/scripts/archive_worklog.py --item "初始化我的工作记录。"
 ```
 
 They still need their own `lark-cli` app config and user authorization. See [references/setup.md](references/setup.md).
@@ -152,7 +179,7 @@ They still need their own `lark-cli` app config and user authorization. See [ref
 For a shared team worklog, initialize an explicit team registry:
 
 ```bash
-python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+python skills/lark-worklog-archive/scripts/archive_worklog.py \
   --init --team --team-id "<team-name>" --title-prefix "<team-title>"
 ```
 
@@ -169,5 +196,5 @@ Read [references/setup.md](references/setup.md) when `lark-cli` is missing, auth
 After cloning this public repository, install the skill locally with:
 
 ```bash
-python3 skills/lark-worklog-archive/scripts/install.py
+python skills/lark-worklog-archive/scripts/install.py
 ```

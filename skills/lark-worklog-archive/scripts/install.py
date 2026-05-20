@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -23,6 +24,57 @@ def check(name: str, command: str, fix: str | None = None) -> bool:
     if fix:
         print(f"  fix: {fix}")
     return False
+
+
+def lark_cli_command() -> str | None:
+    configured = os.environ.get("LARK_CLI")
+    if configured:
+        return configured
+    names = ("lark-cli.cmd", "lark-cli.exe", "lark-cli") if os.name == "nt" else ("lark-cli",)
+    for name in names:
+        path = shutil.which(name)
+        if path:
+            return path
+    return None
+
+
+def check_lark_cli() -> bool:
+    found = lark_cli_command()
+    if found:
+        print(f"[ok] lark-cli: {found}")
+        return True
+    print("[warn] lark-cli: not found")
+    print("  fix: npx @larksuite/cli@latest install")
+    if os.name == "nt":
+        print("  note: use lark-cli.cmd if PowerShell blocks lark-cli.ps1")
+    return False
+
+
+def node_version_tuple(value: str) -> tuple[int, int, int] | None:
+    value = value.strip().lstrip("v")
+    parts = value.split(".")
+    if len(parts) < 2:
+        return None
+    try:
+        major = int(parts[0])
+        minor = int(parts[1])
+        patch = int(parts[2]) if len(parts) > 2 else 0
+    except ValueError:
+        return None
+    return major, minor, patch
+
+
+def check_node_version() -> None:
+    node = shutil.which("node")
+    if not node:
+        return
+    proc = subprocess.run([node, "--version"], text=True, encoding="utf-8", errors="replace", stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    if proc.returncode != 0:
+        return
+    version = node_version_tuple(proc.stdout)
+    if version and version < (20, 12, 0):
+        print(f"[warn] node version: {proc.stdout.strip()} may be too old for the latest @larksuite/cli installer")
+        print("  fix: upgrade Node.js to 20.12.0 or newer, then rerun npx @larksuite/cli@latest install")
 
 
 def copy_skill(source: Path, target: Path, dry_run: bool) -> None:
@@ -54,10 +106,12 @@ def main() -> int:
     print(f"Installing {source.name}")
     check("python", sys.executable)
     check("node", "node")
+    check_node_version()
     check("npm", "npm")
-    check("lark-cli", "lark-cli", "npx @larksuite/cli@latest install")
+    check_lark_cli()
     copy_skill(source, target, args.dry_run)
     print(f"[ok] skill target: {target}")
+    print("This installer only copies the skill. It does not create a Feishu/Lark app or monthly worklog.")
     print("Restart Codex so the newly installed or updated skill is loaded.")
     return 0
 
