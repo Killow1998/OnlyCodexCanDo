@@ -50,7 +50,8 @@ def iter_public_files(root: Path):
 
 def sensitive_scan() -> bool:
     print("[run] sensitive scan")
-    paths = [REPO_ROOT / "README.md", REPO_ROOT / ".gitignore"]
+    paths = sorted(REPO_ROOT.glob("README*.md"))
+    paths.append(REPO_ROOT / ".gitignore")
     paths.extend(iter_public_files(SKILL_DIR))
     violations: list[str] = []
     for path in paths:

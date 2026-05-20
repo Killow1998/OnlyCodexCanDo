@@ -812,7 +812,9 @@ class ArchiveWorklogTests(unittest.TestCase):
             re.compile(r"\bou_[0-9a-f]{16,}\b"),
             re.compile(r"\bcli_[a-f0-9]{12,}\b"),
         ]
-        paths = [path for path in (REPO_ROOT / "README.md", REPO_ROOT / ".gitignore") if path.exists()]
+        paths = sorted(REPO_ROOT.glob("README*.md"))
+        if (REPO_ROOT / ".gitignore").exists():
+            paths.append(REPO_ROOT / ".gitignore")
         paths.extend(path for path in SKILL_DIR.rglob("*") if path.is_file())
         violations: list[str] = []
         for path in paths:
