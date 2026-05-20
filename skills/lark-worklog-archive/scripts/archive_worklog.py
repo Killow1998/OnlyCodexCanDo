@@ -301,12 +301,14 @@ def lark_content_arg(content: str) -> tuple[str, str | None]:
         encoding="utf-8",
         newline="\n",
         delete=False,
+        dir=os.getcwd(),
         prefix="lark-worklog-content-",
         suffix=".xml",
     )
     try:
         handle.write(content)
-        return f"@{handle.name}", handle.name
+        relative = os.path.relpath(handle.name, os.getcwd()).replace(os.sep, "/")
+        return f"@./{relative}", handle.name
     finally:
         handle.close()
 

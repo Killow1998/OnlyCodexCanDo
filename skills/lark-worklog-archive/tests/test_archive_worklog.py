@@ -644,28 +644,22 @@ class ArchiveWorklogTests(unittest.TestCase):
         def fake_run(args, **kwargs):
             captured["args"] = args
             content_arg = args[args.index("--content") + 1]
-            self.assertTrue(content_arg.startswith("@"))
-            temp_path = content_arg[1:]
+            self.assertTrue(content_arg.startswith("@./"))
+            self.assertFalse(Path(content_arg[1:]).is_absolute())
+            temp_path = str(Path(content_arg[1:]).resolve())
             temp_path_holder["path"] = temp_path
-            self.assertIn("space dir", temp_path)
             self.assertTrue(Path(temp_path).exists())
             self.assertEqual(Path(temp_path).read_text(encoding="utf-8"), "<p>一</p>\n<p>二</p>")
             return subprocess.CompletedProcess(args, 0, '{"ok": true}', "")
 
         with tempfile.TemporaryDirectory(prefix="space dir ") as tempdir:
-            real_named_temporary_file = tempfile.NamedTemporaryFile
-
-            def named_temporary_file(*args, **kwargs):
-                kwargs["dir"] = tempdir
-                return real_named_temporary_file(*args, **kwargs)
-
-            with (
-                mock.patch.object(self.mod, "LARK_CONTENT_INLINE_LIMIT", 4),
-                mock.patch.object(self.mod.tempfile, "NamedTemporaryFile", named_temporary_file),
-                mock.patch.object(self.mod, "lark_cli_command", return_value="lark-cli.cmd"),
-                mock.patch.object(self.mod.subprocess, "run", fake_run),
-            ):
-                self.mod.run_lark(["docs", "+update", "--content", "<p>一</p>\r\n<p>二</p>"])
+            with self.chdir(tempdir):
+                with (
+                    mock.patch.object(self.mod, "LARK_CONTENT_INLINE_LIMIT", 4),
+                    mock.patch.object(self.mod, "lark_cli_command", return_value="lark-cli.cmd"),
+                    mock.patch.object(self.mod.subprocess, "run", fake_run),
+                ):
+                    self.mod.run_lark(["docs", "+update", "--content", "<p>一</p>\r\n<p>二</p>"])
         self.assertEqual(captured["args"][0], "lark-cli.cmd")
         self.assertFalse(Path(temp_path_holder["path"]).exists())
 
