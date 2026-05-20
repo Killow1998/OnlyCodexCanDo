@@ -677,6 +677,20 @@ class ArchiveWorklogTests(unittest.TestCase):
                 self.assertIn(f"  - {new}\n    - 迁移旧分类。", rendered)
                 self.assertNotIn(f"  - {old}\n", rendered)
 
+    def test_explicit_work_domain_keeps_unitree_onboard_items_under_go2w(self) -> None:
+        markdown = """# 05-20-2026
+
+- Go2-W 实机开发
+  - 工作内容
+    - 完成 Unitree onboard computer 的远程 Codex 开发环境准备。
+  - 结果
+    - 已验证远端机器为 Ubuntu 20.04.5 LTS、aarch64、Tegra 环境。
+"""
+        normalized = self.mod.normalize_date_section("05-20-2026", markdown)
+        self.assertIn("- Go2-W 实机开发\n  - 工作内容", normalized)
+        self.assertIn("完成 Unitree onboard computer 的远程 Codex 开发环境准备。", normalized)
+        self.assertNotIn("- RL 环境", normalized)
+
     def test_doctor_reports_bad_category_rules_instead_of_import_crashing(self) -> None:
         fake = FakeLark("")
         self.mod.run_lark = fake

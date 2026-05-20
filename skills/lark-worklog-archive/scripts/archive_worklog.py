@@ -55,9 +55,9 @@ INTERNAL_NOTE_ITEMS = {
 BUILTIN_CATEGORY_ORDER = [
     "飞书 CLI / 工作记录",
     "Ubuntu 环境",
+    "Go2-W 实机开发",
     "n3mapping",
     "RL 环境",
-    "Go2-W 实机开发",
     "其他",
 ]
 BUILTIN_SUBCATEGORY_ORDER = [
@@ -106,6 +106,21 @@ BUILTIN_CATEGORY_RULES = [
         ),
     ),
     (
+        "Go2-W 实机开发",
+        (
+            "go2-w",
+            "go2w 主机",
+            "实机",
+            "unitree 主机",
+            "unitree onboard",
+            "onboard computer",
+            "tegra",
+            "远程 codex",
+            "部署",
+            "反向代理隧道",
+        ),
+    ),
+    (
         "n3mapping",
         (
             "n3mapping",
@@ -126,31 +141,18 @@ BUILTIN_CATEGORY_RULES = [
         (
             "rl",
             "robot_lab",
-            "go2w",
             "isaac",
             "isaac sim",
             "isaac lab",
             "seanav",
             "sea-nav",
             "him",
-            "unitree",
             "applauncher",
             "venv",
             "虚拟环境",
             "迁移包",
             "多地形",
             "训练",
-        ),
-    ),
-    (
-        "Go2-W 实机开发",
-        (
-            "go2-w",
-            "go2w 主机",
-            "实机",
-            "unitree 主机",
-            "远程 codex",
-            "部署",
         ),
     ),
     (
@@ -830,12 +832,10 @@ def normalize_section_groups(section: str) -> dict[str, dict[str, list[str]]]:
                     target_category = category or categorize_item(content)
                     target_subcategory = subcategory or subcategorize_item(content)
                 elif current_category and current_subcategory and level > 1:
-                    guessed_category = category or categorize_item(content)
-                    target_category = guessed_category if guessed_category != FALLBACK_CATEGORY else current_category
+                    target_category = category or current_category
                     target_subcategory = current_subcategory
                 elif current_category:
-                    guessed_category = category or categorize_item(content)
-                    target_category = guessed_category if guessed_category != FALLBACK_CATEGORY else current_category
+                    target_category = category or current_category
                     target_subcategory = subcategory or subcategorize_item(content)
                 elif current_subcategory:
                     target_category = category or categorize_item(content)

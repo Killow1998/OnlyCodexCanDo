@@ -3,9 +3,9 @@
   "category_order": [
     "飞书 CLI / 工作记录",
     "Ubuntu 环境",
+    "Go2-W 实机开发",
     "n3mapping",
     "RL 环境",
-    "Go2-W 实机开发",
     "其他"
   ],
   "subcategory_order": [
@@ -49,6 +49,21 @@
       ]
     },
     {
+      "name": "Go2-W 实机开发",
+      "keywords": [
+        "go2-w",
+        "go2w 主机",
+        "实机",
+        "unitree 主机",
+        "unitree onboard",
+        "onboard computer",
+        "tegra",
+        "远程 codex",
+        "部署",
+        "反向代理隧道"
+      ]
+    },
+    {
       "name": "n3mapping",
       "keywords": [
         "n3mapping",
@@ -77,17 +92,6 @@
         "虚拟环境",
         "训练",
         "复现"
-      ]
-    },
-    {
-      "name": "Go2-W 实机开发",
-      "keywords": [
-        "go2-w",
-        "go2w 主机",
-        "实机",
-        "unitree 主机",
-        "远程 codex",
-        "部署"
       ]
     }
   ],
