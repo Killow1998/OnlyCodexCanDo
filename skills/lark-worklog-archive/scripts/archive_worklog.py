@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import fcntl
+import hashlib
 import html
 import json
 import os
@@ -26,6 +27,8 @@ PRIVATE_REGISTRY = os.path.join(SKILL_DIR, "references", "monthly-docs.local.jso
 DEFAULT_REGISTRY = os.path.join(os.path.expanduser("~"), ".config", "lark-worklog-archive", "monthly-docs.json")
 PRIVATE_CATEGORY_RULES = os.path.join(SKILL_DIR, "references", "category-rules.local.json")
 DEFAULT_CATEGORY_RULES = os.path.join(os.path.expanduser("~"), ".config", "lark-worklog-archive", "category-rules.json")
+DEFAULT_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "lark-worklog-archive", "cache.json")
+DEFAULT_FAILED_QUEUE = os.path.join(os.path.expanduser("~"), ".local", "state", "lark-worklog-archive", "failed-queue.jsonl")
 DATE_HEADING = re.compile(r"(?m)^#{1,6} ((?:\d{4}-\d{2}-\d{2})|(?:\d{2}-\d{2}-\d{4}))\s*$")
 INTERNAL_NOTE_ITEMS = {
     "今日通过 Codex/Agent 完成的工作",
@@ -179,6 +182,14 @@ def default_category_rules_path() -> str | None:
     if os.path.exists(DEFAULT_CATEGORY_RULES):
         return DEFAULT_CATEGORY_RULES
     return None
+
+
+def default_cache_path() -> str:
+    return os.environ.get("LARK_WORKLOG_CACHE", DEFAULT_CACHE)
+
+
+def default_failed_queue_path() -> str:
+    return os.environ.get("LARK_WORKLOG_FAILED_QUEUE", DEFAULT_FAILED_QUEUE)
 
 
 def normalize_named_rules(value) -> list[tuple[str, tuple[str, ...]]]:
@@ -973,8 +984,8 @@ def insert_after_block(doc: str, block_id: str, content_xml: str, revision_id: i
     return proc.returncode == 0
 
 
-def verify_items(doc: str, date: str, items: list[str]) -> None:
-    content, _ = fetch_doc(doc)
+def verify_items(doc: str, date: str, items: list[str]) -> int:
+    content, revision_id = fetch_doc(doc)
     sections = dict(split_sections(content))
     section = sections.get(date, "")
     section_groups = normalize_section_groups(section)
@@ -987,6 +998,7 @@ def verify_items(doc: str, date: str, items: list[str]) -> None:
     missing = [item for item in items if canonical_item(item) not in section_items]
     if missing:
         raise SystemExit(f"Verification failed; missing archived item(s): {missing}")
+    return revision_id
 
 
 def auth_status_payload() -> tuple[dict | None, str | None]:
@@ -1103,6 +1115,117 @@ def save_registry(path: str, docs: dict[str, str], owner_open_id: str | None = N
         return False
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(new)
+    return True
+
+
+def cache_scope(registry_path: str) -> str:
+    absolute = os.path.abspath(os.path.expanduser(registry_path))
+    return hashlib.sha256(absolute.encode("utf-8")).hexdigest()[:16]
+
+
+def load_json_file(path: str, fallback):
+    if not os.path.exists(path):
+        return fallback
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return fallback
+
+
+def save_json_file(path: str, payload) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+
+
+def cached_doc(cache_path: str, registry_path: str, key: str, title: str) -> str | None:
+    payload = load_json_file(cache_path, {})
+    if not isinstance(payload, dict):
+        return None
+    entry = payload.get(cache_scope(registry_path), {}).get(key)
+    if not isinstance(entry, dict) or entry.get("title") != title:
+        return None
+    doc = entry.get("doc")
+    return str(doc) if doc else None
+
+
+def remember_doc_cache(cache_path: str, registry_path: str, key: str, title: str, doc: str, revision_id: int | None = None) -> None:
+    payload = load_json_file(cache_path, {})
+    if not isinstance(payload, dict):
+        payload = {}
+    scope = cache_scope(registry_path)
+    payload.setdefault(scope, {})
+    payload[scope][key] = {
+        "doc": doc,
+        "title": title,
+        "revision_id": revision_id,
+        "updated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+    }
+    save_json_file(cache_path, payload)
+
+
+def read_failed_queue(path: str) -> list[dict]:
+    if not os.path.exists(path):
+        return []
+    entries: list[dict] = []
+    with open(path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(entry, dict):
+                entries.append(entry)
+    return entries
+
+
+def write_failed_queue(path: str, entries: list[dict]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        for entry in entries:
+            handle.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+
+
+def failed_queue_items(path: str, registry_path: str, date: str) -> list[str]:
+    scope = cache_scope(registry_path)
+    result: list[str] = []
+    for entry in read_failed_queue(path):
+        if entry.get("scope") != scope or entry.get("date") != date:
+            continue
+        items = entry.get("items", [])
+        if isinstance(items, list):
+            result.extend(str(item) for item in items if str(item).strip())
+    return dedupe(result)
+
+
+def append_failed_queue(path: str, registry_path: str, date: str, title: str, items: list[str], reason: str) -> None:
+    if not items:
+        return
+    entries = read_failed_queue(path)
+    entry = {
+        "scope": cache_scope(registry_path),
+        "date": date,
+        "title": title,
+        "items": dedupe(items),
+        "reason": compact_error(reason),
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+    }
+    entries.append(entry)
+    write_failed_queue(path, entries)
+
+
+def remove_failed_queue_date(path: str, registry_path: str, date: str) -> bool:
+    entries = read_failed_queue(path)
+    scope = cache_scope(registry_path)
+    remaining = [entry for entry in entries if not (entry.get("scope") == scope and entry.get("date") == date)]
+    if len(remaining) == len(entries):
+        return False
+    write_failed_queue(path, remaining)
     return True
 
 
@@ -1258,15 +1381,21 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
     title = document_title(archive_day, metadata)
     key = month_key(archive_day)
     doc = args.doc or docs.get(key)
+    if not doc and not args.no_cache:
+        doc = cached_doc(args.cache, args.registry, key, title)
+        if doc and args.verbose:
+            print(f"Using cached monthly document for {title}", file=sys.stderr)
     if not doc and not args.no_search_existing:
         doc = find_doc_by_title(title)
         if doc and args.verbose:
             print(f"Found existing monthly document: {title}", file=sys.stderr)
 
     written_items: list[str] = []
+    cached_revision_id: int | None = None
     with month_lock(key, enabled=not args.no_lock):
         for attempt in range(1, args.retries + 1):
             current, revision_id = fetch_doc(doc) if doc else ("", -1)
+            cached_revision_id = revision_id if revision_id >= 0 else cached_revision_id
             existing_section = dict(split_sections(current)).get(archive_date, "")
             existing_groups = normalize_section_groups(existing_section)
             existing_items = {
@@ -1281,6 +1410,8 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
                 if doc and (not args.doc or args.register_doc):
                     docs[key] = doc
                     save_registry(args.registry, docs, owner_open_id or user_open_id, metadata)
+                    if not args.no_cache:
+                        remember_doc_cache(args.cache, args.registry, key, title, doc, cached_revision_id)
                 return ArchiveResult(doc or "", title, archive_date, 0)
             merged = merge_document(current, archive_date, unique_items)
             if args.dry_run:
@@ -1315,7 +1446,9 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
             docs[key] = doc
             save_registry(args.registry, docs, owner_open_id or user_open_id, metadata)
         if written_items:
-            verify_items(doc, archive_date, written_items)
+            cached_revision_id = verify_items(doc, archive_date, written_items)
+        if doc and not args.no_cache:
+            remember_doc_cache(args.cache, args.registry, key, title, doc, cached_revision_id)
     return ArchiveResult(doc or "", title, archive_date, len(written_items))
 
 
@@ -1342,10 +1475,14 @@ def repair_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date:
                 return RepairResult(doc, title, dates, normalized.strip() != current.strip(), dry_run=True)
             if normalized.strip() == strip_non_date_title(current).strip():
                 print_repair_notes(notes)
+                if not args.no_cache:
+                    remember_doc_cache(args.cache, args.registry, key, title, doc, revision_id)
                 return RepairResult(doc, title, dates, False)
             if not update_doc(doc, markdown_to_xml(normalized, title), revision_id, title=title):
                 raise SystemExit("Repair failed during full-document rewrite.")
             print_repair_notes(notes)
+            if not args.no_cache:
+                remember_doc_cache(args.cache, args.registry, key, title, doc, revision_id)
             return RepairResult(doc, title, dates, True)
 
         sections = dict(split_sections(current))
@@ -1360,14 +1497,18 @@ def repair_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date:
             return RepairResult(doc, title, [archive_date], normalized_section.strip() != existing_section.strip(), dry_run=True)
         if normalized_section.strip() == existing_section.strip():
             print_repair_notes(notes)
+            if not args.no_cache:
+                remember_doc_cache(args.cache, args.registry, key, title, doc, revision_id)
             return RepairResult(doc, title, [archive_date], False)
         if not update_section(doc, existing_section, normalized_section, revision_id):
             raise SystemExit("Repair failed during section replacement. Re-fetch and retry.")
-        latest, _ = fetch_doc(doc)
+        latest, latest_revision_id = fetch_doc(doc)
         repaired = dict(split_sections(latest)).get(archive_date, "")
         if normalize_date_section(archive_date, repaired).strip() != normalized_section.strip():
             raise SystemExit(f"Repair verification failed for {archive_date}.")
         print_repair_notes(notes)
+        if not args.no_cache:
+            remember_doc_cache(args.cache, args.registry, key, title, doc, latest_revision_id)
         return RepairResult(doc, title, [archive_date], True)
 
 
@@ -1402,6 +1543,8 @@ def run_init(args: argparse.Namespace, archive_day: dt.date, archive_date: str) 
             action = "Created"
         docs[key] = doc
         save_registry(args.registry, docs, owner_open_id or user_open_id, metadata)
+        if not args.no_cache:
+            remember_doc_cache(args.cache, args.registry, key, title, doc)
     print(f"{action} worklog {title} in registry {args.registry}.")
     if args.print_doc:
         print(f"Document: {doc}")
@@ -1437,6 +1580,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--doc", default=os.environ.get("LARK_WORKLOG_DOC"))
     parser.add_argument("--registry", default=default_registry_path())
+    parser.add_argument("--cache", default=default_cache_path(), help="Local cache path for month-to-document lookups.")
+    parser.add_argument("--no-cache", action="store_true", help="Do not read or write the local document lookup cache.")
+    parser.add_argument("--failed-queue", default=default_failed_queue_path(), help="Local JSONL queue for failed archive items.")
+    parser.add_argument("--queue-failed", action="store_true", help="If archiving fails, save submitted items to the local failed queue.")
+    parser.add_argument("--no-replay-failed", action="store_true", help="Do not automatically replay queued failed items for the same date.")
     parser.add_argument("--category-rules", default=default_category_rules_path(), help="Path to a local category rules JSON file.")
     parser.add_argument("--date", default=None, help="Archive date, YYYY-MM-DD or MM-DD-YYYY. Defaults to today.")
     parser.add_argument("--tz", default=os.environ.get("LARK_WORKLOG_TZ", "Asia/Shanghai"))
@@ -1492,7 +1640,23 @@ def main() -> int:
             print(f"{final_category} :: {final_subcategory} :: {canonical_item(text)}")
         return 0
 
-    result = archive_worklog(args, archive_day, archive_date, items)
+    queued_items: list[str] = []
+    if not args.no_replay_failed:
+        queued_items = failed_queue_items(args.failed_queue, args.registry, archive_date)
+        if queued_items:
+            items = dedupe([*queued_items, *items])
+            if args.verbose:
+                print(f"Replaying {len(queued_items)} queued failed item(s) for {archive_date}.", file=sys.stderr)
+
+    try:
+        result = archive_worklog(args, archive_day, archive_date, items)
+    except SystemExit as exc:
+        if args.queue_failed:
+            append_failed_queue(args.failed_queue, args.registry, archive_date, month_title(archive_day), items, str(exc))
+            print(f"Queued failed worklog item(s) for {archive_date}: {args.failed_queue}", file=sys.stderr)
+        raise
+    if queued_items and not result.dry_run:
+        remove_failed_queue_date(args.failed_queue, args.registry, archive_date)
     print_archive_result(args, result)
     return 0
 

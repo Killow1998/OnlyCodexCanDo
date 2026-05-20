@@ -110,7 +110,7 @@ def xml_list_to_markdown(ul: ET.Element, level: int) -> list[str]:
 @contextlib.contextmanager
 def argv(*args: str):
     old = sys.argv
-    sys.argv = ["archive_worklog.py", *args]
+    sys.argv = ["archive_worklog.py", "--no-cache", "--no-replay-failed", *args]
     try:
         yield
     finally:
@@ -449,6 +449,27 @@ class ArchiveWorklogTests(unittest.TestCase):
             docs, owner = self.mod.load_registry(str(registry))
         self.assertEqual(docs, {"2026-05": "doc-old"})
         self.assertIsNone(owner)
+
+    def test_doc_cache_is_scoped_by_registry_and_title(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            cache = str(Path(tempdir) / "cache.json")
+            registry = str(Path(tempdir) / "registry.json")
+            other_registry = str(Path(tempdir) / "other.json")
+            self.mod.remember_doc_cache(cache, registry, "2026-05", "05-2026 工作记录", "doc-a", 7)
+            self.assertEqual(self.mod.cached_doc(cache, registry, "2026-05", "05-2026 工作记录"), "doc-a")
+            self.assertIsNone(self.mod.cached_doc(cache, registry, "2026-05", "06-2026 工作记录"))
+            self.assertIsNone(self.mod.cached_doc(cache, other_registry, "2026-05", "05-2026 工作记录"))
+
+    def test_failed_queue_round_trip_and_remove_by_date(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            queue = str(Path(tempdir) / "failed.jsonl")
+            registry = str(Path(tempdir) / "registry.json")
+            self.mod.append_failed_queue(queue, registry, "05-20-2026", "05-2026 工作记录", ["- A", "- A", "- B"], "failed")
+            self.mod.append_failed_queue(queue, registry, "05-19-2026", "05-2026 工作记录", ["- old"], "failed")
+            self.assertEqual(self.mod.failed_queue_items(queue, registry, "05-20-2026"), ["- A", "- B"])
+            self.assertTrue(self.mod.remove_failed_queue_date(queue, registry, "05-20-2026"))
+            self.assertEqual(self.mod.failed_queue_items(queue, registry, "05-20-2026"), [])
+            self.assertEqual(self.mod.failed_queue_items(queue, registry, "05-19-2026"), ["- old"])
 
     def test_registry_owner_guard_blocks_foreign_registry(self) -> None:
         fake = FakeLark("# 05-19-2026\n\n- old")

@@ -1,43 +1,28 @@
 # Feishu/Lark CLI Setup
 
-Use the official `lark-cli`.
+Use this file only when installing the skill, authorizing `lark-cli`, repairing setup, or explaining the workflow to another user.
 
-## Install Skill And CLI
-
-From the public skill repository:
+## First Install
 
 ```bash
 git clone https://github.com/Killow1998/OnlyCodexCanDo.git
 cd OnlyCodexCanDo
 python3 skills/lark-worklog-archive/scripts/install.py
-```
-
-Install or verify the official Feishu/Lark CLI:
-
-```bash
 npx @larksuite/cli@latest install
 lark-cli --version
 ```
 
-## Create Or Bind App Config
-
-For first setup on a machine:
+If this is the first `lark-cli` setup on the machine:
 
 ```bash
 lark-cli config init --new
 ```
 
-Open the URL or scan the QR code printed by the CLI, then finish the Feishu Open Platform app setup in the browser.
+Open the printed URL or scan the QR code, then finish the Feishu Open Platform app setup in the browser.
 
-Check config:
+## User Authorization
 
-```bash
-lark-cli config show
-```
-
-## Authorize User Access
-
-For this worklog skill, request document and drive access:
+Interactive login:
 
 ```bash
 env LARK_CLI_NO_PROXY=1 lark-cli auth login \
@@ -46,7 +31,7 @@ env LARK_CLI_NO_PROXY=1 lark-cli auth login \
   --scope "search:docs:read"
 ```
 
-In agent contexts, prefer the non-blocking flow:
+Agent-friendly device flow:
 
 ```bash
 env LARK_CLI_NO_PROXY=1 lark-cli auth login \
@@ -57,161 +42,30 @@ env LARK_CLI_NO_PROXY=1 lark-cli auth login \
   --json
 ```
 
-Send the exact `verification_url` to the user. After the user confirms authorization, complete polling with:
+Send `verification_url` to the user. After authorization:
 
 ```bash
 env LARK_CLI_NO_PROXY=1 lark-cli auth login --device-code '<device_code>'
 ```
 
-Check auth:
+Check and initialize:
 
 ```bash
 env LARK_CLI_NO_PROXY=1 lark-cli auth status
-```
-
-Then initialize the local monthly registry and current month document:
-
-```bash
 python3 skills/lark-worklog-archive/scripts/archive_worklog.py --init
-```
-
-Run a short readiness check at any time:
-
-```bash
 python3 skills/lark-worklog-archive/scripts/archive_worklog.py --doctor
 ```
 
-## Update The Worklog Manually
+## Daily Use
 
-Monthly documents use this title template:
-
-```text
-MM-YYYY 工作记录
-```
-
-Daily headings use US date format:
-
-```text
-MM-DD-YYYY
-```
-
-Fetch:
-
-```bash
-env LARK_CLI_NO_PROXY=1 lark-cli docs +fetch \
-  --api-version v2 \
-  --as user \
-  --doc "<monthly-document>" \
-  --doc-format markdown
-```
-
-Overwrite with prepared Markdown:
-
-```bash
-env LARK_CLI_NO_PROXY=1 lark-cli docs +update \
-  --api-version v2 \
-  --as user \
-  --doc "<monthly-document>" \
-  --command overwrite \
-  --doc-format markdown \
-  --content @worklog.md
-```
-
-The content format must be:
-
-```markdown
-# 05-19-2026
-
-- 飞书 CLI / 工作记录
-  - 工作内容
-    - Newest day goes first.
-  - 验证与测试
-    - Related Feishu CLI checks stay under the Feishu CLI domain.
-
-# 05-18-2026
-
-- n3mapping
-  - 工作内容
-    - Older day moves down.
-```
-
-## Monthly Rollover
-
-This skill stores month-to-document mappings in a local registry. The repository only includes a safe template:
-
-```text
-skills/lark-worklog-archive/references/monthly-docs.example.json
-```
-
-Real registries must stay local and untracked. Recommended paths:
-
-```text
-skills/lark-worklog-archive/references/monthly-docs.local.json
-$HOME/.config/lark-worklog-archive/monthly-docs.json
-```
-
-When `archive_worklog.py` sees a new month that is not in the registry, it creates a new Feishu document named `MM-YYYY 工作记录`, writes the new daily section, and updates the local registry.
-
-If `search:docs:read` is authorized, the helper searches by exact monthly title before creating a new document. This reduces duplicate monthly documents when another PC already created the new month but the local registry is stale. Without that scope, the helper falls back to the local registry and may create a duplicate on month rollover if the repo was not pulled first.
-
-## Multi-Conversation Safety
-
-Prefer the helper script over manual overwrite:
+Archive items:
 
 ```bash
 python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
-  --item "完成 X。" \
-  --item "通过 Y 验证。"
+  --item "完成 X，并通过 Y 验证。"
 ```
 
-The helper:
-
-- uses a per-month file lock under `/tmp` so multiple local Codex conversations do not write at the same time;
-- replaces only the same-day section when possible, so grouped multi-level appends do not rewrite unrelated dates;
-- fetches the newest Feishu revision immediately before writing;
-- updates with `--revision-id` and retries on conflicts;
-- fetches again after writing and verifies the submitted bullets are present.
-- normalizes older date sections to `MM-DD-YYYY` and bullet-only content;
-- deduplicates identical bullets so rerunning the same archive command is safe.
-
-Cross-PC edits can still race if two machines update at exactly the same time. The revision retry reduces that risk, and the final verification catches obvious lost writes. If a conflict remains, rerun the same archive command.
-
-## Repair Existing Documents
-
-Repair one date section without rewriting unrelated days:
-
-```bash
-python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
-  --normalize-only \
-  --date 05-20-2026
-```
-
-Repair every date in the current monthly document:
-
-```bash
-python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
-  --normalize-only \
-  --all-dates
-```
-
-Both forms print a short migration report. Use `--dry-run` to inspect the generated Markdown before writing.
-
-## Category Rules
-
-The public template is:
-
-```text
-skills/lark-worklog-archive/references/category-rules.example.json
-```
-
-Real custom rules should stay local and untracked:
-
-```text
-skills/lark-worklog-archive/references/category-rules.local.json
-$HOME/.config/lark-worklog-archive/category-rules.json
-```
-
-Preview classification without writing to Feishu:
+Preview without writing:
 
 ```bash
 python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
@@ -219,23 +73,96 @@ python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
   --item "验证 n3mapping Humble launch smoke。"
 ```
 
-For classification-only output without document target information, use `--classify-only`.
-
-## Sharing With Other People
-
-The local registry has an `owner_open_id` to prevent another Feishu account from accidentally writing into the original user's worklog document.
-
-For another person, use a separate registry:
+Repair one day:
 
 ```bash
-mkdir -p "$HOME/.config/lark-worklog-archive"
-export LARK_WORKLOG_REGISTRY="$HOME/.config/lark-worklog-archive/monthly-docs.json"
-python3 skills/lark-worklog-archive/scripts/archive_worklog.py --item "初始化我的工作记录。"
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+  --normalize-only \
+  --date 05-20-2026
 ```
 
-If a team intentionally shares one worklog document, the document must be shared in Feishu and users must pass `--allow-foreign-registry` intentionally.
+Repair every day in the current month:
 
-For a dedicated team registry, initialize it explicitly:
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+  --normalize-only \
+  --all-dates
+```
+
+## Format Rules
+
+- Monthly title: `MM-YYYY 工作记录`.
+- Daily heading: `# MM-DD-YYYY`.
+- Newer dates stay above older dates.
+- Under each date, use unordered lists only.
+- First-level bullets are work domains; nested bullets are categories and concrete work.
+- Real registries stay local: `references/monthly-docs.local.json` or `$HOME/.config/lark-worklog-archive/monthly-docs.json`.
+
+## Multi-Conversation Safety
+
+Use the helper instead of manual overwrite. It:
+
+- locks locally per month;
+- fetches the latest revision before writing;
+- uses `--revision-id` and retries conflicts;
+- replaces only the same-day section when possible;
+- inserts new dates after the title when possible;
+- verifies submitted bullets after writing;
+- deduplicates reruns.
+
+Cross-PC races can still happen. If a conflict remains after retries, rerun the same archive command or use `--queue-failed`.
+
+## Cache And Failed Queue
+
+Cache path:
+
+```text
+$HOME/.cache/lark-worklog-archive/cache.json
+```
+
+The cache only avoids repeated exact-title search. Every write still fetches the latest revision. Disable it with `--no-cache`.
+
+Failed queue path:
+
+```text
+$HOME/.local/state/lark-worklog-archive/failed-queue.jsonl
+```
+
+Use `--queue-failed` to save failed items locally. Later archive runs replay queued items for the same date and remove them after success. Use `--no-replay-failed` to skip replay once.
+
+## Category Rules
+
+Public template:
+
+```text
+skills/lark-worklog-archive/references/category-rules.example.json
+```
+
+Private override paths:
+
+```text
+skills/lark-worklog-archive/references/category-rules.local.json
+$HOME/.config/lark-worklog-archive/category-rules.json
+```
+
+Classification-only check:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+  --classify-only \
+  --item "验证 n3mapping Humble launch smoke。"
+```
+
+## Sharing
+
+Each person should use their own registry by default:
+
+```bash
+export LARK_WORKLOG_REGISTRY="$HOME/.config/lark-worklog-archive/monthly-docs.json"
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py --init
+```
+
+Dedicated team registry:
 
 ```bash
 python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
@@ -245,41 +172,31 @@ python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
   --title-prefix "<team-title>"
 ```
 
-Team registry writes and repairs require `--team` on every command. Optional `--allow-user-open-id` entries stay in the local registry and are not safe to commit.
+Team registry writes and repairs require `--team` on every command. Optional `--allow-user-open-id` values stay local and must not be committed.
+
+## Token Budget
+
+- Normal archive: lowest output; prints title, date, count.
+- `--preview`: low output; no Feishu write.
+- `--doctor`: low output; checks readiness and prints short fixes.
+- `--dry-run`: high output; prints generated Markdown.
+- Manual `docs +fetch`: high output; only use for auditing or debugging.
+- `--print-doc`: may expose a document locator in the conversation; avoid unless needed.
 
 ## Release Check
-
-Before pushing Skill changes:
 
 ```bash
 python3 skills/lark-worklog-archive/scripts/check.py
 ```
 
-This runs unit tests, syntax checks, sensitive-value scanning, install dry-run, Skill validation when available, and global installed-copy comparison.
+This runs tests, syntax checks, sensitive-value scanning, install dry-run, Skill validation when available, and global installed-copy comparison.
 
-## Cloud Repository Safety
+## Troubleshooting
 
-Do not commit real document addresses, user OpenID values, app IDs, tokens, or API endpoints. Keep those only in the local registry or in the local `lark-cli` configuration.
-
-## Token-Friendly Use
-
-Use the helper for normal archiving. It prints a short result and keeps full document JSON inside the script process. Use `--preview` for routine checks. Avoid `--dry-run` and manual `docs +fetch` unless debugging, because those print document content into the agent context. The full document locator is printed only when `--print-doc` is passed.
-
-## Time Handling
-
-The helper defaults to the current date in `Asia/Shanghai`:
-
-```bash
-python3 skills/lark-worklog-archive/scripts/archive_worklog.py --item "今日工作。"
-```
-
-Use `--date` only for backfill or correction. Both formats are accepted:
-
-```bash
---date 2026-05-19
---date 05-19-2026
-```
-
-## Proxy Note
-
-If shell proxy variables are set, `lark-cli` warns that credentials may transit through the proxy. Use `LARK_CLI_NO_PROXY=1` for auth and document operations unless the user explicitly needs the proxy.
+- `lark-cli` missing: run `npx @larksuite/cli@latest install`.
+- Auth expired or missing: rerun the user authorization command.
+- Permission denied: add the missing Feishu scopes and reauthorize.
+- Registry owner mismatch: use a personal registry path or intentionally pass `--allow-foreign-registry`.
+- Team registry write blocked: pass `--team`.
+- Wrong date: pass `--date YYYY-MM-DD` or `--date MM-DD-YYYY`.
+- Proxy warning: use `LARK_CLI_NO_PROXY=1` unless a proxy is required.

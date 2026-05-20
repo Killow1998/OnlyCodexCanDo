@@ -94,6 +94,10 @@ Same-day additions replace only the matching day section when possible, so multi
 
 The helper is idempotent for repeated bullets: rerunning the same archive command should not duplicate identical list items.
 
+The helper keeps a local cache of monthly document locators under `$HOME/.cache/lark-worklog-archive/cache.json` by default. The cache only skips repeated title search; every write still fetches the latest Feishu revision first. Use `--no-cache` for debugging.
+
+If a write fails after retries and the user wants a local replay queue, rerun with `--queue-failed`. Later archive runs replay queued items for the same date before writing and dedupe them against existing document content. Use `--no-replay-failed` to disable replay for one run.
+
 If passing `--doc` manually, the helper will not save that override into the local monthly registry unless `--register-doc` is also passed. This avoids corrupting the registry with temporary test documents.
 
 The registry is owned by one Feishu `userOpenId`. If a different person uses this skill, they must set their own registry path instead of reusing another user's local registry.
@@ -154,7 +158,7 @@ Team registries require `--team` for every write or repair command so a team doc
 
 ## Token Use
 
-Normal archive runs print only the document title, archive date, and added item count. The script parses `lark-cli` JSON internally and does not dump full document content unless `--dry-run` or explicit fetch commands are used. It does not print the full document locator unless `--print-doc` is passed. Prefer `--preview` over `--dry-run` for routine checks.
+Normal archive runs print only the document title, archive date, and added item count. The script parses `lark-cli` JSON internally and does not dump full document content unless `--dry-run` or explicit fetch commands are used. It does not print the full document locator unless `--print-doc` is passed. Prefer `--preview` over `--dry-run` for routine checks. The local cache reduces repeated search calls but never replaces the pre-write revision fetch.
 
 ## Setup On A New PC
 
