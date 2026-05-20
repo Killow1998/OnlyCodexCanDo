@@ -18,7 +18,7 @@ import time
 from contextlib import contextmanager
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 try:
     import fcntl
@@ -39,6 +39,7 @@ PRIVATE_CATEGORY_RULES = os.path.join(SKILL_DIR, "references", "category-rules.l
 DEFAULT_CATEGORY_RULES = os.path.join(os.path.expanduser("~"), ".config", "lark-worklog-archive", "category-rules.json")
 DEFAULT_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "lark-worklog-archive", "cache.json")
 DEFAULT_FAILED_QUEUE = os.path.join(os.path.expanduser("~"), ".local", "state", "lark-worklog-archive", "failed-queue.jsonl")
+LARK_CONTENT_INLINE_LIMIT = 8000
 DATE_HEADING = re.compile(r"(?m)^#{1,6} ((?:\d{4}-\d{2}-\d{2})|(?:\d{2}-\d{2}-\d{4}))\s*$")
 INTERNAL_NOTE_ITEMS = {
     "今日通过 Codex/Agent 完成的工作",
@@ -279,6 +280,53 @@ def print_redacted(value: str, file=sys.stderr) -> None:
         print(redact(value), file=file, end="" if value.endswith("\n") else "\n")
 
 
+def expanded_path(path: str) -> str:
+    return os.path.abspath(os.path.expanduser(path))
+
+
+def ensure_parent_dir(path: str) -> str:
+    absolute = expanded_path(path)
+    parent = os.path.dirname(absolute)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    return absolute
+
+
+def lark_content_arg(content: str) -> tuple[str, str | None]:
+    content = content.replace("\r\n", "\n").replace("\r", "\n")
+    if content.startswith("@") or len(content) <= LARK_CONTENT_INLINE_LIMIT:
+        return content, None
+    handle = tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        newline="\n",
+        delete=False,
+        prefix="lark-worklog-content-",
+        suffix=".xml",
+    )
+    try:
+        handle.write(content)
+        return f"@{handle.name}", handle.name
+    finally:
+        handle.close()
+
+
+def lark_args_with_content_files(args: list[str]) -> tuple[list[str], list[str]]:
+    result = list(args)
+    cleanup: list[str] = []
+    index = 0
+    while index < len(result) - 1:
+        if result[index] == "--content":
+            value, temp_path = lark_content_arg(result[index + 1])
+            result[index + 1] = value
+            if temp_path:
+                cleanup.append(temp_path)
+            index += 2
+            continue
+        index += 1
+    return result, cleanup
+
+
 def compact_error(value: str, limit: int = 180) -> str:
     clean = " ".join(redact(value).split())
     if len(clean) > limit:
@@ -304,16 +352,24 @@ def run_lark(args: list[str], check: bool = True) -> subprocess.CompletedProcess
     command = lark_cli_command()
     if not command:
         raise SystemExit("lark-cli not found. Run: npx @larksuite/cli@latest install")
-    proc = subprocess.run(
-        [command, *args],
-        env=env,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
+    final_args, cleanup = lark_args_with_content_files(args)
+    try:
+        proc = subprocess.run(
+            [command, *final_args],
+            env=env,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    finally:
+        for path in cleanup:
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                pass
     if check and proc.returncode != 0:
         if proc.stderr:
             print_redacted(proc.stderr)
@@ -352,7 +408,18 @@ def month_lock(key: str, enabled: bool = True):
 
 
 def today(tz_name: str) -> dt.date:
-    return dt.datetime.now(ZoneInfo(tz_name)).date()
+    try:
+        tzinfo = ZoneInfo(tz_name)
+    except ZoneInfoNotFoundError:
+        if tz_name == "Asia/Shanghai":
+            tzinfo = dt.timezone(dt.timedelta(hours=8), name="Asia/Shanghai")
+        elif tz_name == "UTC":
+            tzinfo = dt.timezone.utc
+        else:
+            raise SystemExit(
+                f"Timezone data not found for {tz_name!r}. Install the Python tzdata package or pass --tz UTC."
+            )
+    return dt.datetime.now(tzinfo).date()
 
 
 def parse_date(value: str) -> dt.date:
@@ -554,7 +621,10 @@ def inline_markdown_to_xml(text: str) -> str:
 
 
 def has_author_signature(text: str) -> bool:
-    return bool(re.match(r"^[^：:\s][^：:]{0,31}[：:]\s*\S+", text.strip()))
+    clean = text.strip()
+    if re.match(r"^[A-Za-z]:[\\/]", clean):
+        return False
+    return bool(re.match(r"^[^：:\s][^：:]{0,31}[：:]\s*\S+", clean))
 
 
 def author_name(args: argparse.Namespace, metadata: dict) -> str | None:
@@ -885,7 +955,8 @@ def fetch_doc(doc: str) -> tuple[str, int]:
     )
     payload = json.loads(proc.stdout)
     document = payload["data"]["document"]
-    return document.get("content", ""), int(document.get("revision_id", -1))
+    content = str(document.get("content", "")).replace("\r\n", "\n").replace("\r", "\n")
+    return content, int(document.get("revision_id", -1))
 
 
 def fetch_doc_xml(doc: str) -> tuple[str, int]:
@@ -1184,9 +1255,10 @@ def current_user_open_id() -> str | None:
 
 
 def load_registry_payload(path: str) -> dict:
+    path = expanded_path(path)
     if not os.path.exists(path):
         return {}
-    with open(path, "r", encoding="utf-8") as handle:
+    with open(path, "r", encoding="utf-8-sig") as handle:
         payload = json.load(handle)
     if not isinstance(payload, dict):
         return {}
@@ -1259,7 +1331,7 @@ def ensure_registry_access(args: argparse.Namespace, owner_open_id: str | None, 
 
 
 def save_registry(path: str, docs: dict[str, str], owner_open_id: str | None = None, metadata: dict | None = None) -> bool:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    path = ensure_parent_dir(path)
     payload = {
         "schema_version": 1,
         "owner_open_id": owner_open_id,
@@ -1271,7 +1343,7 @@ def save_registry(path: str, docs: dict[str, str], owner_open_id: str | None = N
         payload.update(metadata)
     old = None
     if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as handle:
+        with open(path, "r", encoding="utf-8-sig") as handle:
             old = handle.read()
     new = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
     if old == new:
@@ -1287,17 +1359,18 @@ def cache_scope(registry_path: str) -> str:
 
 
 def load_json_file(path: str, fallback):
+    path = expanded_path(path)
     if not os.path.exists(path):
         return fallback
     try:
-        with open(path, "r", encoding="utf-8") as handle:
+        with open(path, "r", encoding="utf-8-sig") as handle:
             return json.load(handle)
     except (OSError, json.JSONDecodeError):
         return fallback
 
 
 def save_json_file(path: str, payload) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    path = ensure_parent_dir(path)
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
         handle.write("\n")
@@ -1330,10 +1403,11 @@ def remember_doc_cache(cache_path: str, registry_path: str, key: str, title: str
 
 
 def read_failed_queue(path: str) -> list[dict]:
+    path = expanded_path(path)
     if not os.path.exists(path):
         return []
     entries: list[dict] = []
-    with open(path, "r", encoding="utf-8") as handle:
+    with open(path, "r", encoding="utf-8-sig") as handle:
         for line in handle:
             line = line.strip()
             if not line:
@@ -1348,7 +1422,7 @@ def read_failed_queue(path: str) -> list[dict]:
 
 
 def write_failed_queue(path: str, entries: list[dict]) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    path = ensure_parent_dir(path)
     with open(path, "w", encoding="utf-8") as handle:
         for entry in entries:
             handle.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
@@ -1592,10 +1666,22 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
                 )
             current_sections = split_sections(current)
             has_prefix_content = any(section_date is None and section.strip() for section_date, section in current_sections)
+            same_day_top = bool(current_sections and current_sections[0][0] == archive_date)
             if not doc:
                 doc = create_doc(title, markdown_to_xml(merged, title))
                 break
-            if not existing_section and not has_prefix_content:
+            if doc and same_day_top and existing_section and not has_prefix_content and not args.force_overwrite:
+                merged_section = dict(split_sections(merged)).get(archive_date, "")
+                if update_section(doc, existing_section, merged_section, revision_id):
+                    latest, latest_revision_id = fetch_doc(doc)
+                    latest_section = dict(split_sections(latest)).get(archive_date, "")
+                    if section_signature(latest_section) == section_signature(merged_section):
+                        cached_revision_id = latest_revision_id
+                        break
+                    current = latest
+                    revision_id = latest_revision_id
+                    merged = merge_document(current, archive_date, unique_items)
+            if not existing_section and not has_prefix_content and not args.force_overwrite:
                 xml_content, xml_revision = fetch_doc_xml(doc)
                 title_id = find_title_id(xml_content)
                 new_groups = group_items(unique_items)

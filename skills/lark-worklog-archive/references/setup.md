@@ -211,6 +211,8 @@ Avoid mixing raw Lark XML blocks with Markdown unless the target document has al
 - Daily headings use `MM-DD-YYYY`.
 - Use the helper instead of manual `docs +update overwrite`.
 - The helper uses local month locks, latest revision fetch, revision-id writes, retries, dedupe, and post-write verification.
+- Same-day writes first try a guarded same-day section replace, then fall back to full-document rewrite if replace or verification fails.
+- Structural repair, abnormal documents, `--force-overwrite`, and all-dates repair may use full-document rewrite.
 - Normal archive output is intentionally short to reduce token use.
 - Avoid `--dry-run`, manual full `docs +fetch`, or `--print-doc` unless debugging.
 - Keep `monthly-docs.local.json`, category overrides, OpenID values, tokens, app IDs, secrets, and real document URLs out of Git.

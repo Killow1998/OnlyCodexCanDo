@@ -34,6 +34,12 @@
   - `--doctor` 可以诊断坏 JSON 或不可读的 category rules 文件。
   - 归档、预览、分类等正常命令仍在解析参数后加载并应用 category rules。
   - 读取 category rules 时兼容 UTF-8 BOM，避免 Windows PowerShell 写出的 JSON 无法解析。
+  - 读取 registry/cache/failed queue 时也兼容 UTF-8 BOM。
+
+- [x] 修复 Windows 缺少 IANA timezone 数据时 `--tz Asia/Shanghai` 崩溃的问题。
+  - `Asia/Shanghai` fallback 到 UTC+8 fixed timezone。
+  - `UTC` fallback 到 `datetime.timezone.utc`。
+  - 其他未知时区给出明确错误，提示安装 `tzdata` 或传 `--tz UTC`。
 
 - [x] 增加发布包缓存目录检查。
   - `scripts/check.py` 现在检查 skill 目录下是否存在 `__pycache__`。
@@ -49,14 +55,17 @@
   - 使用当前 workspace 内的相对 `@file`，更新后立即 fetch 验证。
   - 标题敏感文档优先用包含 `<title>...</title>` 的 XML 更新；仅正文里的 `# 标题` 不能证明飞书文档标题已更新。
   - 如果出现 `partial_success` 或 tokenization warning，必须检查文档是否完整。
+  - helper 对较长的 `--content` 自动写入 UTF-8 临时文件并传 `@<temp-file>`，调用后清理临时文件。
 
 - [x] 修复 `--normalize-only --date` 真实文档修复风险。
   - 现场验证发现 Markdown `str_replace` 修复某一天时可能破坏日期标题或文档标题。
   - 指定日期修复改为先重组目标日期，再用带 `<title>` 的结构化全文 rewrite 写回。
   - 单测改为要求 `overwrite` 路径并验证目标日期和相邻日期标题仍存在。
   - 修复写回后飞书 Markdown 转义反斜杠和下划线导致 verification 误报失败的问题，改用 section 语义签名比较。
-  - 同日追加也改为全文 rewrite，避免真实飞书 Markdown `str_replace` 再次丢失日期标题。
+  - 同日追加改为 guarded section replace：优先替换当天 section，失败或验证不匹配时 fallback 全文 rewrite。
   - 跳过飞书 round-trip 后产生的纯分类名占位项，例如 `其他/工作内容/工作内容`。
+  - `--force-overwrite` 会跳过 section replace 和 block insert，强制走全文 rewrite。
+  - bare filename 的 registry/cache/failed queue 路径可直接使用，不再对空 dirname 调用 `os.makedirs("")`。
 
 - [x] 增加 Node 版本提示。
   - 现场安装发现 Node `v20.8.0` 会让 `npx @larksuite/cli@latest install` 触发依赖版本和 ESM 加载错误。
@@ -159,10 +168,11 @@
   - 当前默认输出不打印全文、doc locator 或原始 JSON；`--doctor`/错误输出会脱敏并截断。
 
 - [x] 优化同日追加路径。
-  - 能局部更新当天 section 时不整篇 overwrite。
-  - 新日期优先 block insert。
-  - 只有结构迁移或冲突恢复时才走全文 rewrite。
-  - 已有测试覆盖 same-day `str_replace` 和 new-day `block_insert_after`。
+  - 能局部更新当天 section 时优先尝试 section replace。
+  - section replace 失败或验证不匹配时 fallback 到全文 rewrite，不能丢失用户提交的 item。
+  - 新日期优先 block insert；`--force-overwrite` 跳过 block insert。
+  - 结构迁移、异常文档、all-dates repair 或冲突恢复时可能走全文 rewrite。
+  - 已有测试覆盖 same-day `str_replace`、fallback overwrite、force overwrite 和 new-day `block_insert_after`。
 
 - [x] 增加本地轻量缓存。
   - 缓存当前月 doc id/title/revision 摘要。

@@ -65,10 +65,14 @@ class FakeLark:
         if args[:2] == ["docs", "+update"]:
             command = value_after(args, "--command")
             if command == "str_replace":
+                if getattr(self, "fail_str_replace", False):
+                    return subprocess.CompletedProcess(["lark-cli", *args], 1, "", "pattern not found")
                 pattern = value_after(args, "--pattern")
                 content = value_after(args, "--content")
                 if pattern not in self.markdown:
                     return subprocess.CompletedProcess(["lark-cli", *args], 1, "", "pattern not found")
+                if getattr(self, "corrupt_str_replace", False):
+                    content = content.replace("# 05-20-2026\n\n", "")
                 self.markdown = self.markdown.replace(pattern, content, 1)
             elif command == "block_insert_after":
                 content_xml = value_after(args, "--content")
@@ -154,9 +158,26 @@ class ArchiveWorklogTests(unittest.TestCase):
     def setUp(self) -> None:
         self.mod = load_archive_module()
 
+    @contextlib.contextmanager
+    def chdir(self, path: str):
+        old = os.getcwd()
+        os.chdir(path)
+        try:
+            yield
+        finally:
+            os.chdir(old)
+
     def test_date_and_section_normalization(self) -> None:
         sections = self.mod.split_sections("# 2026-05-20\n\n- new\n\n# 05-19-2026\n\n- old")
         self.assertEqual([date for date, _ in sections], ["05-20-2026", "05-19-2026"])
+
+    def test_today_falls_back_when_windows_tzdata_is_missing(self) -> None:
+        with mock.patch.object(self.mod, "ZoneInfo", side_effect=self.mod.ZoneInfoNotFoundError):
+            self.assertIsInstance(self.mod.today("Asia/Shanghai"), self.mod.dt.date)
+            self.assertIsInstance(self.mod.today("UTC"), self.mod.dt.date)
+            with self.assertRaises(SystemExit) as raised:
+                self.mod.today("Mars/Base")
+        self.assertIn("Install the Python tzdata package", str(raised.exception))
 
     def test_grouping_and_legacy_domain_migration(self) -> None:
         section = """# 05-19-2026
@@ -253,6 +274,12 @@ class ArchiveWorklogTests(unittest.TestCase):
     def test_canonical_item_unescapes_markdown_underscore(self) -> None:
         self.assertEqual(self.mod.canonical_item(r"清理 \_\_pycache\_\_。"), "清理 __pycache__。")
 
+    def test_has_author_signature_does_not_treat_windows_paths_as_authors(self) -> None:
+        self.assertTrue(self.mod.has_author_signature("Alice：完成任务"))
+        self.assertTrue(self.mod.has_author_signature("Alice: 完成任务"))
+        self.assertFalse(self.mod.has_author_signature(r"C:\repo\worklog updated"))
+        self.assertFalse(self.mod.has_author_signature("D:/repo/worklog updated"))
+
     def test_section_signature_tolerates_lark_markdown_escaping(self) -> None:
         expected = r"""# 05-20-2026
 
@@ -287,7 +314,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         )
         self.assertEqual(revision, 1)
 
-    def test_main_same_day_uses_full_rewrite_and_verifies(self) -> None:
+    def test_main_same_day_uses_guarded_section_replace_and_verifies(self) -> None:
         fake = FakeLark(
             """# 05-19-2026
 
@@ -312,12 +339,99 @@ class ArchiveWorklogTests(unittest.TestCase):
                 output = io.StringIO()
                 with contextlib.redirect_stdout(output):
                     self.assertEqual(self.mod.main(), 0)
-        self.assertIn("overwrite", fake.commands())
-        self.assertNotIn("str_replace", fake.commands())
+        self.assertIn("str_replace", fake.commands())
+        self.assertNotIn("overwrite", fake.commands())
         self.assertIn("Updated worklog 05-2026 工作记录 for 05-19-2026 with 1 item(s).", output.getvalue())
         self.assertNotIn(fake.doc, output.getvalue())
         self.assertTrue(fake.markdown.startswith("# 05-19-2026"))
         self.assertLess(fake.markdown.index("创建 lark-worklog-archive Skill。"), fake.markdown.index("安装到全局 Codex skills。"))
+
+    def test_main_same_day_falls_back_to_overwrite_when_section_replace_fails(self) -> None:
+        fake = FakeLark(
+            """# 05-19-2026
+
+- 飞书 CLI / 工作记录
+  - 工作内容
+    - 创建 lark-worklog-archive Skill。
+"""
+        )
+        fake.fail_str_replace = True
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            with argv(
+                "--doc",
+                fake.doc,
+                "--registry",
+                str(Path(tempdir) / "registry.json"),
+                "--no-lock",
+                "--date",
+                "2026-05-19",
+                "--item",
+                "飞书 CLI / 工作记录::工作内容::安装到全局 Codex skills。",
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(self.mod.main(), 0)
+        self.assertEqual(fake.commands().count("str_replace"), 1)
+        self.assertIn("overwrite", fake.commands())
+        self.assertIn("安装到全局 Codex skills。", fake.markdown)
+
+    def test_main_same_day_falls_back_to_overwrite_when_section_verification_fails(self) -> None:
+        fake = FakeLark(
+            """# 05-20-2026
+
+- 飞书 CLI / 工作记录
+  - 工作内容
+    - 创建 lark-worklog-archive Skill。
+"""
+        )
+        fake.corrupt_str_replace = True
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            with argv(
+                "--doc",
+                fake.doc,
+                "--registry",
+                str(Path(tempdir) / "registry.json"),
+                "--no-lock",
+                "--date",
+                "2026-05-20",
+                "--item",
+                "飞书 CLI / 工作记录::工作内容::安装到全局 Codex skills。",
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(self.mod.main(), 0)
+        self.assertIn("str_replace", fake.commands())
+        self.assertIn("overwrite", fake.commands())
+        self.assertTrue(fake.markdown.startswith("# 05-20-2026"))
+        self.assertIn("安装到全局 Codex skills。", fake.markdown)
+
+    def test_main_same_day_force_overwrite_skips_section_replace(self) -> None:
+        fake = FakeLark(
+            """# 05-19-2026
+
+- 飞书 CLI / 工作记录
+  - 工作内容
+    - 创建 lark-worklog-archive Skill。
+"""
+        )
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            with argv(
+                "--doc",
+                fake.doc,
+                "--registry",
+                str(Path(tempdir) / "registry.json"),
+                "--no-lock",
+                "--force-overwrite",
+                "--date",
+                "2026-05-19",
+                "--item",
+                "飞书 CLI / 工作记录::工作内容::安装到全局 Codex skills。",
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(self.mod.main(), 0)
+        self.assertIn("overwrite", fake.commands())
+        self.assertNotIn("str_replace", fake.commands())
 
     def test_main_new_day_uses_block_insert_after(self) -> None:
         fake = FakeLark("# 05-19-2026\n\n- Ubuntu 环境\n  - 开发环境\n    - 配置代理。")
@@ -339,6 +453,28 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("block_insert_after", fake.commands())
         self.assertTrue(fake.markdown.startswith("# 05-20-2026"))
         self.assertIn("继续完善归档 Skill。", fake.markdown)
+
+    def test_main_new_day_force_overwrite_skips_block_insert(self) -> None:
+        fake = FakeLark("# 05-19-2026\n\n- Ubuntu 环境\n  - 开发环境\n    - 配置代理。")
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            with argv(
+                "--doc",
+                fake.doc,
+                "--registry",
+                str(Path(tempdir) / "registry.json"),
+                "--no-lock",
+                "--force-overwrite",
+                "--date",
+                "2026-05-20",
+                "--item",
+                "飞书 CLI / 工作记录::工作内容::继续完善归档 Skill。",
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(self.mod.main(), 0)
+        self.assertIn("overwrite", fake.commands())
+        self.assertNotIn("block_insert_after", fake.commands())
+        self.assertTrue(fake.markdown.startswith("# 05-20-2026"))
 
     def test_main_prefix_content_uses_overwrite_to_restore_date_heading(self) -> None:
         fake = FakeLark(
@@ -471,6 +607,13 @@ class ArchiveWorklogTests(unittest.TestCase):
         with mock.patch.object(self.mod.os, "name", "nt"), mock.patch.object(self.mod.shutil, "which", fake_which):
             self.assertEqual(self.mod.lark_cli_command(), r"C:\Users\me\AppData\Roaming\npm\lark-cli.cmd")
 
+    def test_lark_cli_command_falls_back_to_windows_exe_wrapper(self) -> None:
+        def fake_which(name: str) -> str | None:
+            return {"lark-cli.exe": r"C:\Tools\lark-cli.exe"}.get(name)
+
+        with mock.patch.object(self.mod.os, "name", "nt"), mock.patch.object(self.mod.shutil, "which", fake_which):
+            self.assertEqual(self.mod.lark_cli_command(), r"C:\Tools\lark-cli.exe")
+
     def test_month_lock_enabled_uses_system_tempdir(self) -> None:
         key = "unit-test-lock"
         path = Path(tempfile.gettempdir()) / f"lark-worklog-archive-{key}.lock"
@@ -493,6 +636,38 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertEqual(captured["encoding"], "utf-8")
         self.assertEqual(captured["errors"], "replace")
         self.assertIn("授权成功", proc.stdout)
+
+    def test_run_lark_writes_long_content_to_utf8_temp_file_and_cleans_up(self) -> None:
+        captured: dict[str, object] = {}
+        temp_path_holder: dict[str, str] = {}
+
+        def fake_run(args, **kwargs):
+            captured["args"] = args
+            content_arg = args[args.index("--content") + 1]
+            self.assertTrue(content_arg.startswith("@"))
+            temp_path = content_arg[1:]
+            temp_path_holder["path"] = temp_path
+            self.assertIn("space dir", temp_path)
+            self.assertTrue(Path(temp_path).exists())
+            self.assertEqual(Path(temp_path).read_text(encoding="utf-8"), "<p>一</p>\n<p>二</p>")
+            return subprocess.CompletedProcess(args, 0, '{"ok": true}', "")
+
+        with tempfile.TemporaryDirectory(prefix="space dir ") as tempdir:
+            real_named_temporary_file = tempfile.NamedTemporaryFile
+
+            def named_temporary_file(*args, **kwargs):
+                kwargs["dir"] = tempdir
+                return real_named_temporary_file(*args, **kwargs)
+
+            with (
+                mock.patch.object(self.mod, "LARK_CONTENT_INLINE_LIMIT", 4),
+                mock.patch.object(self.mod.tempfile, "NamedTemporaryFile", named_temporary_file),
+                mock.patch.object(self.mod, "lark_cli_command", return_value="lark-cli.cmd"),
+                mock.patch.object(self.mod.subprocess, "run", fake_run),
+            ):
+                self.mod.run_lark(["docs", "+update", "--content", "<p>一</p>\r\n<p>二</p>"])
+        self.assertEqual(captured["args"][0], "lark-cli.cmd")
+        self.assertFalse(Path(temp_path_holder["path"]).exists())
 
     def test_release_check_uses_current_python_interpreter(self) -> None:
         text = CHECK_PATH.read_text(encoding="utf-8")
@@ -745,6 +920,27 @@ class ArchiveWorklogTests(unittest.TestCase):
             docs, owner = self.mod.load_registry(str(registry))
         self.assertEqual(docs, {"2026-05": "doc-old"})
         self.assertIsNone(owner)
+
+    def test_registry_accepts_utf8_bom(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry = Path(tempdir) / "registry.json"
+            registry.write_bytes(b"\xef\xbb\xbf" + json.dumps({"docs": {"2026-05": "doc-old"}}).encode("utf-8"))
+            docs, owner = self.mod.load_registry(str(registry))
+        self.assertEqual(docs, {"2026-05": "doc-old"})
+        self.assertIsNone(owner)
+
+    def test_bare_registry_cache_and_failed_queue_paths_work(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            with self.chdir(tempdir):
+                self.assertTrue(self.mod.save_registry("monthly-docs.json", {"2026-05": "doc-a"}, "ou_test"))
+                docs, owner = self.mod.load_registry("monthly-docs.json")
+                self.assertEqual(docs, {"2026-05": "doc-a"})
+                self.assertEqual(owner, "ou_test")
+                self.mod.remember_doc_cache("cache.json", "monthly-docs.json", "2026-05", "05-2026 工作记录", "doc-a", 3)
+                self.assertEqual(self.mod.cached_doc("cache.json", "monthly-docs.json", "2026-05", "05-2026 工作记录"), "doc-a")
+                self.mod.append_failed_queue("failed-queue.jsonl", "monthly-docs.json", "05-20-2026", "05-2026 工作记录", ["item"], "reason")
+                self.assertEqual(self.mod.failed_queue_items("failed-queue.jsonl", "monthly-docs.json", "05-20-2026"), ["item"])
+                self.assertTrue(self.mod.remove_failed_queue_date("failed-queue.jsonl", "monthly-docs.json", "05-20-2026"))
 
     def test_doc_cache_is_scoped_by_registry_and_title(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

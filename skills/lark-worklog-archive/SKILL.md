@@ -75,7 +75,7 @@ Use Windows Terminal with a PowerShell profile on Windows. Use `python` there an
    python skills/lark-worklog-archive/scripts/archive_worklog.py
    ```
 
-   The helper handles concurrent local conversations with a per-month lock, uses Feishu revision IDs for optimistic retry, and verifies that the submitted bullets exist after the update. If today's date is already the active top section, it replaces only that day's section so category buckets stay coherent without rewriting unrelated dates.
+The helper handles concurrent local conversations with a per-month lock, uses Feishu revision IDs for optimistic retry, and verifies that the submitted bullets exist after the update. If today's date is already the active top section, it first tries a guarded same-day section replace; if that fails or verification does not match, it falls back to a full-document rewrite so submitted items are not lost.
 
 6. Fetch the current monthly document after updating only when debugging or auditing a structural change:
 
@@ -113,7 +113,7 @@ Inside a monthly document, the helper fetches the current Markdown, inserts `# M
 
 For multiple Codex conversations, always use the helper instead of hand-running `docs +update overwrite`. Direct overwrite can lose another conversation's new bullets.
 
-Same-day additions replace only the matching day section when possible, so multiple conversations can add bullets to the same day without rewriting unrelated sections. New dates are inserted after the document title when the document structure allows it. Structural changes and fallback migrations still use a guarded full rewrite.
+Same-day additions first try to replace only the matching day section, so routine appends avoid rewriting unrelated dates. If section replace fails, verification fails, `--force-overwrite` is passed, or the document has an unusual structure, the helper falls back to a guarded full rewrite. New dates are inserted after the document title when the document structure allows it. Structural changes, abnormal documents, and all-dates repair may also use a full rewrite.
 
 The helper is idempotent for repeated bullets: rerunning the same archive command should not duplicate identical list items.
 
