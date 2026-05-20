@@ -182,6 +182,22 @@ class ArchiveWorklogTests(unittest.TestCase):
             ["安装并配置 RTK，用于 Codex、Claude Code、Gemini CLI 的命令输出压缩与 token 节省。"],
         )
 
+    def test_normalize_section_groups_skips_round_trip_header_placeholders(self) -> None:
+        section = """# 05-20-2026
+
+- 其他
+  - 工作内容
+    - 工作内容
+  - 代码与仓库
+    - 代码与仓库
+  - 验证与测试
+    - Windows 路径已本机验证。
+"""
+        groups = self.mod.normalize_section_groups(section)
+        self.assertNotIn("工作内容", groups.get("其他", {}).get("工作内容", []))
+        self.assertNotIn("代码与仓库", groups.get("其他", {}).get("代码与仓库", []))
+        self.assertIn("Windows 路径已本机验证。", self.flatten(groups["其他"]["验证与测试"]))
+
     def test_merge_document_appends_same_subcategory_after_existing_items(self) -> None:
         current = """# 05-19-2026
 
@@ -271,7 +287,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         )
         self.assertEqual(revision, 1)
 
-    def test_main_same_day_uses_section_replace_and_verifies(self) -> None:
+    def test_main_same_day_uses_full_rewrite_and_verifies(self) -> None:
         fake = FakeLark(
             """# 05-19-2026
 
@@ -296,9 +312,11 @@ class ArchiveWorklogTests(unittest.TestCase):
                 output = io.StringIO()
                 with contextlib.redirect_stdout(output):
                     self.assertEqual(self.mod.main(), 0)
-        self.assertIn("str_replace", fake.commands())
+        self.assertIn("overwrite", fake.commands())
+        self.assertNotIn("str_replace", fake.commands())
         self.assertIn("Updated worklog 05-2026 工作记录 for 05-19-2026 with 1 item(s).", output.getvalue())
         self.assertNotIn(fake.doc, output.getvalue())
+        self.assertTrue(fake.markdown.startswith("# 05-19-2026"))
         self.assertLess(fake.markdown.index("创建 lark-worklog-archive Skill。"), fake.markdown.index("安装到全局 Codex skills。"))
 
     def test_main_new_day_uses_block_insert_after(self) -> None:
@@ -321,6 +339,43 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("block_insert_after", fake.commands())
         self.assertTrue(fake.markdown.startswith("# 05-20-2026"))
         self.assertIn("继续完善归档 Skill。", fake.markdown)
+
+    def test_main_prefix_content_uses_overwrite_to_restore_date_heading(self) -> None:
+        fake = FakeLark(
+            """<title>05-2026 工作记录</title>
+
+- 飞书 CLI / 工作记录
+  - 工作内容
+    - 修复旧内容。
+
+# 05-19-2026
+
+- Ubuntu 环境
+  - 开发环境
+    - 配置代理。
+"""
+        )
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            with argv(
+                "--doc",
+                fake.doc,
+                "--registry",
+                str(Path(tempdir) / "registry.json"),
+                "--no-lock",
+                "--date",
+                "2026-05-20",
+                "--item",
+                "Go2W / Unitree 开发环境::工作内容::完成远程 Codex 开发环境准备。",
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(self.mod.main(), 0)
+        self.assertIn("overwrite", fake.commands())
+        self.assertNotIn("block_insert_after", fake.commands())
+        self.assertTrue(fake.markdown.startswith("# 05-20-2026"))
+        self.assertIn("修复旧内容。", fake.markdown)
+        self.assertIn("完成远程 Codex 开发环境准备。", fake.markdown)
+        self.assertIn("# 05-19-2026", fake.markdown)
 
     def test_custom_category_rules_can_be_loaded_from_json(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

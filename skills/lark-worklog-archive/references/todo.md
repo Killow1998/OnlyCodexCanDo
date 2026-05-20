@@ -55,6 +55,8 @@
   - 指定日期修复改为先重组目标日期，再用带 `<title>` 的结构化全文 rewrite 写回。
   - 单测改为要求 `overwrite` 路径并验证目标日期和相邻日期标题仍存在。
   - 修复写回后飞书 Markdown 转义反斜杠和下划线导致 verification 误报失败的问题，改用 section 语义签名比较。
+  - 同日追加也改为全文 rewrite，避免真实飞书 Markdown `str_replace` 再次丢失日期标题。
+  - 跳过飞书 round-trip 后产生的纯分类名占位项，例如 `其他/工作内容/工作内容`。
 
 - [x] 增加 Node 版本提示。
   - 现场安装发现 Node `v20.8.0` 会让 `npx @larksuite/cli@latest install` 触发依赖版本和 ESM 加载错误。

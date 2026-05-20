@@ -705,6 +705,9 @@ def normalize_section_groups(section: str) -> dict[str, dict[str, list[str]]]:
                     current_subcategory = text if text in SUBCATEGORY_ORDER else subcategorize_item(text)
             else:
                 category, subcategory, content = split_category_prefix(text)
+                if content in CATEGORY_ORDER or content in SUBCATEGORY_ORDER:
+                    index += 1
+                    continue
                 if level == 0:
                     target_category = category or categorize_item(content)
                     target_subcategory = subcategory or subcategorize_item(content)
@@ -1587,17 +1590,12 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
                     f"No existing monthly worklog found for {title}. "
                     "Run --init --existing-only after registering an existing document, or rerun without --existing-only to create one."
                 )
-            same_day_top = bool(split_sections(current) and split_sections(current)[0][0] == archive_date)
-            if doc and same_day_top and not args.force_overwrite:
-                # Same-day grouping changes the current day section; use a section-level replace
-                # to keep category buckets coherent without rewriting the whole document.
-                merged_section = dict(split_sections(merged)).get(archive_date, "")
-                if existing_section and update_section(doc, existing_section, merged_section, revision_id):
-                    break
+            current_sections = split_sections(current)
+            has_prefix_content = any(section_date is None and section.strip() for section_date, section in current_sections)
             if not doc:
                 doc = create_doc(title, markdown_to_xml(merged, title))
                 break
-            if not existing_section:
+            if not existing_section and not has_prefix_content:
                 xml_content, xml_revision = fetch_doc_xml(doc)
                 title_id = find_title_id(xml_content)
                 new_groups = group_items(unique_items)
