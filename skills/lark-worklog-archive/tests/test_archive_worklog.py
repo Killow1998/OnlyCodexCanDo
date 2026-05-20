@@ -271,6 +271,19 @@ class ArchiveWorklogTests(unittest.TestCase):
             r"运行 python -B -m unittest discover -s skills\lark-worklog-archive\tests。",
         )
 
+    def test_markdown_section_replace_is_risky_for_windows_and_markdown_escapes(self) -> None:
+        self.assertFalse(
+            self.mod.markdown_section_replace_is_risky("# 05-20-2026\n\n- 飞书 CLI / 工作记录\n  - 工作内容\n    - 创建 Skill。")
+        )
+        self.assertTrue(
+            self.mod.markdown_section_replace_is_risky(
+                r"# 05-20-2026\n\n- 飞书 CLI / 工作记录\n  - 验证与测试\n    - 运行 skills\lark-worklog-archive\tests。"
+            )
+        )
+        self.assertTrue(
+            self.mod.markdown_section_replace_is_risky("# 05-20-2026\n\n- 清理 __pycache__。")
+        )
+
     def test_canonical_item_unescapes_markdown_underscore(self) -> None:
         self.assertEqual(self.mod.canonical_item(r"清理 \_\_pycache\_\_。"), "清理 __pycache__。")
 
@@ -357,6 +370,35 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertNotIn(fake.doc, output.getvalue())
         self.assertTrue(fake.markdown.startswith("# 05-19-2026"))
         self.assertLess(fake.markdown.index("创建 lark-worklog-archive Skill。"), fake.markdown.index("安装到全局 Codex skills。"))
+
+    def test_main_same_day_uses_overwrite_for_windows_escape_sensitive_content(self) -> None:
+        fake = FakeLark(
+            """# 05-20-2026
+
+- 飞书 CLI / 工作记录
+  - 工作内容
+    - 创建 lark-worklog-archive Skill。
+"""
+        )
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            with argv(
+                "--doc",
+                fake.doc,
+                "--registry",
+                str(Path(tempdir) / "registry.json"),
+                "--no-lock",
+                "--date",
+                "2026-05-20",
+                "--item",
+                r"飞书 CLI / 工作记录::验证与测试::Windows 验证：运行 python -B -m unittest discover -s skills\lark-worklog-archive\tests，并确认 __pycache__ 正常显示。",
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(self.mod.main(), 0)
+        self.assertNotIn("str_replace", fake.commands())
+        self.assertIn("overwrite", fake.commands())
+        self.assertIn(r"skills\lark-worklog-archive\tests", fake.markdown)
+        self.assertIn("__pycache__", fake.markdown)
 
     def test_main_same_day_falls_back_to_overwrite_when_section_replace_fails(self) -> None:
         fake = FakeLark(

@@ -608,6 +608,15 @@ def verification_key(item: str) -> str:
     return text
 
 
+def markdown_section_replace_is_risky(section: str) -> bool:
+    # Feeding fetched Markdown back through str_replace can amplify escapes.
+    return bool(
+        "\\" in section
+        or re.search(r"(^|[^\\])__(?=\S)", section)
+        or re.search(r"(^|[^\\])\*\*(?=\S)", section)
+    )
+
+
 def inline_markdown_to_xml(text: str) -> str:
     result: list[str] = []
     cursor = 0
@@ -1679,7 +1688,11 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
                 break
             if doc and same_day_top and existing_section and not has_prefix_content and not args.force_overwrite:
                 merged_section = dict(split_sections(merged)).get(archive_date, "")
-                if update_section(doc, existing_section, merged_section, revision_id):
+                if (
+                    not markdown_section_replace_is_risky(existing_section)
+                    and not markdown_section_replace_is_risky(merged_section)
+                    and update_section(doc, existing_section, merged_section, revision_id)
+                ):
                     latest, latest_revision_id = fetch_doc(doc)
                     latest_section = dict(split_sections(latest)).get(archive_date, "")
                     if section_signature(latest_section) == section_signature(merged_section):
