@@ -100,6 +100,15 @@ The registry is owned by one Feishu `userOpenId`. If a different person uses thi
 
 Use `--dry-run` before writing if the bullet list is long or the current document looks unusual.
 
+To repair existing document structure without adding new bullets:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py --normalize-only --date 05-20-2026
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py --normalize-only --all-dates
+```
+
+`--normalize-only --date` replaces only that day's section. `--all-dates` rewrites the monthly document and prints a migration report.
+
 Do not commit private registries, document addresses, OpenID values, app IDs, tokens, or API endpoints. The repository contains only `monthly-docs.example.json`; each user keeps real mappings in an ignored local registry or a private config path.
 
 ## Category Rules
@@ -133,6 +142,15 @@ python3 skills/lark-worklog-archive/scripts/archive_worklog.py --item "初始化
 ```
 
 They still need their own `lark-cli` app config and user authorization. See [references/setup.md](references/setup.md).
+
+For a shared team worklog, initialize an explicit team registry:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+  --init --team --team-id "<team-name>" --title-prefix "<team-title>"
+```
+
+Team registries require `--team` for every write or repair command so a team document is not updated accidentally.
 
 ## Token Use
 

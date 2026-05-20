@@ -323,6 +323,125 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("Created worklog 05-2026 工作记录", output.getvalue())
         self.assertNotIn(fake.doc, output.getvalue())
 
+    def test_team_init_requires_explicit_metadata_and_stores_allowed_user(self) -> None:
+        fake = FakeLark("")
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry = Path(tempdir) / "registry.json"
+            with argv(
+                "--init",
+                "--team",
+                "--team-id",
+                "shared-dev",
+                "--title-prefix",
+                "Shared Dev",
+                "--registry",
+                str(registry),
+                "--no-lock",
+                "--no-search-existing",
+                "--date",
+                "2026-05-20",
+            ):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    self.assertEqual(self.mod.main(), 0)
+            payload = json.loads(registry.read_text(encoding="utf-8"))
+        self.assertEqual(payload["mode"], "team")
+        self.assertEqual(payload["team_id"], "shared-dev")
+        self.assertEqual(payload["doc_title_prefix"], "Shared Dev")
+        self.assertIn("ou_test", payload["allowed_user_open_ids"])
+        self.assertIn("Shared Dev 05-2026 工作记录", output.getvalue())
+
+    def test_team_registry_blocks_writes_without_explicit_team_flag(self) -> None:
+        fake = FakeLark("# 05-20-2026\n\n- old")
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry = Path(tempdir) / "registry.json"
+            registry.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "mode": "team",
+                        "team_id": "shared-dev",
+                        "allowed_user_open_ids": ["ou_test"],
+                        "docs": {"2026-05": fake.doc},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with argv("--registry", str(registry), "--no-lock", "--date", "2026-05-20", "--item", "测试。"):
+                with self.assertRaises(SystemExit) as raised:
+                    self.mod.main()
+        self.assertIn("Team registry requires explicit --team", str(raised.exception))
+        self.assertEqual(fake.commands(), [])
+
+    def test_normalize_only_specific_date_uses_section_replace(self) -> None:
+        fake = FakeLark(
+            """# 05-20-2026
+
+- 验证与测试
+  - 清理旧迁移遗留的未知分类，确认跨对话并发保护内容归入飞书 CLI 分类。
+
+# 05-19-2026
+
+- Ubuntu 环境
+  - 开发环境
+    - 配置代理。
+"""
+        )
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            with argv(
+                "--doc",
+                fake.doc,
+                "--registry",
+                str(Path(tempdir) / "registry.json"),
+                "--no-lock",
+                "--normalize-only",
+                "--date",
+                "2026-05-20",
+            ):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    self.assertEqual(self.mod.main(), 0)
+        self.assertIn("str_replace", fake.commands())
+        self.assertNotIn("overwrite", fake.commands())
+        self.assertIn("moved top-level subcategory '验证与测试'", output.getvalue())
+        self.assertIn("- 飞书 CLI / 工作记录\n  - 验证与测试", fake.markdown)
+
+    def test_normalize_only_all_dates_uses_overwrite_and_report(self) -> None:
+        fake = FakeLark(
+            """# 05-20-2026
+
+- 验证与测试
+  - 清理旧迁移遗留的未知分类，确认跨对话并发保护内容归入飞书 CLI 分类。
+
+# 05-19-2026
+
+- 开发环境
+  - 安装并配置 RTK。
+"""
+        )
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            with argv(
+                "--doc",
+                fake.doc,
+                "--registry",
+                str(Path(tempdir) / "registry.json"),
+                "--no-lock",
+                "--normalize-only",
+                "--all-dates",
+                "--date",
+                "2026-05-20",
+            ):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    self.assertEqual(self.mod.main(), 0)
+        self.assertIn("overwrite", fake.commands())
+        self.assertIn("Repair report:", output.getvalue())
+        self.assertIn("Repaired worklog 05-2026 工作记录 for all dates.", output.getvalue())
+
     def test_old_flat_registry_schema_still_loads(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             registry = Path(tempdir) / "registry.json"

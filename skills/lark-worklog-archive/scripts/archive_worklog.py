@@ -154,6 +154,15 @@ class ArchiveResult:
         self.dry_run = dry_run
 
 
+class RepairResult:
+    def __init__(self, doc: str, title: str, dates: list[str], changed: bool, dry_run: bool = False):
+        self.doc = doc
+        self.title = title
+        self.dates = dates
+        self.changed = changed
+        self.dry_run = dry_run
+
+
 def default_registry_path() -> str:
     if os.environ.get("LARK_WORKLOG_REGISTRY"):
         return os.environ["LARK_WORKLOG_REGISTRY"]
@@ -318,6 +327,14 @@ def month_key(value: dt.date) -> str:
 
 def month_title(value: dt.date) -> str:
     return value.strftime("%m-%Y 工作记录")
+
+
+def document_title(value: dt.date, metadata: dict | None = None) -> str:
+    prefix = ""
+    if metadata and isinstance(metadata.get("doc_title_prefix"), str):
+        prefix = metadata["doc_title_prefix"].strip()
+    base = month_title(value)
+    return f"{prefix} {base}".strip() if prefix else base
 
 
 def read_items(args: argparse.Namespace) -> list[str]:
@@ -634,6 +651,60 @@ def merge_document(current: str, date: str, new_items: list[str]) -> str:
     return "\n\n".join(part for part in parts if part).strip() + "\n"
 
 
+def normalize_document_sections(current: str) -> str:
+    sections = []
+    for section_date, section in split_sections(current):
+        if section_date and section.strip():
+            sections.append(normalize_date_section(section_date, section))
+    return "\n\n".join(sections).strip() + "\n" if sections else ""
+
+
+def top_level_repair_notes(section_date: str, section: str) -> list[str]:
+    notes: list[str] = []
+    lines = section.splitlines()[1:]
+    for index, raw in enumerate(lines):
+        if bullet_level(raw) != 0:
+            continue
+        text = bullet_text(raw)
+        probe = index + 1
+        next_level = None
+        while probe < len(lines):
+            next_raw = lines[probe]
+            if not next_raw.strip():
+                probe += 1
+                continue
+            next_level = bullet_level(next_raw)
+            break
+        has_child = next_level is not None and next_level > 0
+        if not has_child:
+            continue
+        if text in SUBCATEGORY_ORDER and text not in CATEGORY_ORDER:
+            notes.append(f"{section_date}: moved top-level subcategory '{text}' under item-derived work domains")
+        elif text not in CATEGORY_ORDER and text != FALLBACK_CATEGORY:
+            notes.append(f"{section_date}: classified top-level '{text}' as '{categorize_item(text)}'")
+    groups = normalize_section_groups(section)
+    unknown = [
+        canonical_item(item)
+        for item in groups.get(FALLBACK_CATEGORY, {}).get(FALLBACK_SUBCATEGORY, [])
+    ]
+    if unknown:
+        preview = "; ".join(unknown[:3])
+        suffix = "" if len(unknown) <= 3 else f"; +{len(unknown) - 3} more"
+        notes.append(f"{section_date}: {len(unknown)} item(s) remain in fallback '{FALLBACK_CATEGORY}/{FALLBACK_SUBCATEGORY}': {preview}{suffix}")
+    return notes
+
+
+def repair_notes(current: str, target_date: str | None = None) -> list[str]:
+    notes: list[str] = []
+    for section_date, section in split_sections(current):
+        if not section_date or not section.strip():
+            continue
+        if target_date and section_date != target_date:
+            continue
+        notes.extend(top_level_repair_notes(section_date, section))
+    return notes
+
+
 def markdown_to_xml(markdown: str, title: str) -> str:
     parts = [f"<title>{xml_escape(title)}</title>"]
     for section_date, section in split_sections(markdown):
@@ -937,12 +1008,19 @@ def current_user_open_id() -> str | None:
     return str(value) if value else None
 
 
-def load_registry(path: str) -> tuple[dict[str, str], str | None]:
+def load_registry_payload(path: str) -> dict:
     if not os.path.exists(path):
-        return {}, None
+        return {}
     with open(path, "r", encoding="utf-8") as handle:
         payload = json.load(handle)
     if not isinstance(payload, dict):
+        return {}
+    return payload
+
+
+def load_registry(path: str) -> tuple[dict[str, str], str | None]:
+    payload = load_registry_payload(path)
+    if not payload:
         return {}, None
     docs = payload.get("docs")
     if docs is None:
@@ -953,7 +1031,59 @@ def load_registry(path: str) -> tuple[dict[str, str], str | None]:
     return {str(key): str(value) for key, value in docs.items()}, str(owner) if owner else None
 
 
-def save_registry(path: str, docs: dict[str, str], owner_open_id: str | None = None) -> bool:
+def load_registry_metadata(path: str) -> dict:
+    payload = load_registry_payload(path)
+    reserved = {"schema_version", "owner_open_id", "title_template", "date_heading_template", "docs"}
+    return {key: value for key, value in payload.items() if key not in reserved}
+
+
+def normalized_registry_metadata(args: argparse.Namespace, metadata: dict, user_open_id: str | None = None) -> dict:
+    result = dict(metadata)
+    if args.team or result.get("mode") == "team":
+        result["mode"] = "team"
+        team_id = args.team_id or result.get("team_id")
+        if not team_id:
+            raise SystemExit("Team registry mode requires --team-id during initialization.")
+        result["team_id"] = str(team_id)
+        if args.title_prefix is not None:
+            result["doc_title_prefix"] = args.title_prefix.strip()
+        elif "doc_title_prefix" not in result:
+            result["doc_title_prefix"] = str(team_id)
+        result["share_policy"] = args.share_policy or result.get("share_policy") or "manual"
+        allowed = [str(item) for item in result.get("allowed_user_open_ids", []) if str(item)]
+        for item in args.allow_user_open_id or []:
+            if item not in allowed:
+                allowed.append(item)
+        if user_open_id and user_open_id not in allowed:
+            allowed.append(user_open_id)
+        result["allowed_user_open_ids"] = allowed
+    elif result.get("mode") not in (None, "personal"):
+        raise SystemExit("Registry mode must be 'personal' or 'team'.")
+    else:
+        result["mode"] = "personal"
+    return result
+
+
+def ensure_registry_access(args: argparse.Namespace, owner_open_id: str | None, metadata: dict, user_open_id: str | None) -> None:
+    mode = metadata.get("mode", "personal")
+    if mode == "team":
+        if not args.team:
+            raise SystemExit("Team registry requires explicit --team for write operations.")
+        allowed = [str(item) for item in metadata.get("allowed_user_open_ids", []) if str(item)]
+        if allowed and user_open_id and user_open_id not in allowed and not args.allow_foreign_registry:
+            raise SystemExit("Authorized Feishu user is not listed in the team registry allowed users.")
+        return
+    if mode != "personal":
+        raise SystemExit("Registry mode must be 'personal' or 'team'.")
+    if owner_open_id and user_open_id and owner_open_id != user_open_id and not args.allow_foreign_registry:
+        raise SystemExit(
+            "Registry owner does not match the authorized Feishu user. "
+            "Use your own registry path via --registry or LARK_WORKLOG_REGISTRY, "
+            "or pass --allow-foreign-registry intentionally."
+        )
+
+
+def save_registry(path: str, docs: dict[str, str], owner_open_id: str | None = None, metadata: dict | None = None) -> bool:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     payload = {
         "schema_version": 1,
@@ -962,6 +1092,8 @@ def save_registry(path: str, docs: dict[str, str], owner_open_id: str | None = N
         "date_heading_template": "MM-DD-YYYY",
         "docs": dict(sorted(docs.items())),
     }
+    if metadata:
+        payload.update(metadata)
     old = None
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8") as handle:
@@ -1000,6 +1132,17 @@ def print_group_preview(title: str, date: str, items: list[str]) -> None:
             print(f"  - {subcategory}")
             for item in values:
                 print(f"    - {canonical_item(item)}")
+
+
+def print_repair_notes(notes: list[str], limit: int = 12) -> None:
+    if not notes:
+        print("Repair report: no category migrations detected.")
+        return
+    print(f"Repair report: {len(notes)} note(s)")
+    for note in notes[:limit]:
+        print(f"- {note}")
+    if len(notes) > limit:
+        print(f"- ... {len(notes) - limit} more")
 
 
 def check_doc_readable(doc: str) -> tuple[bool, str]:
@@ -1064,16 +1207,26 @@ def run_doctor(args: argparse.Namespace, archive_day: dt.date) -> int:
 
     docs: dict[str, str] = {}
     owner_open_id: str | None = None
+    metadata: dict = {}
     if os.path.exists(args.registry):
         try:
             docs, owner_open_id = load_registry(args.registry)
+            metadata = load_registry_metadata(args.registry)
             add("ok", "registry", args.registry)
         except (OSError, json.JSONDecodeError) as exc:
             add("fail", "registry", compact_error(str(exc)), "replace it with a valid monthly-docs JSON file")
     else:
         add("warn", "registry", "not found", f"{sys.argv[0]} --init --registry {args.registry}")
 
-    if owner_open_id and user_open_id and owner_open_id != user_open_id:
+    mode = metadata.get("mode", "personal")
+    if mode == "team":
+        add("ok", "registry mode", "team; write commands require explicit --team")
+        allowed = [str(item) for item in metadata.get("allowed_user_open_ids", []) if str(item)]
+        if allowed and user_open_id and user_open_id not in allowed:
+            add("fail", "team access", "authorized user is not listed in allowed users")
+    elif mode != "personal":
+        add("fail", "registry mode", "must be personal or team")
+    elif owner_open_id and user_open_id and owner_open_id != user_open_id:
         add("fail", "registry owner", "authorized user does not match registry owner", "use your own registry or pass --allow-foreign-registry intentionally")
     elif owner_open_id:
         add("ok", "registry owner", "matches authorized user" if user_open_id else "stored")
@@ -1082,11 +1235,11 @@ def run_doctor(args: argparse.Namespace, archive_day: dt.date) -> int:
     doc = docs.get(key)
     if doc and payload:
         readable, detail = check_doc_readable(doc)
-        add("ok" if readable else "fail", "current month", f"{month_title(archive_day)} {detail}")
+        add("ok" if readable else "fail", "current month", f"{document_title(archive_day, metadata)} {detail}")
     elif doc:
-        add("warn", "current month", f"{month_title(archive_day)} configured; auth not checked")
+        add("warn", "current month", f"{document_title(archive_day, metadata)} configured; auth not checked")
     else:
-        add("warn", "current month", f"{month_title(archive_day)} not in registry", f"{sys.argv[0]} --init")
+        add("warn", "current month", f"{document_title(archive_day, metadata)} not in registry", f"{sys.argv[0]} --init")
 
     for status, name, detail, fix in checks:
         print(f"[{status}] {name}: {detail}")
@@ -1096,15 +1249,13 @@ def run_doctor(args: argparse.Namespace, archive_day: dt.date) -> int:
 
 
 def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date: str, items: list[str]) -> ArchiveResult:
-    title = month_title(archive_day)
     docs, owner_open_id = load_registry(args.registry)
+    metadata = load_registry_metadata(args.registry)
     user_open_id = current_user_open_id()
-    if owner_open_id and user_open_id and owner_open_id != user_open_id and not args.allow_foreign_registry:
-        raise SystemExit(
-            "Registry owner does not match the authorized Feishu user. "
-            "Use your own registry path via --registry or LARK_WORKLOG_REGISTRY, "
-            "or pass --allow-foreign-registry intentionally."
-        )
+    if args.team:
+        metadata = normalized_registry_metadata(args, metadata, user_open_id)
+    ensure_registry_access(args, owner_open_id, metadata, user_open_id)
+    title = document_title(archive_day, metadata)
     key = month_key(archive_day)
     doc = args.doc or docs.get(key)
     if not doc and not args.no_search_existing:
@@ -1129,7 +1280,7 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
             if not unique_items and not args.normalize_only:
                 if doc and (not args.doc or args.register_doc):
                     docs[key] = doc
-                    save_registry(args.registry, docs, owner_open_id or user_open_id)
+                    save_registry(args.registry, docs, owner_open_id or user_open_id, metadata)
                 return ArchiveResult(doc or "", title, archive_date, 0)
             merged = merge_document(current, archive_date, unique_items)
             if args.dry_run:
@@ -1162,10 +1313,62 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
             time.sleep(0.5 * attempt)
         if not args.doc or args.register_doc:
             docs[key] = doc
-            save_registry(args.registry, docs, owner_open_id or user_open_id)
+            save_registry(args.registry, docs, owner_open_id or user_open_id, metadata)
         if written_items:
             verify_items(doc, archive_date, written_items)
     return ArchiveResult(doc or "", title, archive_date, len(written_items))
+
+
+def repair_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date: str) -> RepairResult:
+    docs, owner_open_id = load_registry(args.registry)
+    metadata = load_registry_metadata(args.registry)
+    user_open_id = current_user_open_id()
+    ensure_registry_access(args, owner_open_id, metadata, user_open_id)
+    title = document_title(archive_day, metadata)
+    key = month_key(archive_day)
+    doc = args.doc or docs.get(key)
+    if not doc:
+        raise SystemExit("No monthly document found to repair. Run --init first or pass --doc.")
+
+    with month_lock(key, enabled=not args.no_lock):
+        current, revision_id = fetch_doc(doc)
+        if args.all_dates:
+            normalized = normalize_document_sections(current)
+            dates = [section_date for section_date, _ in split_sections(current) if section_date]
+            notes = repair_notes(current)
+            if args.dry_run:
+                print(normalized, end="")
+                print_repair_notes(notes)
+                return RepairResult(doc, title, dates, normalized.strip() != current.strip(), dry_run=True)
+            if normalized.strip() == strip_non_date_title(current).strip():
+                print_repair_notes(notes)
+                return RepairResult(doc, title, dates, False)
+            if not update_doc(doc, markdown_to_xml(normalized, title), revision_id, title=title):
+                raise SystemExit("Repair failed during full-document rewrite.")
+            print_repair_notes(notes)
+            return RepairResult(doc, title, dates, True)
+
+        sections = dict(split_sections(current))
+        existing_section = sections.get(archive_date)
+        if existing_section is None:
+            raise SystemExit(f"No section found for {archive_date}. Use --all-dates to repair the whole month.")
+        normalized_section = normalize_date_section(archive_date, existing_section)
+        notes = repair_notes(current, archive_date)
+        if args.dry_run:
+            print(normalized_section + "\n")
+            print_repair_notes(notes)
+            return RepairResult(doc, title, [archive_date], normalized_section.strip() != existing_section.strip(), dry_run=True)
+        if normalized_section.strip() == existing_section.strip():
+            print_repair_notes(notes)
+            return RepairResult(doc, title, [archive_date], False)
+        if not update_section(doc, existing_section, normalized_section, revision_id):
+            raise SystemExit("Repair failed during section replacement. Re-fetch and retry.")
+        latest, _ = fetch_doc(doc)
+        repaired = dict(split_sections(latest)).get(archive_date, "")
+        if normalize_date_section(archive_date, repaired).strip() != normalized_section.strip():
+            raise SystemExit(f"Repair verification failed for {archive_date}.")
+        print_repair_notes(notes)
+        return RepairResult(doc, title, [archive_date], True)
 
 
 def run_init(args: argparse.Namespace, archive_day: dt.date, archive_date: str) -> int:
@@ -1184,14 +1387,11 @@ def run_init(args: argparse.Namespace, archive_day: dt.date, archive_date: str) 
             'Run: env LARK_CLI_NO_PROXY=1 lark-cli auth login --recommend --domain docs,drive,markdown --scope "search:docs:read"'
         )
     docs, owner_open_id = load_registry(args.registry)
-    if owner_open_id and owner_open_id != user_open_id and not args.allow_foreign_registry:
-        raise SystemExit(
-            "Registry owner does not match the authorized Feishu user. "
-            "Use another --registry path or pass --allow-foreign-registry intentionally."
-        )
+    metadata = normalized_registry_metadata(args, load_registry_metadata(args.registry), user_open_id)
+    ensure_registry_access(args, owner_open_id, metadata, user_open_id)
 
     key = month_key(archive_day)
-    title = month_title(archive_day)
+    title = document_title(archive_day, metadata)
     doc = args.doc or docs.get(key)
     action = "Registered"
     with month_lock(key, enabled=not args.no_lock):
@@ -1201,7 +1401,7 @@ def run_init(args: argparse.Namespace, archive_day: dt.date, archive_date: str) 
             doc = create_doc(title, markdown_to_xml("", title))
             action = "Created"
         docs[key] = doc
-        save_registry(args.registry, docs, owner_open_id or user_open_id)
+        save_registry(args.registry, docs, owner_open_id or user_open_id, metadata)
     print(f"{action} worklog {title} in registry {args.registry}.")
     if args.print_doc:
         print(f"Document: {doc}")
@@ -1217,6 +1417,18 @@ def print_archive_result(args: argparse.Namespace, result: ArchiveResult) -> Non
         print(f"Normalized worklog {result.title} for {result.date}.")
     else:
         print(f"Updated worklog {result.title} for {result.date} with {result.item_count} item(s).")
+    if args.print_doc and result.doc:
+        print(f"Document: {result.doc}")
+
+
+def print_repair_result(args: argparse.Namespace, result: RepairResult) -> None:
+    if result.dry_run:
+        return
+    scope = "all dates" if args.all_dates else ", ".join(result.dates)
+    if result.changed:
+        print(f"Repaired worklog {result.title} for {scope}.")
+    else:
+        print(f"No repair changes needed for {result.title} / {scope}.")
     if args.print_doc and result.doc:
         print(f"Document: {result.doc}")
 
@@ -1240,6 +1452,12 @@ def main() -> int:
     parser.add_argument("--register-doc", action="store_true", help="Save --doc as this month's registry entry after a successful update.")
     parser.add_argument("--force-overwrite", action="store_true", help="Always rewrite the monthly document instead of same-day block insertion.")
     parser.add_argument("--normalize-only", action="store_true", help="Rewrite the current monthly document into the normalized list structure without requiring new items.")
+    parser.add_argument("--all-dates", action="store_true", help="With --normalize-only, repair every dated section in the monthly document.")
+    parser.add_argument("--team", action="store_true", help="Explicitly opt into a team shared worklog registry for init/write/repair.")
+    parser.add_argument("--team-id", help="Team identifier stored in a team registry. Required when creating one.")
+    parser.add_argument("--allow-user-open-id", action="append", help="Allowed user OpenID for a team registry. Repeat as needed; kept only in the local registry.")
+    parser.add_argument("--share-policy", help="Human-readable team sharing policy stored in the local registry, such as manual or workspace.")
+    parser.add_argument("--title-prefix", help="Optional title prefix for team monthly documents.")
     parser.add_argument("--allow-foreign-registry", action="store_true", help="Allow using a registry owned by a different Feishu user.")
     parser.add_argument("--verbose", action="store_true", help="Print extra operational messages without dumping document content.")
     parser.add_argument("--print-doc", action="store_true", help="Print the full document locator after a successful init or archive.")
@@ -1256,6 +1474,11 @@ def main() -> int:
 
     if args.init:
         return run_init(args, archive_day, archive_date)
+
+    if args.normalize_only:
+        result = repair_worklog(args, archive_day, archive_date)
+        print_repair_result(args, result)
+        return 0
 
     items = [] if args.normalize_only and not args.item and args.content is None else read_items(args)
     if args.preview:

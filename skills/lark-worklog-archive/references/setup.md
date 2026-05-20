@@ -176,6 +176,26 @@ The helper:
 
 Cross-PC edits can still race if two machines update at exactly the same time. The revision retry reduces that risk, and the final verification catches obvious lost writes. If a conflict remains, rerun the same archive command.
 
+## Repair Existing Documents
+
+Repair one date section without rewriting unrelated days:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+  --normalize-only \
+  --date 05-20-2026
+```
+
+Repair every date in the current monthly document:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+  --normalize-only \
+  --all-dates
+```
+
+Both forms print a short migration report. Use `--dry-run` to inspect the generated Markdown before writing.
+
 ## Category Rules
 
 The public template is:
@@ -214,6 +234,28 @@ python3 skills/lark-worklog-archive/scripts/archive_worklog.py --item "初始化
 ```
 
 If a team intentionally shares one worklog document, the document must be shared in Feishu and users must pass `--allow-foreign-registry` intentionally.
+
+For a dedicated team registry, initialize it explicitly:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+  --init \
+  --team \
+  --team-id "<team-name>" \
+  --title-prefix "<team-title>"
+```
+
+Team registry writes and repairs require `--team` on every command. Optional `--allow-user-open-id` entries stay in the local registry and are not safe to commit.
+
+## Release Check
+
+Before pushing Skill changes:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/check.py
+```
+
+This runs unit tests, syntax checks, sensitive-value scanning, install dry-run, Skill validation when available, and global installed-copy comparison.
 
 ## Cloud Repository Safety
 

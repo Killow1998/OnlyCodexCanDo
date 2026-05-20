@@ -35,11 +35,12 @@
   - 加一条敏感信息扫描测试，确保 example/config/docs 不含真实 URL、OpenID、App ID、token。
   - 初版测试入口：`python3 -m unittest discover -s skills/lark-worklog-archive/tests`。
 
-- [ ] 设计团队共享 worklog 模式。
+- [x] 设计团队共享 worklog 模式。
   - 明确个人 worklog、团队共享 worklog 两种模式。
   - 团队模式要显式 opt-in，不能误写个人文档。
   - 设计 registry schema：owner、team_id、doc title prefix、allowed users、share policy。
   - 设计跨用户并发策略：revision retry、失败重放、冲突提示、可选操作日志。
+  - 初版支持 `mode: team`、`--team`、`--team-id`、`--title-prefix`、`--allow-user-open-id`；团队写入和修复必须显式传 `--team`。
 
 ## P1 - 可用性完善
 
@@ -64,11 +65,12 @@
   - 需要全文 diff 时显式传 `--verbose` 或 `--full-diff`。
   - 初版入口：`archive_worklog.py --preview --item "..."`；全文仍走 `--dry-run`。
 
-- [ ] 增加文档修复命令。
+- [x] 增加文档修复命令。
   - `normalize-only` 继续保留。
   - 增加 `--date` 指定只修某一天。
   - 增加 `--all-dates` 修整个文档。
   - 增加旧格式迁移报告：哪些顶层分类被移动、哪些条目无法识别。
+  - 初版 `--normalize-only --date MM-DD-YYYY` 使用 section replace；`--normalize-only --all-dates` 走全文修复并输出迁移报告。
 
 - [ ] 改善安装文档。
   - README 只保留最短安装路径。
@@ -121,10 +123,11 @@
   - 多次失败时输出可重放命令。
   - 可选写入本机 failed queue，下一次归档自动重放。
 
-- [ ] 增加 release/check 脚本。
+- [x] 增加 release/check 脚本。
   - 一键运行测试、Skill validate、敏感信息扫描。
   - 检查全局安装版本是否与仓库一致。
   - 检查 README 中 public 安装命令是否可用。
+  - 初版入口：`python3 skills/lark-worklog-archive/scripts/check.py`。
 
 ## P4 - 分享与推广
 
@@ -140,7 +143,7 @@
 
 ## 明天建议顺序
 
-1. 设计团队共享 worklog 模式，明确权限、registry schema 和冲突策略。
-2. 增加文档修复命令的日期范围控制与迁移报告。
-3. 增加本地轻量缓存和失败重放队列，继续降低 token 消耗并提高跨 PC 恢复能力。
-4. 增加 release/check 脚本，把测试、Skill validate、敏感扫描和全局安装一致性检查合并。
+1. 增加本地轻量缓存和失败重放队列，继续降低 token 消耗并提高跨 PC 恢复能力。
+2. 增强冲突恢复：多次失败后输出可重放命令，并可选写入本机 failed queue。
+3. 进一步压缩 `setup.md`，把首次安装、授权、手动更新、故障排除拆成更短的入口。
+4. 基本完善后写飞书分享文档，用于给朋友介绍安装和使用流程。
