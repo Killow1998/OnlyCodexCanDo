@@ -65,6 +65,15 @@ python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
   --item "完成 X，并通过 Y 验证。"
 ```
 
+If the work produced a shareable Feishu document or public doc, include it as a Markdown link in the bullet:
+
+```bash
+python3 skills/lark-worklog-archive/scripts/archive_worklog.py \
+  --item "飞书 CLI / 工作记录::工作内容::编写 [使用说明](https://example.com/docx/xxx)，用于团队查看。"
+```
+
+Use real Feishu document links only in runtime archive items or local private config. Do not commit real Feishu URLs to Git.
+
 Preview without writing:
 
 ```bash

@@ -30,6 +30,7 @@ Main behavior:
 - each day is an H1 heading using `MM-DD-YYYY`;
 - newest days are kept above older days;
 - same-day items are grouped as nested unordered lists: first-level bullets are work domains, with subcategories and concrete work nested below;
+- worklog bullets can include Markdown links, so generated or updated documents can be opened directly from the worklog;
 - normal use goes through the helper script so multiple conversations append safely and duplicate bullets are avoided;
 - private Feishu document mappings stay in a local ignored registry, not in Git.
 

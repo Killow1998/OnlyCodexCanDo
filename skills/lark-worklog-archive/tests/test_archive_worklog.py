@@ -177,6 +177,24 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("<li>工作内容<ul><li>创建 Skill。</li></ul></li>", xml)
         self.assertIn("<li>验证与测试<ul><li>Skill 校验通过。</li></ul></li>", xml)
 
+    def test_markdown_to_xml_renders_work_item_links(self) -> None:
+        markdown = """# 05-20-2026
+
+- 飞书 CLI / 工作记录
+  - 工作内容
+    - 编写 [使用说明](https://example.com/docx/doc-test)，用于团队查看。
+"""
+        xml = self.mod.markdown_to_xml(markdown, "05-2026 工作记录")
+        self.assertIn('<a href="https://example.com/docx/doc-test">使用说明</a>', xml)
+        self.assertIn("，用于团队查看。", xml)
+
+    def test_canonical_item_unescapes_link_markdown(self) -> None:
+        item = r"飞书 CLI / 工作记录::工作内容::编写 \[使用说明\]\(https://example.com/docx/doc-test\)。"
+        self.assertEqual(
+            self.mod.canonical_item(item),
+            "编写 [使用说明](https://example.com/docx/doc-test)。",
+        )
+
     def test_main_same_day_uses_section_replace_and_verifies(self) -> None:
         fake = FakeLark(
             """# 05-19-2026

@@ -482,9 +482,31 @@ def subcategorize_item(item: str) -> str:
 
 def canonical_item(item: str) -> str:
     _, _, text = split_category_prefix(item)
-    for escaped, plain in (("\\`", "`"), ("\\<", "<"), ("\\>", ">"), ("\\[", "["), ("\\]", "]")):
+    for escaped, plain in (
+        ("\\`", "`"),
+        ("\\<", "<"),
+        ("\\>", ">"),
+        ("\\[", "["),
+        ("\\]", "]"),
+        ("\\(", "("),
+        ("\\)", ")"),
+    ):
         text = text.replace(escaped, plain)
     return text.strip()
+
+
+def inline_markdown_to_xml(text: str) -> str:
+    result: list[str] = []
+    cursor = 0
+    pattern = re.compile(r"\[([^\]\n]+)\]\((https?://[^)\s]+)\)")
+    for match in pattern.finditer(text):
+        result.append(xml_escape(text[cursor : match.start()]))
+        label = xml_escape(match.group(1))
+        url = xml_escape(match.group(2), {'"': "&quot;"})
+        result.append(f'<a href="{url}">{label}</a>')
+        cursor = match.end()
+    result.append(xml_escape(text[cursor:]))
+    return "".join(result)
 
 
 def has_author_signature(text: str) -> bool:
@@ -762,7 +784,7 @@ def markdown_to_xml(markdown: str, title: str) -> str:
                 items = subgroups[subcategory]
                 if not items:
                     continue
-                item_xml = "".join(f"<li>{xml_escape(canonical_item(item))}</li>" for item in items)
+                item_xml = "".join(f"<li>{inline_markdown_to_xml(canonical_item(item))}</li>" for item in items)
                 subcategory_parts.append(f"<li>{xml_escape(subcategory)}<ul>{item_xml}</ul></li>")
             category_parts.append(f"<li>{xml_escape(category)}<ul>{''.join(subcategory_parts)}</ul></li>")
         if category_parts:
@@ -980,7 +1002,7 @@ def day_section_to_xml(date: str, groups: dict[str, dict[str, list[str]]]) -> st
             items = subgroups[subcategory]
             if not items:
                 continue
-            item_xml = "".join(f"<li>{xml_escape(canonical_item(item))}</li>" for item in items)
+            item_xml = "".join(f"<li>{inline_markdown_to_xml(canonical_item(item))}</li>" for item in items)
             subcategory_parts.append(f"<li>{xml_escape(subcategory)}<ul>{item_xml}</ul></li>")
         category_parts.append(f"<li>{xml_escape(category)}<ul>{''.join(subcategory_parts)}</ul></li>")
     if category_parts:

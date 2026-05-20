@@ -27,6 +27,8 @@ references/monthly-docs.local.json
 - Do not add subheadings, tables, or prose paragraphs under a date.
 - Summarize verified work only: changed files, commands run, documents created, tests/builds, pushes, and remaining blockers.
 - Keep each bullet concrete and short. Mention uncertainty or unverified work explicitly.
+- When the work creates or updates a shareable document, include a Markdown link in the relevant bullet, such as `编写 [使用说明](https://example.com/docx/xxx)，用于团队查看。`. The helper renders Markdown links as clickable Feishu links.
+- Real Feishu document URLs are runtime worklog content only. Do not place real document URLs, API endpoints, tokens, app IDs, or OpenID values in Git-tracked skill files.
 - Use the machine date in timezone `Asia/Shanghai` by default. Only pass `--date` when the user explicitly wants another archive date.
 
 ## Workflow
