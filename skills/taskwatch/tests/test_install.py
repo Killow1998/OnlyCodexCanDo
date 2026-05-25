@@ -33,11 +33,14 @@ class InstallScriptTests(unittest.TestCase):
         self.assertIn(".codex_monitor/monitor.env", file_map)
         self.assertIn(".codex_monitor/run_command.sh", file_map)
         self.assertIn(".codex_monitor/scripts/hourly_check.sh", file_map)
+        self.assertIn(".codex_monitor/scripts/send_mail.py", file_map)
         self.assertIn("run_with_monitor.sh", file_map)
         self.assertIn("run_train_with_monitor.sh", file_map)
         self.assertIn("CODEX_MONITOR_LABEL='Go2-W RL'", file_map[".codex_monitor/monitor.env"])
         self.assertIn("CODEX_MONITOR_GOAL_MODE=0", file_map[".codex_monitor/monitor.env"])
         self.assertIn("exec bash -lc 'python3 -B scripts/train_low_level.py --profile foo'", file_map[".codex_monitor/run_command.sh"])
+        self.assertIn("任务概况", file_map[".codex_monitor/scripts/send_mail.py"])
+        self.assertIn("原始最终报告", file_map[".codex_monitor/scripts/send_mail.py"])
 
     def test_infer_smtp_for_qq_mail(self) -> None:
         host, port, security = MODULE.infer_smtp("123456@qq.com")

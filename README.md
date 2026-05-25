@@ -48,6 +48,27 @@ Main behavior:
 - keeps SMTP secrets and runtime reports out of Git;
 - can infer SMTP host, port, and security from the sender email for common providers, so the user usually only needs sender email, recipient email, and sender password.
 
+Install prompt:
+
+```text
+Please install and configure the TaskWatch skill from https://github.com/Killow1998/OnlyCodexCanDo.git. Inspect the target workspace first and infer the real long-running command, main logs, artifact directories, process pattern, and any existing user systemd service instead of asking me to fill every flag manually. Deploy it in Linux only. For a workspace-local monitor, generate .codex_monitor, run_with_monitor.sh, hourly read-only reports, final completion email, and an optional systemd --user timer. For goal-mode runs, also make sure final emails can distinguish complete, blocked, and usageLimited. Only ask me for three mail inputs when needed: sender email, recipient email, and the sender SMTP password or authorization code. Keep secrets, reports, and local runtime state out of Git. After installation, run the skill checks, verify the global skill copy if one is installed, and give me the exact command I should use to start the monitored run.
+```
+
+Global goal-terminal email only prompt:
+
+```text
+Please install only the global TaskWatch goal-terminal email hook from https://github.com/Killow1998/OnlyCodexCanDo.git. Configure the Codex Stop hook under ~/.codex so goal runs send terminal emails for complete, blocked, and usageLimited. Reuse existing settings if they are already present. Only ask me for sender email, recipient email, and the sender SMTP password or authorization code if mail is not configured yet. Keep all secrets in local ignored files and verify the hook with a safe smoke test.
+```
+
+Current limitations:
+
+- Linux only. The workspace-local timer path assumes `systemd --user`.
+- The global goal-terminal mail path depends on the Codex `Stop` hook. It will not fire for power loss, host crash, or an external kill that bypasses Codex shutdown.
+- Goal archive detection is best-effort. It infers archive status from Codex transcripts and local state, so unusual flows may show `未检测到` / `not detected`.
+- Workspace-local monitoring assumes the job already has a real command, meaningful logs, or artifact directories. It does not invent task logic.
+- SMTP still depends on a valid provider app password or authorization code.
+- The global hook and the workspace-local monitor are complementary: the hook handles goal terminal alerts, while the local monitor handles hourly artifact/log summaries.
+
 ## Install A Skill
 
 For `lark-worklog-archive`, users should ask Codex to install and configure it instead of running every command manually:

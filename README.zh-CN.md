@@ -48,6 +48,27 @@
 - SMTP secret 和运行期报告保持不入 Git；
 - 对常见邮箱域名自动推断 SMTP host、port 和安全模式，所以通常只需要用户提供发件邮箱、收件邮箱和发件邮箱密钥。
 
+安装 prompt：
+
+```text
+请从 https://github.com/Killow1998/OnlyCodexCanDo.git 安装并配置 TaskWatch skill。先检查目标 workspace，尽量自己推断真实的长任务启动命令、主日志、artifact 目录、进程匹配规则，以及是否已有 user systemd service，而不是让我手动把每个 flag 都填一遍。只在 Linux 下部署。对于 workspace 本地 monitor，请生成 .codex_monitor、run_with_monitor.sh、按小时的只读巡检报告、最终完成邮件，以及可选的 systemd --user timer。对于 goal-mode 任务，还要确保最终邮件能区分 complete、blocked 和 usageLimited。只有在确实需要邮件配置时，才向我索取三项信息：发件邮箱、收件邮箱、发件邮箱的 SMTP 密码或授权码。所有 secret、报告和本地运行期状态都不要提交到 Git。安装完成后运行 skill 检查；如果本机已经安装了全局 skill，也要验证全局副本一致性；最后把启动监控任务的准确命令告诉我。
+```
+
+仅安装全局 goal 终态邮件 hook 的 prompt：
+
+```text
+请从 https://github.com/Killow1998/OnlyCodexCanDo.git 只安装 TaskWatch 的全局 goal 终态邮件 hook。在 ~/.codex 下配置 Codex Stop hook，让 goal 任务在 complete、blocked 和 usageLimited 时发送终态邮件。如果本机已经有现成配置就复用。只有在尚未配置邮件时，才向我索取发件邮箱、收件邮箱和发件邮箱的 SMTP 密码或授权码。所有 secret 只能保存在本机忽略文件里，并在安装后做一次安全的 smoke test。
+```
+
+当前局限性：
+
+- 目前只支持 Linux。workspace-local timer 默认走 `systemd --user`。
+- 全局 goal 终态邮件依赖 Codex `Stop` hook。如果是断电、宿主机崩溃、或者外部直接 kill 导致 Codex 没有正常收尾，这条链路不会触发。
+- goal 归档状态属于 best-effort 检测。它依赖 Codex transcript 和本地 state 推断，特殊流程下可能显示为“未检测到”。
+- workspace-local monitor 假设任务本身已经有真实可运行的命令、日志或 artifact 目录；它不会替你发明任务逻辑。
+- SMTP 仍然依赖邮箱服务商的有效 app password / 授权码。
+- 全局 hook 和 workspace-local monitor 是互补关系：前者负责 goal 终态告警，后者负责按小时的日志和产物巡检。
+
 ## 安装 Skill
 
 对于 `lark-worklog-archive`，普通用户不需要自己逐条执行安装命令。把下面这段 prompt 交给 Codex 即可：

@@ -625,21 +625,49 @@ echo "Removed ${BASENAME} timer. Reports, snapshots, state files, and email.env 
 
 
 SEND_MAIL_TEMPLATE = """#!/usr/bin/env python3
-\"\"\"Send a UTF-8 plain-text email through SMTP.\"\"\"
+\"\"\"Send a structured UTF-8 plain-text final email through SMTP.\"\"\"
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import smtplib
 import ssl
+from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
+from typing import Any
+from zoneinfo import ZoneInfo
 
 
 WORKSPACE = Path(__file__).resolve().parents[2]
+MONITOR_DIR = WORKSPACE / ".codex_monitor"
+STATE_DIR = MONITOR_DIR / "state"
 DEFAULT_ENV_FILE = WORKSPACE / ".codex_monitor" / "email.env"
+MONITOR_ENV_FILE = WORKSPACE / ".codex_monitor" / "monitor.env"
+CODEX_HOME = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
 REQUIRED_KEYS = ("SMTP_HOST", "SMTP_PORT", "SMTP_SECURITY", "SMTP_USER", "SMTP_PASS", "EMAIL_FROM", "EMAIL_TO")
+TERMINAL_STATUSES = {"complete", "blocked", "usageLimited"}
+DISPLAY_TZ = ZoneInfo("Asia/Shanghai")
+ARCHIVE_ATTEMPT_MARKERS = (
+    "archive_worklog.py",
+    "lark-worklog-archive",
+    "今日归档",
+    "今天归档",
+    "同步到飞书工作记录",
+)
+ARCHIVE_SUCCESS_MARKERS = (
+    "Updated worklog ",
+    "已记录到飞书",
+    "Monthly document:",
+)
+ARCHIVE_FAILURE_MARKERS = (
+    "Verification failed",
+    "need_user_authorization",
+    "Repair failed",
+    "archive failed",
+)
 
 
 def _load_env_file(path: Path) -> dict[str, str]:
@@ -669,6 +697,318 @@ def _merged_config(path: Path) -> dict[str, str]:
     return config
 
 
+def _load_monitor_env(path: Path = MONITOR_ENV_FILE) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    return _load_env_file(path)
+
+
+def _read_state(name: str) -> str:
+    path = STATE_DIR / name
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8", errors="replace").strip()
+
+
+def parse_timestamp(value: Any) -> datetime | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+    if isinstance(value, (int, float)):
+        seconds = float(value)
+        if abs(seconds) > 1_000_000_000_000:
+            seconds /= 1000.0
+        try:
+            return datetime.fromtimestamp(seconds, tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        parsed = None
+    if parsed is not None:
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed
+    for suffix, tzinfo in ((" Asia/Shanghai", DISPLAY_TZ), (" CST", DISPLAY_TZ), (" UTC", timezone.utc)):
+        if text.endswith(suffix):
+            raw = text[: -len(suffix)]
+            try:
+                parsed = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                return None
+            return parsed.replace(tzinfo=tzinfo)
+    return None
+
+
+def format_timestamp(value: Any) -> str:
+    parsed = parse_timestamp(value)
+    if parsed is None:
+        return "unknown"
+    local = parsed.astimezone(DISPLAY_TZ)
+    return local.strftime("%Y-%m-%d %H:%M:%S") + " Asia/Shanghai"
+
+
+def format_duration(start: datetime | None, end: datetime | None) -> str:
+    if start is None or end is None:
+        return "unknown"
+    seconds = max(0, int((end - start).total_seconds()))
+    if seconds < 60:
+        return f"{seconds}秒"
+    minutes, remaining_seconds = divmod(seconds, 60)
+    hours, remaining_minutes = divmod(minutes, 60)
+    days, remaining_hours = divmod(hours, 24)
+    parts: list[str] = []
+    if days:
+        parts.append(f"{days}天")
+    if remaining_hours:
+        parts.append(f"{remaining_hours}小时")
+    if remaining_minutes:
+        parts.append(f"{remaining_minutes}分钟")
+    if remaining_seconds and not parts:
+        parts.append(f"{remaining_seconds}秒")
+    return "".join(parts) if parts else "0秒"
+
+
+def normalize_text(text: str, limit: int = 240) -> str:
+    compact = " ".join(text.split())
+    if len(compact) <= limit:
+        return compact
+    return compact[: limit - 3].rstrip() + "..."
+
+
+def extract_text_fragments(value: Any) -> list[str]:
+    fragments: list[str] = []
+    if isinstance(value, str):
+        fragments.append(value)
+        return fragments
+    if isinstance(value, list):
+        for item in value:
+            fragments.extend(extract_text_fragments(item))
+        return fragments
+    if isinstance(value, dict):
+        direct = value.get("text")
+        if isinstance(direct, str):
+            fragments.append(direct)
+        for key in ("input_text", "output_text", "message", "content", "arguments", "output"):
+            if key in value:
+                fragments.extend(extract_text_fragments(value[key]))
+        return fragments
+    return fragments
+
+
+def extract_message_text(item: dict[str, Any]) -> str:
+    payload = item.get("payload") or {}
+    parts = extract_text_fragments(payload.get("content"))
+    return normalize_text("\\n".join(part for part in parts if part.strip()), limit=800)
+
+
+def parse_goal_event(raw_line: str) -> dict[str, Any] | None:
+    try:
+        item = json.loads(raw_line)
+    except json.JSONDecodeError:
+        return None
+    if item.get("type") != "event_msg":
+        return None
+    payload = item.get("payload") or {}
+    if payload.get("type") != "thread_goal_updated":
+        return None
+    goal = payload.get("goal") or {}
+    status = goal.get("status")
+    if status not in TERMINAL_STATUSES:
+        return None
+    return {
+        "status": status,
+        "objective": goal.get("objective", ""),
+        "turn_id": payload.get("turnId", ""),
+        "updated_at": goal.get("updatedAt", ""),
+        "timestamp": item.get("timestamp", ""),
+        "source": "thread_goal_updated",
+    }
+
+
+def resolve_goal_transcript() -> Path | None:
+    candidate = _read_state("goal_final_status_source.txt")
+    if candidate:
+        path = Path(candidate).expanduser()
+        if path.exists() and path.suffix == ".jsonl":
+            return path
+    return None
+
+
+def parse_transcript_context(transcript_path: Path) -> dict[str, str]:
+    latest_goal_event: dict[str, Any] | None = None
+    first_user_message = ""
+    archive_attempted = False
+    archive_success = ""
+    archive_failure = ""
+    for raw_line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        event = parse_goal_event(raw_line)
+        if event is not None:
+            latest_goal_event = event
+        try:
+            item = json.loads(raw_line)
+        except json.JSONDecodeError:
+            continue
+        payload = item.get("payload") or {}
+        if item.get("type") == "response_item" and payload.get("type") == "message" and payload.get("role") == "user":
+            text = extract_message_text(item)
+            if text and not first_user_message:
+                first_user_message = text
+        text_sources = [normalize_text(fragment, limit=800) for fragment in extract_text_fragments(payload) if fragment.strip()]
+        for source in text_sources:
+            lower = source.lower()
+            if any(marker.lower() in lower for marker in ARCHIVE_ATTEMPT_MARKERS):
+                archive_attempted = True
+            if not archive_success and any(marker.lower() in lower for marker in ARCHIVE_SUCCESS_MARKERS):
+                archive_success = source
+            if not archive_failure and any(marker.lower() in lower for marker in ARCHIVE_FAILURE_MARKERS):
+                archive_failure = source
+    return {
+        "objective": normalize_text(str((latest_goal_event or {}).get("objective", "")).strip(), limit=300),
+        "purpose": first_user_message,
+        "goal_updated_at": str((latest_goal_event or {}).get("updated_at", "")),
+        "goal_event_timestamp": str((latest_goal_event or {}).get("timestamp", "")),
+        "archive_status": (
+            "已完成"
+            if archive_success
+            else "尝试过，但未确认成功"
+            if archive_attempted and archive_failure
+            else "检测到归档动作，但未确认成功"
+            if archive_attempted
+            else "未检测到"
+        ),
+        "archive_detail": archive_success or archive_failure,
+    }
+
+
+def status_title(status: str) -> str:
+    if status == "complete":
+        return "Goal 完成通知"
+    if status == "blocked":
+        return "Goal 阻塞通知"
+    if status == "usageLimited":
+        return "Goal 额度触顶通知"
+    if status == "failed":
+        return "运行失败通知"
+    if status == "done":
+        return "运行完成通知"
+    return "运行状态通知"
+
+
+def summarize_status(status: str, exit_code: str) -> str:
+    if status == "complete":
+        return "已完成，goal 正常收尾。"
+    if status == "blocked":
+        return "未完成，goal 已进入 blocked，需要人工处理阻塞项。"
+    if status == "usageLimited":
+        return "未完成，Codex 使用额度已触顶。"
+    if status == "failed":
+        return f"任务以失败状态结束，退出码为 {exit_code or 'unknown'}。"
+    if status == "done":
+        return f"任务已结束，退出码为 {exit_code or '0'}。"
+    return "状态未知。"
+
+
+def intervention_status(status: str) -> str:
+    if status in {"complete", "done"}:
+        return "否"
+    if status == "blocked":
+        return "是，需要查看阻塞原因并决定下一步。"
+    if status == "usageLimited":
+        return "是，需要等待额度恢复或切换可用额度后重试。"
+    if status == "failed":
+        return "是，需要检查失败原因、日志和最新产物。"
+    return "unknown"
+
+
+def infer_run_command() -> str:
+    run_command = MONITOR_DIR / "run_command.sh"
+    if not run_command.exists():
+        return ""
+    for line in run_command.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("exec bash -lc "):
+            return normalize_text(stripped[len("exec bash -lc ") :].strip().strip("'"), limit=500)
+    return ""
+
+
+def collect_context() -> dict[str, Any]:
+    monitor_env = _load_monitor_env()
+    label = monitor_env.get("CODEX_MONITOR_LABEL", WORKSPACE.name)
+    goal_mode = monitor_env.get("CODEX_MONITOR_GOAL_MODE", "0") == "1"
+    run_start = parse_timestamp(_read_state("run_start_time.txt"))
+    run_end = parse_timestamp(_read_state("run_end_time.txt") or _read_state("train_end_time.txt"))
+    exit_code = _read_state("run_exit_code.txt") or _read_state("train_exit_code.txt")
+
+    status = ""
+    if _read_state("goal_final_status.txt") in TERMINAL_STATUSES:
+        status = _read_state("goal_final_status.txt")
+    elif (STATE_DIR / "RUN_FAILED").exists() or (STATE_DIR / "TRAIN_FAILED").exists():
+        status = "failed"
+    elif (STATE_DIR / "RUN_DONE").exists() or (STATE_DIR / "TRAIN_DONE").exists():
+        status = "done"
+
+    transcript_path = resolve_goal_transcript()
+    transcript_context = parse_transcript_context(transcript_path) if transcript_path else {}
+
+    task_name = transcript_context.get("objective") or label
+    purpose = transcript_context.get("purpose") or infer_run_command() or "执行配置好的长时间运行任务"
+    archive_status = transcript_context.get("archive_status") or ("未检测到" if goal_mode else "不适用")
+    archive_detail = transcript_context.get("archive_detail") or ""
+    finished_at = run_end or parse_timestamp(transcript_context.get("goal_updated_at") or transcript_context.get("goal_event_timestamp"))
+
+    return {
+        "status": status or "unknown",
+        "task_name": task_name,
+        "purpose": purpose,
+        "archive_status": archive_status,
+        "archive_detail": archive_detail,
+        "started_at": run_start,
+        "finished_at": finished_at,
+        "exit_code": exit_code or "unknown",
+        "goal_transcript": str(transcript_path) if transcript_path else "",
+    }
+
+
+def build_email_body(subject: str, body_text: str) -> str:
+    context = collect_context()
+    lines = [
+        f"TaskWatch {subject}",
+        "",
+        "任务概况",
+        f"- 任务是什么：{context['task_name']}",
+        f"- 启动的目的：{context['purpose']}",
+        f"- 完成情况：{summarize_status(context['status'], context['exit_code'])}",
+        f"- 是否需要介入：{intervention_status(context['status'])}",
+        f"- 是否完成归档：{context['archive_status']}",
+        f"- 完成时间：{format_timestamp(context['finished_at'])}",
+        f"- 花了多久：{format_duration(context['started_at'], context['finished_at'])}",
+        "",
+        "运行信息",
+        f"- 工作目录：{WORKSPACE}",
+        f"- monitor 标签：{context['task_name']}",
+        f"- 退出码：{context['exit_code']}",
+        f"- goal transcript：{context['goal_transcript'] or 'unknown'}",
+        f"- 启动时间：{format_timestamp(context['started_at'])}",
+        f"- 完成判定来源：{context['status']}",
+    ]
+    if context["archive_detail"]:
+        lines.extend(["", "归档细节", f"- {context['archive_detail']}"])
+    lines.extend(["", "原始最终报告", body_text.rstrip()])
+    return "\\n".join(lines).rstrip() + "\\n"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("subject", help="Email subject.")
@@ -684,12 +1024,13 @@ def main() -> int:
     config = _merged_config(env_file)
     smtp_port = int(config["SMTP_PORT"])
     security = config["SMTP_SECURITY"].strip().lower()
+    body_text = build_email_body(args.subject, body_file.read_text(encoding="utf-8"))
 
     message = EmailMessage()
     message["Subject"] = args.subject
     message["From"] = config["EMAIL_FROM"]
     message["To"] = config["EMAIL_TO"]
-    message.set_content(body_file.read_text(encoding="utf-8"), subtype="plain", charset="utf-8")
+    message.set_content(body_text, subtype="plain", charset="utf-8")
 
     if security == "ssl":
         context = ssl.create_default_context()
