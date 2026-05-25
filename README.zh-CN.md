@@ -27,6 +27,27 @@
 - 工作条目可以带 Markdown 链接，用于跳转到相关文档或 commit；
 - 真实文档映射只保存在本机忽略配置中。
 
+### `TaskWatch`
+
+为任何长时间运行的 Linux 任务生成可复用的只读 Codex monitor。
+
+适合这些触发方式：
+
+- 给这个长时间运行任务加一个 Codex monitor。
+- 生成按小时巡检的只读任务报告。
+- 给当前 workspace 增加 systemd 用户定时器和任务完成邮件通知。
+
+主要行为：
+
+- 生成 workspace 本地的 `.codex_monitor` 脚手架；
+- 写入可配置的 `run_command.sh` 和 `monitor.env`；
+- 安装小时报告和最终总结脚本；
+- 支持 Codex goal-mode 在最终邮件里区分 `complete`、`blocked` 和 `usageLimited`；
+- 也可以只安装全局 Codex `Stop` hook，用于 goal 终态邮件告警，不依赖 workspace 本地 monitor；
+- 支持无 sudo 的 systemd user timer；
+- SMTP secret 和运行期报告保持不入 Git；
+- 对常见邮箱域名自动推断 SMTP host、port 和安全模式，所以通常只需要用户提供发件邮箱、收件邮箱和发件邮箱密钥。
+
 ## 安装 Skill
 
 对于 `lark-worklog-archive`，普通用户不需要自己逐条执行安装命令。把下面这段 prompt 交给 Codex 即可：
@@ -36,6 +57,8 @@
 ```
 
 给 Codex/Agent 看的安装细节在 [skills/lark-worklog-archive/references/setup.md](skills/lark-worklog-archive/references/setup.md)。
+
+对于 `TaskWatch`，Codex 应该先检查目标 workspace，尽量自己推断真实任务命令、日志路径、artifact 目录和已有 service 名称，再运行 installer。若只是要 goal 终态邮件，则安装全局 hook 即可。技能入口说明在 [skills/taskwatch/SKILL.md](skills/taskwatch/SKILL.md)。
 
 ## 仓库规则
 
