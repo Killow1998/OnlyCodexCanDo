@@ -16,7 +16,7 @@ SKILL_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = SKILL_DIR.parents[1]
 DEFAULT_GLOBAL_SKILL = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")) / "skills" / SKILL_DIR.name
 QUICK_VALIDATE = Path.home() / ".codex" / "skills" / ".system" / "skill-creator" / "scripts" / "quick_validate.py"
-EXCLUDED_NAMES = {"__pycache__", "monthly-docs.local.json", "category-rules.local.json"}
+EXCLUDED_NAMES = {"__pycache__", "monthly-docs.local.json"}
 FORBIDDEN_PATTERNS = [
     re.compile(r"https?://\S*(?:feishu|larksuite)\S*"),
     re.compile(r"\bou_[0-9a-zA-Z_-]{16,}\b"),

@@ -13,6 +13,8 @@ Group work by meaningful objective. Under each work domain, use these second-lev
 
 Commands, file paths, test names, commits, and document links are evidence. Include them only when they make the result easier to verify or reopen later.
 
+Choose domains and decide whether items should be merged in the agent summary, not in the helper script. Domain names should come from the actual work context. Examples include `工作记录 / 知识管理`, `Agent 工具 / 自动化`, `开发环境 / 系统配置`, `仿真 / 训练`, and `实机 / 硬件部署`, but these are examples rather than a closed taxonomy. The helper preserves the structured domains it receives and does not infer domains from keywords.
+
 ## Avoid
 
 - Listing every command, file, and small fix as separate work items.
@@ -36,7 +38,7 @@ Preserve useful evidence, but compress repeated commands and file lists into con
 ## Examples
 
 ```markdown
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 背景与目标
     - 希望让 Codex 总结每日工作，后续可直接汇总成周报；旧记录过于零散，难以回看动机和进度。
   - 工作内容
@@ -46,7 +48,7 @@ Preserve useful evidence, but compress repeated commands and file lists into con
   - 问题与下一步
     - 需要按新指南重写已有旧风格工作内容，减少同日重复碎片。
 
-- Ubuntu 环境
+- 开发环境 / 系统配置
   - 背景与目标
     - 为了在 CLI 中稳定使用 Codex 开发，减少代理缺失导致的 reconnect。
   - 工作内容
@@ -54,9 +56,17 @@ Preserve useful evidence, but compress repeated commands and file lists into con
   - 结果
     - 环境已基本可用，可继续用真实开发任务验证稳定性。
 
-- RL 环境
+- Agent 工具 / 自动化
   - 背景与目标
-    - 为推进科研，需要复现 SeaNav；之前环境混乱，不利于训练和排错。
+    - 为了减少长任务盯守成本，需要把监控和通知流程做成可复用 agent skill。
+  - 工作内容
+    - 调整 skill 安装、检查和全局同步流程，统一终态邮件字段。
+  - 结果
+    - 本地和全局 skill 副本一致，check.py 通过。
+
+- 仿真 / 训练
+  - 背景与目标
+    - 为推进实验，需要复现仿真训练流程；之前环境混乱，不利于训练和排错。
   - 工作内容
     - 重新整理 RL 依赖和工作区。
   - 结果
@@ -64,13 +74,13 @@ Preserve useful evidence, but compress repeated commands and file lists into con
   - 问题与下一步
     - 下一步验证数据、训练脚本和 baseline。
 
-- Go2-W 实机开发
+- 实机 / 硬件部署
   - 背景与目标
-    - 希望在 Go2-W 主机上也能使用 Codex 开发，从而直接推进实机任务。
+    - 希望在目标设备上也能使用 agent 辅助开发，从而直接推进实机任务。
   - 工作内容
     - 配置远程开发和 Codex 使用条件。
   - 结果
-    - 初步部署完成，为后续实机开发打基础。
+    - 初步部署完成，为后续硬件联调打基础。
   - 问题与下一步
     - 需要用真实任务验证构建、部署和运行链路。
 ```

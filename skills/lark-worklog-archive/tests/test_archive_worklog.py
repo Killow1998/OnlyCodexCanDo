@@ -194,7 +194,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertNotIn("abc.def.ghi", redacted)
         self.assertNotIn("refresh-value", redacted)
 
-    def test_grouping_and_legacy_domain_migration(self) -> None:
+    def test_grouping_preserves_legacy_subcategories_without_guessing_domains(self) -> None:
         section = """# 05-19-2026
 
 - 验证与测试
@@ -206,16 +206,17 @@ class ArchiveWorklogTests(unittest.TestCase):
     - 整理 Go2W RL 工作区，建立 /home/user/rl_ws/go2w_rl 作为新的统一工作区。
 """
         groups = self.mod.normalize_section_groups(section)
-        self.assertIn("飞书 CLI / 工作记录", groups)
-        self.assertIn("Ubuntu 环境", groups)
-        self.assertIn("RL 环境", groups)
+        self.assertEqual(set(groups), {"其他"})
         self.assertEqual(
-            self.flatten(groups["飞书 CLI / 工作记录"]["结果"]),
+            self.flatten(groups["其他"]["结果"]),
             ["清理旧迁移遗留的未知分类，确认跨对话并发保护内容归入飞书 CLI 分类。"],
         )
         self.assertEqual(
-            self.flatten(groups["Ubuntu 环境"]["工作内容"]),
-            ["安装并配置 RTK，用于 Codex、Claude Code、Gemini CLI 的命令输出压缩与 token 节省。"],
+            self.flatten(groups["其他"]["工作内容"]),
+            [
+                "安装并配置 RTK，用于 Codex、Claude Code、Gemini CLI 的命令输出压缩与 token 节省。",
+                "整理 Go2W RL 工作区，建立 /home/user/rl_ws/go2w_rl 作为新的统一工作区。",
+            ],
         )
 
     def test_normalize_section_groups_skips_round_trip_header_placeholders(self) -> None:
@@ -237,35 +238,35 @@ class ArchiveWorklogTests(unittest.TestCase):
     def test_merge_document_appends_same_subcategory_after_existing_items(self) -> None:
         current = """# 05-19-2026
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 工作内容
     - 创建 lark-worklog-archive Skill。
 """
         merged = self.mod.merge_document(
             current,
             "05-19-2026",
-            ["飞书 CLI / 工作记录::工作内容::安装到全局 Codex skills。"],
+            ["工作记录 / 知识管理::工作内容::安装到全局 Codex skills。"],
         )
         self.assertLess(merged.index("创建 lark-worklog-archive Skill。"), merged.index("安装到全局 Codex skills。"))
 
     def test_markdown_to_xml_preserves_nested_lists(self) -> None:
         markdown = """# 05-19-2026
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 工作内容
     - 创建 Skill。
   - 验证与测试
     - Skill 校验通过。
 """
         xml = self.mod.markdown_to_xml(markdown, "05-2026 工作记录")
-        self.assertIn("<li>飞书 CLI / 工作记录<ul>", xml)
+        self.assertIn("<li>工作记录 / 知识管理<ul>", xml)
         self.assertIn("<li>工作内容<ul><li>创建 Skill。</li></ul></li>", xml)
         self.assertIn("<li>结果<ul><li>Skill 校验通过。</li></ul></li>", xml)
 
     def test_markdown_to_xml_renders_work_item_links(self) -> None:
         markdown = """# 05-20-2026
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 工作内容
     - 编写 [使用说明](https://example.com/docx/doc-test)，用于团队查看。
 """
@@ -274,7 +275,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("，用于团队查看。", xml)
 
     def test_canonical_item_unescapes_link_markdown(self) -> None:
-        item = r"飞书 CLI / 工作记录::工作内容::编写 \[使用说明\]\(https://example.com/docx/doc-test\)。"
+        item = r"工作记录 / 知识管理::工作内容::编写 \[使用说明\]\(https://example.com/docx/doc-test\)。"
         self.assertEqual(
             self.mod.canonical_item(item),
             "编写 [使用说明](https://example.com/docx/doc-test)。",
@@ -288,11 +289,11 @@ class ArchiveWorklogTests(unittest.TestCase):
 
     def test_markdown_section_replace_is_risky_for_windows_and_markdown_escapes(self) -> None:
         self.assertFalse(
-            self.mod.markdown_section_replace_is_risky("# 05-20-2026\n\n- 飞书 CLI / 工作记录\n  - 工作内容\n    - 创建 Skill。")
+            self.mod.markdown_section_replace_is_risky("# 05-20-2026\n\n- 工作记录 / 知识管理\n  - 工作内容\n    - 创建 Skill。")
         )
         self.assertTrue(
             self.mod.markdown_section_replace_is_risky(
-                r"# 05-20-2026\n\n- 飞书 CLI / 工作记录\n  - 验证与测试\n    - 运行 skills\lark-worklog-archive\tests。"
+                r"# 05-20-2026\n\n- 工作记录 / 知识管理\n  - 验证与测试\n    - 运行 skills\lark-worklog-archive\tests。"
             )
         )
         self.assertTrue(
@@ -311,13 +312,13 @@ class ArchiveWorklogTests(unittest.TestCase):
     def test_section_signature_tolerates_lark_markdown_escaping(self) -> None:
         expected = r"""# 05-20-2026
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 验证与测试
     - 运行 python -B -m unittest discover -s skills\\lark-worklog-archive\\tests，清理 __pycache__。
 """
         actual = r"""# 05-20-2026
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 验证与测试
     - 运行 python -B -m unittest discover -s skills\\\lark-worklog-archive\\\tests，清理 \_\_pycache\_\_。
 """
@@ -326,7 +327,7 @@ class ArchiveWorklogTests(unittest.TestCase):
     def test_repair_notes_report_excessive_markdown_escaping(self) -> None:
         section = r"""# 05-20-2026
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 验证与测试
     - 运行 python -B -m unittest discover -s skills\\\\\\\\\lark-worklog-archive\\\\\\\\\tests。
   - 开发环境
@@ -339,7 +340,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         fake = FakeLark(
             r"""# 05-20-2026
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 验证与测试
     - 运行 python -B -m unittest discover -s skills\lark-worklog-archive\tests，36 tests OK。
 """
@@ -349,7 +350,7 @@ class ArchiveWorklogTests(unittest.TestCase):
             fake.doc,
             "05-20-2026",
             [
-                r"飞书 CLI / 工作记录::验证与测试::运行 python -B -m unittest discover -s skills\\lark-worklog-archive\\tests，36 tests OK。"
+                r"工作记录 / 知识管理::验证与测试::运行 python -B -m unittest discover -s skills\\lark-worklog-archive\\tests，36 tests OK。"
             ],
         )
         self.assertEqual(revision, 1)
@@ -358,7 +359,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         fake = FakeLark(
             """# 05-19-2026
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 工作内容
     - 创建 lark-worklog-archive Skill。
 """
@@ -374,7 +375,7 @@ class ArchiveWorklogTests(unittest.TestCase):
                 "--date",
                 "2026-05-19",
                 "--item",
-                "飞书 CLI / 工作记录::工作内容::安装到全局 Codex skills。",
+                "工作记录 / 知识管理::工作内容::安装到全局 Codex skills。",
             ):
                 output = io.StringIO()
                 with contextlib.redirect_stdout(output):
@@ -390,7 +391,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         fake = FakeLark(
             """# 05-20-2026
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 工作内容
     - 创建 lark-worklog-archive Skill。
 """
@@ -406,7 +407,7 @@ class ArchiveWorklogTests(unittest.TestCase):
                 "--date",
                 "2026-05-20",
                 "--item",
-                r"飞书 CLI / 工作记录::验证与测试::Windows 验证：运行 python -B -m unittest discover -s skills\lark-worklog-archive\tests，并确认 __pycache__ 正常显示。",
+                r"工作记录 / 知识管理::验证与测试::Windows 验证：运行 python -B -m unittest discover -s skills\lark-worklog-archive\tests，并确认 __pycache__ 正常显示。",
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(self.mod.main(), 0)
@@ -419,7 +420,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         fake = FakeLark(
             """# 05-19-2026
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 工作内容
     - 创建 lark-worklog-archive Skill。
 """
@@ -436,7 +437,7 @@ class ArchiveWorklogTests(unittest.TestCase):
                 "--date",
                 "2026-05-19",
                 "--item",
-                "飞书 CLI / 工作记录::工作内容::安装到全局 Codex skills。",
+                "工作记录 / 知识管理::工作内容::安装到全局 Codex skills。",
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(self.mod.main(), 0)
@@ -448,7 +449,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         fake = FakeLark(
             """# 05-20-2026
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 工作内容
     - 创建 lark-worklog-archive Skill。
   - 验证与测试
@@ -456,7 +457,7 @@ class ArchiveWorklogTests(unittest.TestCase):
 
 # 05-19-2026
 
-- Go2-W 实机开发
+- 实机 / 硬件部署
   - 工作内容
     - 保留相邻日期。
 """
@@ -473,7 +474,7 @@ class ArchiveWorklogTests(unittest.TestCase):
                 "--date",
                 "2026-05-20",
                 "--item",
-                "飞书 CLI / 工作记录::工作内容::安装到全局 Codex skills。",
+                "工作记录 / 知识管理::工作内容::安装到全局 Codex skills。",
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(self.mod.main(), 0)
@@ -491,7 +492,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         fake = FakeLark(
             f"""# 05-20-2026
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 工作内容
     - {old_item}
 """
@@ -507,7 +508,7 @@ class ArchiveWorklogTests(unittest.TestCase):
                 "--date",
                 "2026-05-20",
                 "--item",
-                "飞书 CLI / 工作记录::工作内容::新增短内容。",
+                "工作记录 / 知识管理::工作内容::新增短内容。",
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(self.mod.main(), 0)
@@ -520,7 +521,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         fake = FakeLark(
             """# 05-19-2026
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 工作内容
     - 创建 lark-worklog-archive Skill。
 """
@@ -537,7 +538,7 @@ class ArchiveWorklogTests(unittest.TestCase):
                 "--date",
                 "2026-05-19",
                 "--item",
-                "飞书 CLI / 工作记录::工作内容::安装到全局 Codex skills。",
+                "工作记录 / 知识管理::工作内容::安装到全局 Codex skills。",
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(self.mod.main(), 0)
@@ -545,7 +546,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertNotIn("str_replace", fake.commands())
 
     def test_main_new_day_uses_block_insert_after(self) -> None:
-        fake = FakeLark("# 05-19-2026\n\n- Ubuntu 环境\n  - 开发环境\n    - 配置代理。")
+        fake = FakeLark("# 05-19-2026\n\n- 开发环境 / 系统配置\n  - 开发环境\n    - 配置代理。")
         self.mod.run_lark = fake
         with tempfile.TemporaryDirectory() as tempdir:
             with argv(
@@ -557,7 +558,7 @@ class ArchiveWorklogTests(unittest.TestCase):
                 "--date",
                 "2026-05-20",
                 "--item",
-                "飞书 CLI / 工作记录::工作内容::继续完善归档 Skill。",
+                "工作记录 / 知识管理::工作内容::继续完善归档 Skill。",
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(self.mod.main(), 0)
@@ -566,7 +567,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("继续完善归档 Skill。", fake.markdown)
 
     def test_main_new_day_force_overwrite_skips_block_insert(self) -> None:
-        fake = FakeLark("# 05-19-2026\n\n- Ubuntu 环境\n  - 开发环境\n    - 配置代理。")
+        fake = FakeLark("# 05-19-2026\n\n- 开发环境 / 系统配置\n  - 开发环境\n    - 配置代理。")
         self.mod.run_lark = fake
         with tempfile.TemporaryDirectory() as tempdir:
             with argv(
@@ -579,7 +580,7 @@ class ArchiveWorklogTests(unittest.TestCase):
                 "--date",
                 "2026-05-20",
                 "--item",
-                "飞书 CLI / 工作记录::工作内容::继续完善归档 Skill。",
+                "工作记录 / 知识管理::工作内容::继续完善归档 Skill。",
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(self.mod.main(), 0)
@@ -591,13 +592,13 @@ class ArchiveWorklogTests(unittest.TestCase):
         fake = FakeLark(
             """<title>05-2026 工作记录</title>
 
-- 飞书 CLI / 工作记录
+- 工作记录 / 知识管理
   - 工作内容
     - 修复旧内容。
 
 # 05-19-2026
 
-- Ubuntu 环境
+- 开发环境 / 系统配置
   - 开发环境
     - 配置代理。
 """
@@ -624,46 +625,6 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("完成远程 Codex 开发环境准备。", fake.markdown)
         self.assertIn("# 05-19-2026", fake.markdown)
 
-    def test_custom_category_rules_can_be_loaded_from_json(self) -> None:
-        with tempfile.TemporaryDirectory() as tempdir:
-            rules = Path(tempdir) / "category-rules.json"
-            rules.write_text(
-                json.dumps(
-                    {
-                        "category_order": ["Custom 域", "其他"],
-                        "subcategory_order": ["Review", "工作内容"],
-                        "fallback_category": "其他",
-                        "fallback_subcategory": "工作内容",
-                        "category_rules": [{"name": "Custom 域", "keywords": ["alpha"]}],
-                        "subcategory_rules": [{"name": "Review", "keywords": ["check"]}],
-                    }
-                ),
-                encoding="utf-8",
-            )
-            self.mod.apply_category_config(self.mod.load_category_config(str(rules)))
-        self.assertEqual(self.mod.categorize_item("alpha task"), "Custom 域")
-        self.assertEqual(self.mod.subcategorize_item("check result"), "Review")
-        self.assertEqual(self.mod.categorize_item("unmatched"), "其他")
-        self.assertEqual(self.mod.subcategorize_item("unmatched"), "工作内容")
-        rendered = self.mod.merge_document("", "05-20-2026", ["alpha check result"])
-        self.assertIn("- Custom 域\n  - Review\n    - alpha check result", rendered)
-
-    def test_custom_category_rules_accept_utf8_bom(self) -> None:
-        with tempfile.TemporaryDirectory() as tempdir:
-            rules = Path(tempdir) / "category-rules.json"
-            rules.write_bytes(
-                b"\xef\xbb\xbf"
-                + json.dumps(
-                    {
-                        "category_order": ["Windows 域", "其他"],
-                        "fallback_category": "其他",
-                        "category_rules": [{"name": "Windows 域", "keywords": ["powershell"]}],
-                    }
-                ).encode("utf-8")
-            )
-            self.mod.apply_category_config(self.mod.load_category_config(str(rules)))
-        self.assertEqual(self.mod.categorize_item("PowerShell wrapper"), "Windows 域")
-
     def test_legacy_subcategory_prefixes_are_migrated_to_summary_sections(self) -> None:
         cases = {
             "代码与仓库": "结果",
@@ -673,47 +634,57 @@ class ArchiveWorklogTests(unittest.TestCase):
         }
         for old, new in cases.items():
             with self.subTest(old=old):
-                rendered = self.mod.merge_document("", "05-20-2026", [f"飞书 CLI / 工作记录::{old}::迁移旧分类。"])
+                rendered = self.mod.merge_document("", "05-20-2026", [f"工作记录 / 知识管理::{old}::迁移旧分类。"])
                 self.assertIn(f"  - {new}\n    - 迁移旧分类。", rendered)
                 self.assertNotIn(f"  - {old}\n", rendered)
 
-    def test_explicit_work_domain_keeps_unitree_onboard_items_under_go2w(self) -> None:
+    def test_explicit_work_domain_is_preserved(self) -> None:
         markdown = """# 05-20-2026
 
-- Go2-W 实机开发
+- Custom Project
   - 工作内容
     - 完成 Unitree onboard computer 的远程 Codex 开发环境准备。
   - 结果
     - 已验证远端机器为 Ubuntu 20.04.5 LTS、aarch64、Tegra 环境。
 """
         normalized = self.mod.normalize_date_section("05-20-2026", markdown)
-        self.assertIn("- Go2-W 实机开发\n  - 工作内容", normalized)
+        self.assertIn("- Custom Project\n  - 工作内容", normalized)
         self.assertIn("完成 Unitree onboard computer 的远程 Codex 开发环境准备。", normalized)
-        self.assertNotIn("- RL 环境", normalized)
+        self.assertNotIn("- 仿真 / 训练", normalized)
 
-    def test_doctor_reports_bad_category_rules_instead_of_import_crashing(self) -> None:
-        fake = FakeLark("")
-        self.mod.run_lark = fake
-        self.mod.shutil.which = lambda command: f"/usr/bin/{command}"
-        with tempfile.TemporaryDirectory() as tempdir:
-            rules = Path(tempdir) / "category-rules.json"
-            rules.write_text("{bad json", encoding="utf-8")
-            with argv("--doctor", "--category-rules", str(rules), "--registry", str(Path(tempdir) / "registry.json")):
-                output = io.StringIO()
-                with contextlib.redirect_stdout(output):
-                    self.assertEqual(self.mod.main(), 1)
-        self.assertIn("[fail] category rules:", output.getvalue())
+    def test_helper_preserves_content_under_existing_domain(self) -> None:
+        markdown = """# 05-25-2026
 
-    def test_classify_only_does_not_call_lark(self) -> None:
+- 实机 / 硬件部署
+  - 工作内容
+    - 连续完成 Isaac 诊断和 PPO 训练排查，定位 Go2W lateral controller 的仿真接触问题。
+  - 结果
+    - 当前 checkpoint 仍需继续评估。
+"""
+        normalized = self.mod.normalize_date_section("05-25-2026", markdown)
+        self.assertIn("- 实机 / 硬件部署\n  - 工作内容", normalized)
+        self.assertIn("连续完成 Isaac 诊断和 PPO 训练排查", normalized)
+        self.assertNotIn("- 仿真 / 训练", normalized)
+
+    def test_unstructured_items_fall_back_without_keyword_inference(self) -> None:
+        markdown = """# 05-25-2026
+
+- 更新 taskwatch 单测和 check.py，修正全局 skill 一致性检查。
+"""
+        normalized = self.mod.normalize_date_section("05-25-2026", markdown)
+        self.assertIn("- 其他\n  - 工作内容", normalized)
+        self.assertIn("更新 taskwatch 单测和 check.py", normalized)
+
+    def test_structure_only_prints_parsed_structure_without_calling_lark(self) -> None:
         def fail_lark(args, check=True):
             raise AssertionError(f"lark-cli should not be called: {args}")
 
         self.mod.run_lark = fail_lark
-        with argv("--classify-only", "--item", "验证 n3mapping Humble launch smoke。"):
+        with argv("--structure-only", "--item", "ROS / SLAM::结果::验证 Humble launch smoke。"):
             output = io.StringIO()
             with contextlib.redirect_stdout(output):
                 self.assertEqual(self.mod.main(), 0)
-        self.assertIn("n3mapping :: 结果 :: 验证 n3mapping Humble launch smoke。", output.getvalue())
+        self.assertIn("ROS / SLAM :: 结果 :: 验证 Humble launch smoke。", output.getvalue())
 
     def test_preview_does_not_call_lark_and_prints_short_grouping(self) -> None:
         def fail_lark(args, check=True):
@@ -725,14 +696,14 @@ class ArchiveWorklogTests(unittest.TestCase):
             "--date",
             "2026-05-20",
             "--item",
-            "飞书 CLI / 工作记录::代码与仓库::新增 doctor/init/preview 入口。",
+            "工作记录 / 知识管理::代码与仓库::新增 doctor/init/preview 入口。",
         ):
             output = io.StringIO()
             with contextlib.redirect_stdout(output):
                 self.assertEqual(self.mod.main(), 0)
         text = output.getvalue()
         self.assertIn("Preview: 05-2026 工作记录 / 05-20-2026", text)
-        self.assertIn("- 飞书 CLI / 工作记录\n  - 结果\n    - 新增 doctor/init/preview 入口。", text)
+        self.assertIn("- 工作记录 / 知识管理\n  - 结果\n    - 新增 doctor/init/preview 入口。", text)
 
     def test_lark_cli_command_prefers_environment_override(self) -> None:
         with mock.patch.dict(os.environ, {"LARK_CLI": "/custom/lark-cli"}, clear=False):
@@ -899,14 +870,6 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("references/setup.md", skill)
         self.assertIn("references/worklog-writing-guide.md", skill)
 
-    def test_category_rules_example_uses_summary_subcategories(self) -> None:
-        rules = json.loads((SKILL_DIR / "references" / "category-rules.example.json").read_text(encoding="utf-8"))
-        self.assertEqual(rules["subcategory_order"], ["背景与目标", "工作内容", "结果", "问题与下一步"])
-        names = {rule["name"] for rule in rules["subcategory_rules"]}
-        self.assertEqual(names, {"背景与目标", "工作内容", "结果", "问题与下一步"})
-        self.assertNotIn("代码与仓库", rules["subcategory_order"])
-        self.assertNotIn("验证与测试", rules["subcategory_order"])
-
     def test_install_node_version_parser_flags_old_node(self) -> None:
         install = load_install_module()
         self.assertEqual(install.node_version_tuple("v20.8.0"), (20, 8, 0))
@@ -914,7 +877,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertGreaterEqual(install.node_version_tuple("v20.12.0"), (20, 12, 0))
 
     def test_doctor_checks_registry_without_printing_doc_locator(self) -> None:
-        fake = FakeLark("# 05-20-2026\n\n- 飞书 CLI / 工作记录\n  - 工作内容\n    - existing")
+        fake = FakeLark("# 05-20-2026\n\n- 工作记录 / 知识管理\n  - 工作内容\n    - existing")
         self.mod.run_lark = fake
         self.mod.shutil.which = lambda command: f"/usr/bin/{command}"
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1029,7 +992,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("requires --author", str(raised.exception))
 
     def test_team_work_content_is_signed_by_author(self) -> None:
-        fake = FakeLark("# 05-20-2026\n\n- 飞书 CLI / 工作记录\n  - 工作内容\n    - Alice：创建团队文档。")
+        fake = FakeLark("# 05-20-2026\n\n- 工作记录 / 知识管理\n  - 工作内容\n    - Alice：创建团队文档。")
         self.mod.run_lark = fake
         with tempfile.TemporaryDirectory() as tempdir:
             registry = Path(tempdir) / "registry.json"
@@ -1055,9 +1018,9 @@ class ArchiveWorklogTests(unittest.TestCase):
                 "--date",
                 "2026-05-20",
                 "--item",
-                "飞书 CLI / 工作记录::工作内容::完善团队署名。",
+                "工作记录 / 知识管理::工作内容::完善团队署名。",
                 "--item",
-                "飞书 CLI / 工作记录::验证与测试::验证团队归档。",
+                "工作记录 / 知识管理::验证与测试::验证团队归档。",
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(self.mod.main(), 0)
@@ -1074,7 +1037,7 @@ class ArchiveWorklogTests(unittest.TestCase):
 
 # 05-19-2026
 
-- Ubuntu 环境
+- 开发环境 / 系统配置
   - 开发环境
     - 配置代理。
 """
@@ -1097,7 +1060,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("overwrite", fake.commands())
         self.assertNotIn("str_replace", fake.commands())
         self.assertIn("moved top-level subcategory '验证与测试'", output.getvalue())
-        self.assertIn("- 飞书 CLI / 工作记录\n  - 结果", fake.markdown)
+        self.assertIn("- 其他\n  - 结果", fake.markdown)
         self.assertIn("# 05-20-2026", fake.markdown)
         self.assertIn("# 05-19-2026", fake.markdown)
 
@@ -1209,6 +1172,10 @@ class ArchiveWorklogTests(unittest.TestCase):
             self.assertIsNone(self.mod.cached_doc(cache, registry, "2026-05", "06-2026 工作记录"))
             self.assertIsNone(self.mod.cached_doc(cache, other_registry, "2026-05", "05-2026 工作记录"))
 
+    def test_doc_cache_write_failure_does_not_fail_archive_flow(self) -> None:
+        with mock.patch.object(self.mod, "save_json_file", side_effect=OSError("read-only cache")):
+            self.mod.remember_doc_cache("cache.json", "monthly-docs.json", "2026-05", "05-2026 工作记录", "doc-a", 7)
+
     def test_find_doc_by_title_uses_nested_search_result_url(self) -> None:
         fake = FakeLark("")
         fake.search_results = [
@@ -1282,7 +1249,7 @@ class ArchiveWorklogTests(unittest.TestCase):
                 "--date",
                 "2026-05-20",
                 "--item",
-                "飞书 CLI / 工作记录::工作内容::验证已有文档保护。",
+                "工作记录 / 知识管理::工作内容::验证已有文档保护。",
             ):
                 with self.assertRaises(SystemExit) as raised:
                     self.mod.main()

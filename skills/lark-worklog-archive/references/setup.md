@@ -125,7 +125,7 @@ If the work produced a document, issue, PR, or commit that should be easy to ope
 
 ```bash
 python skills/lark-worklog-archive/scripts/archive_worklog.py \
-  --item "飞书 CLI / 工作记录::结果::编写 [使用说明](https://example.com/docx/xxx)，用于团队查看。"
+  --item "工作记录 / 知识管理::结果::编写 [使用说明](https://example.com/docx/xxx)，用于团队查看。"
 ```
 
 Real Feishu/Lark document links are allowed only in runtime worklog items or local private config. Do not commit them to Git.
@@ -148,7 +148,7 @@ Team writes must include an author:
 python skills/lark-worklog-archive/scripts/archive_worklog.py \
   --team \
   --author "Alice" \
-  --item "飞书 CLI / 工作记录::工作内容::完善授权向导。"
+  --item "工作记录 / 知识管理::工作内容::完善授权向导。"
 ```
 
 Team items under `工作内容` are stored as `作者：事项`.
@@ -157,12 +157,12 @@ Team items under `工作内容` are stored as `作者：事项`.
 
 Refer to the Checks section in [SKILL.md](../SKILL.md) for `--doctor` and release check commands.
 
-Preview classification:
+Preview parsed structure:
 
 ```bash
 python skills/lark-worklog-archive/scripts/archive_worklog.py \
-  --classify-only \
-  --item "验证 n3mapping Humble launch smoke。"
+  --structure-only \
+  --item "ROS / SLAM::结果::验证 Humble launch smoke。"
 ```
 
 Repair one day:
@@ -199,4 +199,4 @@ Avoid mixing raw Lark XML blocks with Markdown unless the target document has al
 - Structural repair, abnormal documents, `--force-overwrite`, and all-dates repair may use full-document rewrite.
 - Normal archive output is intentionally short to reduce token use.
 - Avoid `--dry-run`, manual full `docs +fetch`, or `--print-doc` unless debugging.
-- Keep `monthly-docs.local.json`, category overrides, OpenID values, tokens, app IDs, secrets, and real document URLs out of Git.
+- Keep `monthly-docs.local.json`, OpenID values, tokens, app IDs, secrets, and real document URLs out of Git.

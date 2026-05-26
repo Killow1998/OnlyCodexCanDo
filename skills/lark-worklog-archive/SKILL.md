@@ -14,7 +14,8 @@ Real Feishu document URLs, OpenID values, app IDs, tokens, secrets, and local re
 - Keep one worklog document per month, titled `MM-YYYY 工作记录`.
 - Date headings are H1s in `MM-DD-YYYY`, newest date first.
 - Under each date, use unordered lists only; do not add prose, tables, or subheadings.
-- First-level bullets are meaningful work domains, for example `飞书 CLI / 工作记录`, `Ubuntu 环境`, `RL 环境`, or `Go2-W 实机开发`; avoid `其他` when a real domain is known.
+- First-level bullets are meaningful work domains chosen from the actual work context; examples include `工作记录 / 知识管理`, `Agent 工具 / 自动化`, `开发环境 / 系统配置`, `仿真 / 训练`, and `实机 / 硬件部署`.
+- Decide domains and whether items should be merged in the agent summary before calling the helper. The helper does not infer work domains from keywords.
 - The worklog is summarized project progress, not a raw command log. Group by objective and explain why the work happened.
 - Default second-level bullets are `背景与目标`, `工作内容`, `结果`, and `问题与下一步`.
 - Do not default to `代码与仓库`, `验证与测试`, `开发环境`, or `问题与风险`; fold those details into the four summary sections.
@@ -25,21 +26,21 @@ Real Feishu document URLs, OpenID values, app IDs, tokens, secrets, and local re
 ## Workflow
 
 1. Collect actual work from the conversation, tool outputs, git diff, command history, or user summary. Do not invent work.
-2. Preview classification for non-trivial entries:
+2. Preview the final structure for non-trivial entries:
 
    ```bash
    python skills/lark-worklog-archive/scripts/archive_worklog.py \
      --preview \
-     --item "飞书 CLI / 工作记录::结果::运行 check.py 通过。"
+     --item "工作记录 / 知识管理::结果::运行 check.py 通过。"
    ```
 
 3. Archive through the helper:
 
    ```bash
    python skills/lark-worklog-archive/scripts/archive_worklog.py \
-     --item "飞书 CLI / 工作记录::背景与目标::为了后续周报和复盘，需要让工作记录从流水账变成总结。" \
-     --item "飞书 CLI / 工作记录::工作内容::完成 X。" \
-     --item "飞书 CLI / 工作记录::结果::运行 Y 通过。"
+     --item "工作记录 / 知识管理::背景与目标::为了后续周报和复盘，需要让工作记录从流水账变成总结。" \
+     --item "工作记录 / 知识管理::工作内容::完成 X。" \
+     --item "工作记录 / 知识管理::结果::运行 Y 通过。"
    ```
 
 The helper uses a per-month lock, latest Feishu revision, retry, dedupe, and post-write verification. Same-day writes first try guarded section replace, then fall back to full-document rewrite if replace or verification fails.
@@ -62,6 +63,5 @@ python skills/lark-worklog-archive/scripts/check.py
 
 - Setup, install, auth, reinstall, repair, team mode, and troubleshooting: [references/setup.md](references/setup.md)
 - Writing guide and old-entry migration: [references/worklog-writing-guide.md](references/worklog-writing-guide.md)
-- Category rule template: [references/category-rules.example.json](references/category-rules.example.json)
 - Completed changes: [references/CHANGELOG.md](references/CHANGELOG.md)
 - Future plans: [references/todo.md](references/todo.md)

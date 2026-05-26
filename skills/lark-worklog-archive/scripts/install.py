@@ -82,7 +82,6 @@ def copy_skill(source: Path, target: Path, dry_run: bool) -> None:
         "__pycache__",
         "*.pyc",
         "monthly-docs.local.json",
-        "category-rules.local.json",
     )
     if dry_run:
         print(f"[dry-run] would copy {source} -> {target}")

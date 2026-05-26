@@ -1,5 +1,14 @@
 # Lark Worklog Archive Changelog
 
+## 2026-05-26
+
+### Agent-led worklog shaping
+
+- Removed helper-side keyword classification and local category rule loading from the release package.
+- Kept the helper focused on structural parsing, locking, revision-safe writes, dedupe, repair, and verification.
+- Added `--structure-only` for parsing previews; the old `--classify-only` flag remains as a hidden compatibility alias.
+- Clarified that agents should decide work domains and item merging before calling the helper.
+
 ## 2026-05-20
 
 ### Breaking: summary-style worklog structure
@@ -15,7 +24,7 @@
 - Preferred `lark-cli.cmd` / `lark-cli.exe` on Windows to avoid PowerShell `lark-cli.ps1` policy failures.
 - Replaced hardcoded `python3` release checks with `sys.executable` and UTF-8 subprocess environments.
 - Added timezone fallback for Windows environments without IANA tzdata.
-- Supported UTF-8 BOM in category rules, registries, caches, and failed queues.
+- Supported UTF-8 BOM in registries, caches, and failed queues.
 - Fixed bare filename paths for registry, cache, and failed queue files.
 - Prevented Windows drive paths such as `C:\...` from being treated as team author signatures.
 
@@ -32,7 +41,6 @@
 ### User-facing workflow
 
 - Added install, doctor, init, preview, normalize-only, cache, failed queue, and team registry flows.
-- Added configurable category rules with a public template and local override paths.
 - Added team worklog mode with explicit `--team` and author attribution.
 - Added compact default output, `--print-doc` for explicit document locator output, and local lookup cache.
 - Added setup documentation for Windows PowerShell, lark-cli auth, reinstall, repair, team use, and troubleshooting.
@@ -42,7 +50,7 @@
 - Added unit tests with a fake lark-cli runner.
 - Added release `check.py` for unit tests, syntax checks, sensitive scans, cache scans, install dry-run, skill validation, and global skill consistency.
 - Added sensitive value redaction for document URLs, OpenID values, app IDs, tokens, secrets, and bearer tokens.
-- Added `.gitignore` coverage for private registries, category overrides, Python caches, and lark worklog temp files.
+- Added `.gitignore` coverage for private registries, Python caches, and lark worklog temp files.
 
 ### Sharing
 

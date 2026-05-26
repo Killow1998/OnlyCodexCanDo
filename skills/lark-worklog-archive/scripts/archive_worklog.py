@@ -35,8 +35,6 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SKILL_DIR = os.path.dirname(SCRIPT_DIR)
 PRIVATE_REGISTRY = os.path.join(SKILL_DIR, "references", "monthly-docs.local.json")
 DEFAULT_REGISTRY = os.path.join(os.path.expanduser("~"), ".config", "lark-worklog-archive", "monthly-docs.json")
-PRIVATE_CATEGORY_RULES = os.path.join(SKILL_DIR, "references", "category-rules.local.json")
-DEFAULT_CATEGORY_RULES = os.path.join(os.path.expanduser("~"), ".config", "lark-worklog-archive", "category-rules.json")
 DEFAULT_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "lark-worklog-archive", "cache.json")
 DEFAULT_FAILED_QUEUE = os.path.join(os.path.expanduser("~"), ".local", "state", "lark-worklog-archive", "failed-queue.jsonl")
 LARK_CONTENT_INLINE_LIMIT = 8000
@@ -53,11 +51,12 @@ INTERNAL_NOTE_ITEMS = {
     "约定每一天使用一级标题 `# YYYY-MM-DD`，标题下只写无序列表，不再使用二级标题或小节标题。",
 }
 BUILTIN_CATEGORY_ORDER = [
-    "飞书 CLI / 工作记录",
-    "Ubuntu 环境",
-    "Go2-W 实机开发",
-    "n3mapping",
-    "RL 环境",
+    "工作记录 / 知识管理",
+    "Agent 工具 / 自动化",
+    "开发环境 / 系统配置",
+    "ROS / SLAM",
+    "仿真 / 训练",
+    "实机 / 硬件部署",
     "其他",
 ]
 BUILTIN_SUBCATEGORY_ORDER = [
@@ -76,113 +75,10 @@ LEGACY_SUBCATEGORY_MAP = {
     "问题与风险": "问题与下一步",
     "其他": "工作内容",
 }
-BUILTIN_CATEGORY_RULES = [
-    (
-        "飞书 CLI / 工作记录",
-        (
-            "飞书",
-            "feishu",
-            "lark",
-            "lark-cli",
-            "工作记录",
-            "归档",
-            "月度",
-            "registry",
-            "monthly-docs",
-            "skill",
-            "文档",
-            "多对话",
-            "跨对话",
-            "多机",
-            "跨 pc",
-            "同日",
-            "revision",
-            "fetch/merge/retry",
-            "dry-run",
-            "分类",
-            "二级列表",
-            "周报",
-            "复盘",
-        ),
-    ),
-    (
-        "Go2-W 实机开发",
-        (
-            "go2-w",
-            "go2w 主机",
-            "实机",
-            "unitree 主机",
-            "unitree onboard",
-            "onboard computer",
-            "tegra",
-            "远程 codex",
-            "部署",
-            "反向代理隧道",
-        ),
-    ),
-    (
-        "n3mapping",
-        (
-            "n3mapping",
-            "ros_wrapper",
-            "humble",
-            "noetic",
-            "colcon",
-            "catkin",
-            "rviz",
-            "save_map",
-            "optimization.log",
-            "ros2",
-            "ros1",
-        ),
-    ),
-    (
-        "RL 环境",
-        (
-            "rl",
-            "robot_lab",
-            "isaac",
-            "isaac sim",
-            "isaac lab",
-            "seanav",
-            "sea-nav",
-            "him",
-            "applauncher",
-            "venv",
-            "虚拟环境",
-            "迁移包",
-            "多地形",
-            "训练",
-        ),
-    ),
-    (
-        "Ubuntu 环境",
-        (
-            "ubuntu",
-            "bash",
-            "bashrc",
-            "proxy",
-            "代理",
-            "rtk",
-            "codex",
-            "claude code",
-            "gemini cli",
-            "终端",
-        ),
-    ),
-]
-BUILTIN_SUBCATEGORY_RULES = [
-    ("背景与目标", ("背景", "目标", "动机", "为了", "需要", "希望", "原因", "解决")),
-    ("问题与下一步", ("风险", "问题", "失败", "冲突", "漏洞", "未完成", "下一步", "继续", "仍需")),
-    ("结果", ("完成", "通过", "提交", "验证", "测试", "产出", "已可用", "commit", "push", "ok", "green")),
-    ("工作内容", ("实现", "配置", "修改", "整理", "推进", "安装", "授权", "修复", "重写", "搭建")),
-]
 CATEGORY_ORDER = list(BUILTIN_CATEGORY_ORDER)
 SUBCATEGORY_ORDER = list(BUILTIN_SUBCATEGORY_ORDER)
 FALLBACK_CATEGORY = BUILTIN_FALLBACK_CATEGORY
 FALLBACK_SUBCATEGORY = BUILTIN_FALLBACK_SUBCATEGORY
-CATEGORY_RULES = list(BUILTIN_CATEGORY_RULES)
-SUBCATEGORY_RULES = list(BUILTIN_SUBCATEGORY_RULES)
 
 
 class ArchiveResult:
@@ -211,16 +107,6 @@ def default_registry_path() -> str:
     return DEFAULT_REGISTRY
 
 
-def default_category_rules_path() -> str | None:
-    if os.environ.get("LARK_WORKLOG_CATEGORY_RULES"):
-        return os.environ["LARK_WORKLOG_CATEGORY_RULES"]
-    if os.path.exists(PRIVATE_CATEGORY_RULES):
-        return PRIVATE_CATEGORY_RULES
-    if os.path.exists(DEFAULT_CATEGORY_RULES):
-        return DEFAULT_CATEGORY_RULES
-    return None
-
-
 def default_cache_path() -> str:
     return os.environ.get("LARK_WORKLOG_CACHE", DEFAULT_CACHE)
 
@@ -228,65 +114,6 @@ def default_cache_path() -> str:
 def default_failed_queue_path() -> str:
     return os.environ.get("LARK_WORKLOG_FAILED_QUEUE", DEFAULT_FAILED_QUEUE)
 
-
-def normalize_named_rules(value) -> list[tuple[str, tuple[str, ...]]]:
-    rules: list[tuple[str, tuple[str, ...]]] = []
-    if not isinstance(value, list):
-        return rules
-    for entry in value:
-        if not isinstance(entry, dict):
-            continue
-        name = entry.get("name")
-        keywords = entry.get("keywords", [])
-        if not isinstance(name, str) or not name.strip() or not isinstance(keywords, list):
-            continue
-        clean_keywords = tuple(str(keyword).strip() for keyword in keywords if str(keyword).strip())
-        rules.append((name.strip(), clean_keywords))
-    return rules
-
-
-def load_category_config(path: str | None = None) -> dict:
-    config = {
-        "category_order": list(BUILTIN_CATEGORY_ORDER),
-        "subcategory_order": list(BUILTIN_SUBCATEGORY_ORDER),
-        "fallback_category": BUILTIN_FALLBACK_CATEGORY,
-        "fallback_subcategory": BUILTIN_FALLBACK_SUBCATEGORY,
-        "category_rules": list(BUILTIN_CATEGORY_RULES),
-        "subcategory_rules": list(BUILTIN_SUBCATEGORY_RULES),
-    }
-    if not path:
-        return config
-    if not os.path.exists(path):
-        raise SystemExit(f"Category rules file not found: {path}")
-    with open(path, "r", encoding="utf-8-sig") as handle:
-        payload = json.load(handle)
-    if not isinstance(payload, dict):
-        raise SystemExit(f"Category rules file must be a JSON object: {path}")
-    if isinstance(payload.get("category_order"), list):
-        config["category_order"] = [str(item).strip() for item in payload["category_order"] if str(item).strip()]
-    if isinstance(payload.get("subcategory_order"), list):
-        config["subcategory_order"] = [str(item).strip() for item in payload["subcategory_order"] if str(item).strip()]
-    if isinstance(payload.get("fallback_category"), str) and payload["fallback_category"].strip():
-        config["fallback_category"] = payload["fallback_category"].strip()
-    if isinstance(payload.get("fallback_subcategory"), str) and payload["fallback_subcategory"].strip():
-        config["fallback_subcategory"] = payload["fallback_subcategory"].strip()
-    category_rules = normalize_named_rules(payload.get("category_rules"))
-    if category_rules:
-        config["category_rules"] = category_rules
-    subcategory_rules = normalize_named_rules(payload.get("subcategory_rules"))
-    if subcategory_rules:
-        config["subcategory_rules"] = subcategory_rules
-    return config
-
-
-def apply_category_config(config: dict) -> None:
-    global CATEGORY_ORDER, SUBCATEGORY_ORDER, FALLBACK_CATEGORY, FALLBACK_SUBCATEGORY, CATEGORY_RULES, SUBCATEGORY_RULES
-    CATEGORY_ORDER = list(config["category_order"])
-    SUBCATEGORY_ORDER = list(config["subcategory_order"])
-    FALLBACK_CATEGORY = str(config["fallback_category"])
-    FALLBACK_SUBCATEGORY = str(config["fallback_subcategory"])
-    CATEGORY_RULES = list(config["category_rules"])
-    SUBCATEGORY_RULES = list(config["subcategory_rules"])
 
 def redact(value: str) -> str:
     value = re.sub(r"https?://[^\s)>\"]+", "<redacted-url>", value)
@@ -644,25 +471,17 @@ def split_category_prefix(item: str) -> tuple[str | None, str | None, str]:
 
 
 def categorize_item(item: str) -> str:
-    explicit, _, text = split_category_prefix(item)
-    if explicit:
-        return explicit
-    lowered = text.lower()
-    for category, keywords in CATEGORY_RULES:
-        if any(keyword.lower() in lowered for keyword in keywords):
-            return category
-    return FALLBACK_CATEGORY
+    explicit, _, _ = split_category_prefix(item)
+    return explicit or FALLBACK_CATEGORY
+
+
+def preserve_or_default_category(current_category: str | None, item: str) -> str:
+    return current_category or categorize_item(item)
 
 
 def subcategorize_item(item: str) -> str:
-    _, explicit, text = split_category_prefix(item)
-    if explicit:
-        return explicit
-    lowered = text.lower()
-    for category, keywords in SUBCATEGORY_RULES:
-        if any(keyword.lower() in lowered for keyword in keywords):
-            return category
-    return FALLBACK_SUBCATEGORY
+    _, explicit, _ = split_category_prefix(item)
+    return explicit or FALLBACK_SUBCATEGORY
 
 
 def canonical_item(item: str) -> str:
@@ -856,7 +675,7 @@ def normalize_section_groups(section: str) -> dict[str, dict[str, list[str]]]:
                     current_category = None
                     current_subcategory = canonical_subcategory_name(text)
                 else:
-                    current_category = text if text in CATEGORY_ORDER else categorize_item(text)
+                    current_category = text
                     current_subcategory = None
                     groups.setdefault(current_category, {})
             elif level == 1 and has_child:
@@ -874,16 +693,16 @@ def normalize_section_groups(section: str) -> dict[str, dict[str, list[str]]]:
                     target_category = category or categorize_item(content)
                     target_subcategory = subcategory or subcategorize_item(content)
                 elif current_category and current_subcategory and level > 1:
-                    target_category = category or current_category
+                    target_category = category or preserve_or_default_category(current_category, content)
                     target_subcategory = current_subcategory
                 elif current_category:
-                    target_category = category or current_category
+                    target_category = category or preserve_or_default_category(current_category, content)
                     target_subcategory = subcategory or subcategorize_item(content)
                 elif current_subcategory:
-                    target_category = category or categorize_item(content)
+                    target_category = category or preserve_or_default_category(None, content)
                     target_subcategory = current_subcategory
                 else:
-                    target_category = category or categorize_item(content)
+                    target_category = category or preserve_or_default_category(None, content)
                     target_subcategory = subcategory or subcategorize_item(content)
                 add_group_item(groups, target_category, target_subcategory, content)
                 if level == 0:
@@ -891,7 +710,7 @@ def normalize_section_groups(section: str) -> dict[str, dict[str, list[str]]]:
                     current_subcategory = None
             index += 1
             continue
-        add_group_item(groups, categorize_item(stripped), subcategorize_item(stripped), stripped)
+        add_group_item(groups, preserve_or_default_category(None, stripped), subcategorize_item(stripped), stripped)
         current_category = None
         current_subcategory = None
         index += 1
@@ -981,9 +800,7 @@ def top_level_repair_notes(section_date: str, section: str) -> list[str]:
             continue
         mapped_subcategory = canonical_subcategory_name(text)
         if mapped_subcategory and text not in CATEGORY_ORDER:
-            notes.append(f"{section_date}: moved top-level subcategory '{text}' to '{mapped_subcategory}' under item-derived work domains")
-        elif text not in CATEGORY_ORDER and text != FALLBACK_CATEGORY:
-            notes.append(f"{section_date}: classified top-level '{text}' as '{categorize_item(text)}'")
+            notes.append(f"{section_date}: moved top-level subcategory '{text}' to fallback '{FALLBACK_CATEGORY}/{mapped_subcategory}'")
     groups = normalize_section_groups(section)
     unknown = [
         canonical_item(item)
@@ -1501,7 +1318,11 @@ def remember_doc_cache(cache_path: str, registry_path: str, key: str, title: str
         "revision_id": revision_id,
         "updated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
     }
-    save_json_file(cache_path, payload)
+    try:
+        save_json_file(cache_path, payload)
+    except OSError as exc:
+        if RUN_LARK_VERBOSE:
+            print_redacted(f"Warning: skipped local cache update for {cache_path}: {exc}", file=sys.stderr)
 
 
 def read_failed_queue(path: str) -> list[dict]:
@@ -1598,7 +1419,7 @@ def print_group_preview(title: str, date: str, items: list[str]) -> None:
 
 def print_repair_notes(notes: list[str], limit: int = 12) -> None:
     if not notes:
-        print("Repair report: no category migrations detected.")
+        print("Repair report: no structural notes.")
         return
     print(f"Repair report: {len(notes)} note(s)")
     for note in notes[:limit]:
@@ -1660,12 +1481,6 @@ def run_doctor(args: argparse.Namespace, archive_day: dt.date) -> int:
                 auth_error or "not authorized",
                 'lark-cli auth login --recommend --domain docs,drive,markdown --scope "search:docs:read"',
             )
-
-    try:
-        load_category_config(args.category_rules)
-        add("ok", "category rules", args.category_rules or "built-in defaults")
-    except (OSError, json.JSONDecodeError, SystemExit) as exc:
-        add("fail", "category rules", str(exc), "fix the JSON file or remove LARK_WORKLOG_CATEGORY_RULES")
 
     docs: dict[str, str] = {}
     owner_open_id: str | None = None
@@ -1956,15 +1771,15 @@ def main() -> int:
     parser.add_argument("--failed-queue", default=default_failed_queue_path(), help="Local JSONL queue for failed archive items.")
     parser.add_argument("--queue-failed", action="store_true", help="If archiving fails, save submitted items to the local failed queue.")
     parser.add_argument("--no-replay-failed", action="store_true", help="Do not automatically replay queued failed items for the same date.")
-    parser.add_argument("--category-rules", default=default_category_rules_path(), help="Path to a local category rules JSON file.")
     parser.add_argument("--date", default=None, help="Archive date, YYYY-MM-DD or MM-DD-YYYY. Defaults to today.")
     parser.add_argument("--tz", default=os.environ.get("LARK_WORKLOG_TZ", "Asia/Shanghai"))
     parser.add_argument("--item", action="append", help="Worklog bullet item. Repeat as needed.")
     parser.add_argument("--content", help="Newline-separated bullet items.")
-    parser.add_argument("--preview", action="store_true", help="Print a short target and classification preview without touching Feishu.")
-    parser.add_argument("--doctor", action="store_true", help="Check local lark-cli, auth, registry, current month, and category rule readiness.")
+    parser.add_argument("--preview", action="store_true", help="Print a short structural preview without touching Feishu.")
+    parser.add_argument("--doctor", action="store_true", help="Check local lark-cli, auth, registry, and current month readiness.")
     parser.add_argument("--init", action="store_true", help="Create or register the current monthly document in the local registry.")
-    parser.add_argument("--classify-only", action="store_true", help="Print how provided items would be classified and exit.")
+    parser.add_argument("--structure-only", action="store_true", help="Print parsed item structure and exit. Unstructured items fall back to Other / work content.")
+    parser.add_argument("--classify-only", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--dry-run", action="store_true", help="Print the merged Markdown only. Use --preview for a short output.")
     parser.add_argument("--no-lock", action="store_true", help="Disable local month lock.")
     parser.add_argument("--no-search-existing", action="store_true", help="Do not search Feishu for an existing monthly doc before creating.")
@@ -1992,8 +1807,6 @@ def main() -> int:
     if args.doctor:
         return run_doctor(args, archive_day)
 
-    apply_category_config(load_category_config(args.category_rules))
-
     if args.init:
         return run_init(args, archive_day, archive_date)
 
@@ -2006,12 +1819,13 @@ def main() -> int:
     preview_metadata = load_registry_metadata(args.registry)
     if args.team:
         preview_metadata = normalized_registry_metadata(args, preview_metadata, None)
-    items = sign_team_items(items, preview_metadata, author_name(args, preview_metadata))
     if args.preview:
-        print_group_preview(document_title(archive_day, preview_metadata), archive_date, items)
+        preview_items = sign_team_items(items, preview_metadata, author_name(args, preview_metadata))
+        print_group_preview(document_title(archive_day, preview_metadata), archive_date, preview_items)
         return 0
-    if args.classify_only:
-        for item in items:
+    if args.structure_only or args.classify_only:
+        preview_items = sign_team_items(items, preview_metadata, author_name(args, preview_metadata))
+        for item in preview_items:
             category, subcategory, text = split_category_prefix(item)
             final_category = category or categorize_item(text)
             final_subcategory = subcategory or subcategorize_item(text)
