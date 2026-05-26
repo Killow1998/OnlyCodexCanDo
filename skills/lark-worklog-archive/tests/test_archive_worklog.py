@@ -303,6 +303,12 @@ class ArchiveWorklogTests(unittest.TestCase):
     def test_canonical_item_unescapes_markdown_underscore(self) -> None:
         self.assertEqual(self.mod.canonical_item(r"清理 \_\_pycache\_\_。"), "清理 __pycache__。")
 
+    def test_canonical_item_unescapes_repeated_lark_markdown_punctuation(self) -> None:
+        self.assertEqual(
+            self.mod.canonical_item(r"同步到 \\\\\\\~/.codex/skills，并清理 \\_\\_pycache\\_\\_。"),
+            "同步到 ~/.codex/skills，并清理 __pycache__。",
+        )
+
     def test_has_author_signature_does_not_treat_windows_paths_as_authors(self) -> None:
         self.assertTrue(self.mod.has_author_signature("Alice：完成任务"))
         self.assertTrue(self.mod.has_author_signature("Alice: 完成任务"))

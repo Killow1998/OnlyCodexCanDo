@@ -486,17 +486,9 @@ def subcategorize_item(item: str) -> str:
 
 def canonical_item(item: str) -> str:
     _, _, text = split_category_prefix(item)
-    for escaped, plain in (
-        ("\\`", "`"),
-        ("\\<", "<"),
-        ("\\>", ">"),
-        ("\\[", "["),
-        ("\\]", "]"),
-        ("\\(", "("),
-        ("\\)", ")"),
-        ("\\_", "_"),
-    ):
-        text = text.replace(escaped, plain)
+    # Lark Markdown fetches may repeatedly escape Markdown punctuation.
+    # Do not collapse ordinary path backslashes; only unescape punctuation.
+    text = re.sub(r"\\+([`<>\[\]()_~*])", r"\1", text)
     return text.strip()
 
 
