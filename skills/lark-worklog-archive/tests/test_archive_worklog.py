@@ -752,6 +752,38 @@ class ArchiveWorklogTests(unittest.TestCase):
         with mock.patch.object(self.mod.os, "name", "nt"), mock.patch.object(self.mod.shutil, "which", fake_which):
             self.assertEqual(self.mod.lark_cli_command(), r"C:\Tools\lark-cli.exe")
 
+    def test_lark_cli_env_uses_codex_managed_runtime_and_migrates_legacy_dirs(self) -> None:
+        with tempfile.TemporaryDirectory() as home:
+            legacy_config = Path(home) / ".lark-cli"
+            legacy_data = Path(home) / ".local" / "share" / "lark-cli"
+            (legacy_config / "config.json").parent.mkdir(parents=True, exist_ok=True)
+            (legacy_data / "master.key").parent.mkdir(parents=True, exist_ok=True)
+            (legacy_config / "config.json").write_text('{"apps":[]}\n', encoding="utf-8")
+            (legacy_data / "master.key").write_text("secret", encoding="utf-8")
+            with mock.patch.dict(os.environ, {"HOME": home, "CODEX_THREAD_ID": "thread-1"}, clear=True):
+                env = self.mod.lark_cli_env()
+            config_dir = Path(env["LARKSUITE_CLI_CONFIG_DIR"])
+            data_dir = Path(env["LARKSUITE_CLI_DATA_DIR"])
+            self.assertEqual(config_dir, Path(home) / ".codex" / "memories" / "runtime" / "lark-cli" / "config")
+            self.assertEqual(data_dir, Path(home) / ".codex" / "memories" / "runtime" / "lark-cli" / "data")
+            self.assertEqual((config_dir / "config.json").read_text(encoding="utf-8"), '{"apps":[]}\n')
+            self.assertEqual((data_dir / "master.key").read_text(encoding="utf-8"), "secret")
+            self.assertEqual(env["LARK_CLI_NO_PROXY"], "1")
+
+    def test_lark_cli_env_respects_explicit_runtime_overrides(self) -> None:
+        with mock.patch.dict(
+            os.environ,
+            {
+                "CODEX_THREAD_ID": "thread-1",
+                "LARKSUITE_CLI_CONFIG_DIR": "/tmp/custom-config",
+                "LARKSUITE_CLI_DATA_DIR": "/tmp/custom-data",
+            },
+            clear=True,
+        ):
+            env = self.mod.lark_cli_env()
+        self.assertEqual(env["LARKSUITE_CLI_CONFIG_DIR"], "/tmp/custom-config")
+        self.assertEqual(env["LARKSUITE_CLI_DATA_DIR"], "/tmp/custom-data")
+
     def test_month_lock_enabled_uses_system_tempdir(self) -> None:
         key = "unit-test-lock"
         path = Path(tempfile.gettempdir()) / f"lark-worklog-archive-{key}.lock"
@@ -773,6 +805,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertEqual(captured["args"], ["lark-cli.cmd", "auth", "status"])
         self.assertEqual(captured["encoding"], "utf-8")
         self.assertEqual(captured["errors"], "replace")
+        self.assertEqual(captured["env"]["LARK_CLI_NO_PROXY"], "1")
         self.assertIn("授权成功", proc.stdout)
 
     def test_run_lark_suppresses_success_stderr_by_default(self) -> None:
