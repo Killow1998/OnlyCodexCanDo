@@ -51,6 +51,8 @@ lark-cli config show
 & "$env:APPDATA\npm\lark-cli.cmd" config show
 ```
 
+When this skill runs inside Codex, it defaults `lark-cli` state to `~/.codex/memories/runtime/lark-cli/`. Config lives under `config/`; encrypted credential files are copied from `~/.local/share/lark-cli` into `data/lark-cli/` because the released CLI appends its own service directory under `LARKSUITE_CLI_DATA_DIR`. This keeps release-package auth writable and persistent inside the Codex sandbox. Override with `LARK_WORKLOG_LARK_RUNTIME_ROOT`, `LARKSUITE_CLI_CONFIG_DIR`, or `LARKSUITE_CLI_DATA_DIR` only when you need a different persistent location.
+
 Only initialize a new CLI app/config when no existing config is present. Reinstalling this skill should not create a new Feishu app. If the user already has a Feishu CLI app, tell them to choose or reuse it instead of creating a parallel app.
 
 ```bash

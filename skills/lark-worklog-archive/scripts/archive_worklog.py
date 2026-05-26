@@ -378,9 +378,51 @@ def lark_cli_command() -> str | None:
     return None
 
 
-def run_lark(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
+def codex_managed_lark_root() -> str | None:
+    configured = os.environ.get("LARK_WORKLOG_LARK_RUNTIME_ROOT")
+    if configured:
+        return os.path.abspath(os.path.expanduser(configured))
+    if os.environ.get("CODEX_THREAD_ID") or os.environ.get("CODEX_CI") == "1":
+        return os.path.join(os.path.expanduser("~"), ".codex", "memories", "runtime", "lark-cli")
+    return None
+
+
+def legacy_lark_config_dir() -> str:
+    return os.path.join(os.path.expanduser("~"), ".lark-cli")
+
+
+def legacy_lark_data_dir() -> str:
+    return os.path.join(os.path.expanduser("~"), ".local", "share", "lark-cli")
+
+
+def copy_tree_if_missing(source: str, target: str) -> None:
+    if not os.path.isdir(source) or os.path.exists(target):
+        return
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    shutil.copytree(source, target, copy_function=shutil.copy2)
+
+
+def lark_cli_env() -> dict[str, str]:
     env = os.environ.copy()
     env.setdefault("LARK_CLI_NO_PROXY", "1")
+    runtime_root = codex_managed_lark_root()
+    if not runtime_root:
+        return env
+    config_dir = env.get("LARKSUITE_CLI_CONFIG_DIR") or os.path.join(runtime_root, "config")
+    data_dir = env.get("LARKSUITE_CLI_DATA_DIR") or os.path.join(runtime_root, "data")
+    if "LARKSUITE_CLI_CONFIG_DIR" not in env:
+        copy_tree_if_missing(legacy_lark_config_dir(), config_dir)
+        env["LARKSUITE_CLI_CONFIG_DIR"] = config_dir
+    if "LARKSUITE_CLI_DATA_DIR" not in env:
+        # The released lark-cli treats LARKSUITE_CLI_DATA_DIR as a base path
+        # and appends its own service directory ("lark-cli") underneath it.
+        copy_tree_if_missing(legacy_lark_data_dir(), os.path.join(data_dir, "lark-cli"))
+        env["LARKSUITE_CLI_DATA_DIR"] = data_dir
+    return env
+
+
+def run_lark(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
+    env = lark_cli_env()
     command = lark_cli_command()
     if not command:
         raise SystemExit("lark-cli not found. Run: npx @larksuite/cli@latest install")
