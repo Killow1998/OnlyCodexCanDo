@@ -309,6 +309,18 @@ class ArchiveWorklogTests(unittest.TestCase):
             "同步到 ~/.codex/skills，并清理 __pycache__。",
         )
 
+    def test_normalize_date_section_cleans_lark_markdown_escape_amplification(self) -> None:
+        section = r"""# 05-25-2026
+
+- Agent 工具 / 自动化
+  - 工作内容
+    - 同步到 \\\\\\\~/.codex/skills，并清理 \\_\\_pycache\\_\\_。
+"""
+        normalized = self.mod.normalize_date_section("05-25-2026", section)
+        self.assertIn("同步到 ~/.codex/skills，并清理 __pycache__。", normalized)
+        self.assertNotIn(r"\~", normalized)
+        self.assertNotIn(r"\_", normalized)
+
     def test_has_author_signature_does_not_treat_windows_paths_as_authors(self) -> None:
         self.assertTrue(self.mod.has_author_signature("Alice：完成任务"))
         self.assertTrue(self.mod.has_author_signature("Alice: 完成任务"))
