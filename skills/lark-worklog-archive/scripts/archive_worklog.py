@@ -414,7 +414,9 @@ def lark_cli_env() -> dict[str, str]:
         copy_tree_if_missing(legacy_lark_config_dir(), config_dir)
         env["LARKSUITE_CLI_CONFIG_DIR"] = config_dir
     if "LARKSUITE_CLI_DATA_DIR" not in env:
-        copy_tree_if_missing(legacy_lark_data_dir(), data_dir)
+        # The released lark-cli treats LARKSUITE_CLI_DATA_DIR as a base path
+        # and appends its own service directory ("lark-cli") underneath it.
+        copy_tree_if_missing(legacy_lark_data_dir(), os.path.join(data_dir, "lark-cli"))
         env["LARKSUITE_CLI_DATA_DIR"] = data_dir
     return env
 

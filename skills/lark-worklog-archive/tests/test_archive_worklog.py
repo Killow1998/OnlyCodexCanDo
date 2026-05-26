@@ -767,7 +767,7 @@ class ArchiveWorklogTests(unittest.TestCase):
             self.assertEqual(config_dir, Path(home) / ".codex" / "memories" / "runtime" / "lark-cli" / "config")
             self.assertEqual(data_dir, Path(home) / ".codex" / "memories" / "runtime" / "lark-cli" / "data")
             self.assertEqual((config_dir / "config.json").read_text(encoding="utf-8"), '{"apps":[]}\n')
-            self.assertEqual((data_dir / "master.key").read_text(encoding="utf-8"), "secret")
+            self.assertEqual((data_dir / "lark-cli" / "master.key").read_text(encoding="utf-8"), "secret")
             self.assertEqual(env["LARK_CLI_NO_PROXY"], "1")
 
     def test_lark_cli_env_respects_explicit_runtime_overrides(self) -> None:
