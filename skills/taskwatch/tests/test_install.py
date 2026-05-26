@@ -6,6 +6,8 @@ import unittest
 from pathlib import Path
 
 
+sys.dont_write_bytecode = True
+
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "install.py"
 SPEC = importlib.util.spec_from_file_location("keep_an_eye_install", SCRIPT_PATH)
 MODULE = importlib.util.module_from_spec(SPEC)
@@ -40,7 +42,8 @@ class InstallScriptTests(unittest.TestCase):
         self.assertIn("CODEX_MONITOR_GOAL_MODE=0", file_map[".codex_monitor/monitor.env"])
         self.assertIn("exec bash -lc 'python3 -B scripts/train_low_level.py --profile foo'", file_map[".codex_monitor/run_command.sh"])
         self.assertIn("任务概况", file_map[".codex_monitor/scripts/send_mail.py"])
-        self.assertIn("原始最终报告", file_map[".codex_monitor/scripts/send_mail.py"])
+        self.assertIn("结果摘要", file_map[".codex_monitor/scripts/send_mail.py"])
+        self.assertIn('return f"goal:{task_name}"', file_map[".codex_monitor/scripts/send_mail.py"])
 
     def test_infer_smtp_for_qq_mail(self) -> None:
         host, port, security = MODULE.infer_smtp("123456@qq.com")

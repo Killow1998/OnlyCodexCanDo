@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 import os
+import re
 import smtplib
 import ssl
 import sys
@@ -189,16 +190,6 @@ def terminal_key(session_id: str, event: dict[str, Any]) -> str:
     )
 
 
-def status_title(status: str) -> str:
-    if status == "complete":
-        return "Goal 完成通知"
-    if status == "blocked":
-        return "Goal 阻塞通知"
-    if status == "usageLimited":
-        return "Goal 额度触顶通知"
-    return "Goal 状态通知"
-
-
 def parse_timestamp(value: Any) -> datetime | None:
     if value is None or value == "":
         return None
@@ -266,6 +257,100 @@ def normalize_text(text: str, limit: int = 240) -> str:
     return compact[: limit - 3].rstrip() + "..."
 
 
+def strip_markdown(text: str) -> str:
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    return text.replace("`", "")
+
+
+def summarize_task_name(text: str, limit: int = 120) -> str:
+    candidate = strip_markdown(text).strip()
+    if not candidate:
+        return "unknown"
+    for line in candidate.splitlines():
+        line = line.strip()
+        if line:
+            candidate = line
+            break
+    for separator in ("。", "；", ";"):
+        if separator in candidate:
+            candidate = candidate.split(separator, 1)[0].strip()
+    return normalize_text(candidate, limit=limit)
+
+
+def is_noise_fragment(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped:
+        return True
+    if stripped.startswith('{"cmd":') or stripped.startswith("{'cmd':"):
+        return True
+    if stripped.startswith("rg ") or stripped.startswith("grep "):
+        return True
+    noise_markers = ('"workdir":', '"yield_time_ms":', '"max_output_tokens":', '"cmd":')
+    return any(marker in stripped for marker in noise_markers)
+
+
+def humanize_archive_detail(detail: str) -> str:
+    cleaned = strip_markdown(detail).strip()
+    if not cleaned or is_noise_fragment(cleaned):
+        return ""
+    lowered = cleaned.lower()
+    if "updated worklog " in lowered or "monthly document:" in lowered or "已记录到飞书" in cleaned:
+        monthly_doc = ""
+        match = re.search(r"Monthly document:\s*([^\n]+)", cleaned)
+        if match:
+            monthly_doc = match.group(1).strip()
+        if monthly_doc:
+            return f"已写入飞书工作记录（{monthly_doc}）。"
+        return "已写入飞书工作记录。"
+    if "need_user_authorization" in lowered:
+        return "归档未完成：飞书授权已失效，需要重新授权后重试。"
+    if "invalid utf-8" in lowered or ".pyc" in lowered or "__pycache__" in lowered:
+        return "归档未完成：归档校验扫到了缓存或二进制文件，需跳过这类文件后重试。"
+    if "verification failed" in lowered:
+        return "归档未完成：归档校验失败，需检查归档输出后重试。"
+    if "repair failed" in lowered or "archive failed" in lowered:
+        return "归档未完成：归档流程执行失败，需要检查报错后重试。"
+    return normalize_text(cleaned, limit=200)
+
+
+def summarize_result_text(text: str, *, limit: int = 220) -> str:
+    cleaned = strip_markdown(text)
+    lines: list[str] = []
+    in_code_block = False
+    for raw_line in cleaned.splitlines():
+        stripped = raw_line.strip()
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block or not stripped or stripped.startswith("#"):
+            continue
+        stripped = re.sub(r"^[-*+>\d\.\)\s]+", "", stripped).strip()
+        if stripped:
+            lines.append(stripped)
+    summary = ""
+    for line in lines:
+        candidate = line if not summary else f"{summary} {line}"
+        if len(candidate) > limit:
+            if not summary:
+                return normalize_text(line, limit=limit)
+            break
+        summary = candidate
+    return normalize_text(summary, limit=limit)
+
+
+def build_result_summary(text: str, status: str, task_name: str) -> str:
+    summary = summarize_result_text(text)
+    if summary:
+        return summary
+    if status == "complete":
+        return f"本次已完成{task_name}。"
+    if status == "blocked":
+        return f"本次未完成{task_name}，当前被阻塞，需人工决定下一步。"
+    if status == "usageLimited":
+        return f"本次未完成{task_name}，Codex 使用额度已触顶。"
+    return f"{task_name}已结束，但缺少可用的结果摘要。"
+
+
 def extract_text_fragments(value: Any) -> list[str]:
     fragments: list[str] = []
     if isinstance(value, str):
@@ -284,12 +369,6 @@ def extract_text_fragments(value: Any) -> list[str]:
                 fragments.extend(extract_text_fragments(value[key]))
         return fragments
     return fragments
-
-
-def extract_message_text(item: dict[str, Any]) -> str:
-    payload = item.get("payload") or {}
-    parts = extract_text_fragments(payload.get("content"))
-    return normalize_text("\n".join(part for part in parts if part.strip()), limit=800)
 
 
 def summarize_status(status: str) -> str:
@@ -314,7 +393,6 @@ def intervention_status(status: str) -> str:
 
 def collect_transcript_context(transcript_path: Path, event: dict[str, Any]) -> dict[str, Any]:
     started_at: datetime | None = None
-    first_user_message = ""
     archive_attempted = False
     archive_success = ""
     archive_failure = ""
@@ -331,13 +409,17 @@ def collect_transcript_context(transcript_path: Path, event: dict[str, Any]) -> 
         item_type = item.get("type")
         payload = item.get("payload") or {}
 
-        if item_type == "response_item" and payload.get("type") == "message" and payload.get("role") == "user":
-            text = extract_message_text(item)
-            if text and not first_user_message:
-                first_user_message = text
+        if item_type != "response_item" or payload.get("type") != "function_call_output":
+            continue
 
-        text_sources = [normalize_text(fragment, limit=800) for fragment in extract_text_fragments(payload) if fragment.strip()]
+        text_sources = [
+            normalize_text(fragment, limit=800)
+            for fragment in extract_text_fragments(payload.get("output"))
+            if fragment.strip()
+        ]
         for source in text_sources:
+            if is_noise_fragment(source):
+                continue
             lower = source.lower()
             if any(marker.lower() in lower for marker in ARCHIVE_ATTEMPT_MARKERS):
                 archive_attempted = True
@@ -346,27 +428,22 @@ def collect_transcript_context(transcript_path: Path, event: dict[str, Any]) -> 
             if not archive_failure and any(marker.lower() in lower for marker in ARCHIVE_FAILURE_MARKERS):
                 archive_failure = source
 
-    objective = normalize_text(str(event.get("objective", "")).strip(), limit=300)
-    task_name = objective or first_user_message or transcript_path.stem
-    purpose = first_user_message or objective or "unknown"
+    objective = summarize_task_name(str(event.get("objective", "")).strip(), limit=160)
+    task_name = objective or transcript_path.stem
     ended_at = parse_timestamp(event.get("updated_at")) or parse_timestamp(event.get("timestamp"))
+    archive_detail = humanize_archive_detail(archive_success or archive_failure)
 
     if archive_success:
         archive_status = "已完成"
-        archive_detail = archive_success
     elif archive_attempted and archive_failure:
         archive_status = "尝试过，但未确认成功"
-        archive_detail = archive_failure
     elif archive_attempted:
         archive_status = "检测到归档动作，但未确认成功"
-        archive_detail = ""
     else:
         archive_status = "未检测到"
-        archive_detail = ""
 
     return {
         "task_name": task_name or "unknown",
-        "purpose": purpose or "unknown",
         "started_at": started_at,
         "ended_at": ended_at,
         "archive_status": archive_status,
@@ -375,10 +452,11 @@ def collect_transcript_context(transcript_path: Path, event: dict[str, Any]) -> 
 
 
 def build_subject(event: dict[str, Any], context: dict[str, Any]) -> str:
-    task_name = normalize_text(str(context.get("task_name", "")).strip(), limit=60)
+    del event
+    task_name = summarize_task_name(str(context.get("task_name", "")).strip(), limit=48)
     if task_name and task_name != "unknown":
-        return f"TaskWatch {status_title(event['status'])} | {task_name}"
-    return f"TaskWatch {status_title(event['status'])}"
+        return f"goal:{task_name}"
+    return "goal:unknown"
 
 
 def build_body(
@@ -390,17 +468,25 @@ def build_body(
     context = context or collect_transcript_context(transcript_path, event)
     started_at = context["started_at"]
     ended_at = context["ended_at"]
+    subject = build_subject(event, context)
+    result_summary = build_result_summary(
+        payload.get("last_assistant_message", ""),
+        event["status"],
+        str(context["task_name"]),
+    )
     lines = [
-        f"TaskWatch {status_title(event['status'])}",
+        subject,
         "",
         "任务概况",
         f"- 任务是什么：{context['task_name']}",
-        f"- 启动的目的：{context['purpose']}",
         f"- 完成情况：{summarize_status(event['status'])}",
         f"- 是否需要介入：{intervention_status(event['status'])}",
         f"- 是否完成归档：{context['archive_status']}",
         f"- 完成时间：{format_timestamp(ended_at)}",
         f"- 花了多久：{format_duration(started_at, ended_at)}",
+        "",
+        "结果摘要",
+        result_summary,
         "",
         "运行信息",
         f"- session_id：{payload.get('session_id', '')}",
@@ -416,11 +502,6 @@ def build_body(
         lines.append(f"- goal_updated_at：{format_timestamp(event['updated_at'])}")
     if context.get("archive_detail"):
         lines.extend(["", "归档细节", f"- {context['archive_detail']}"])
-    if event.get("objective"):
-        lines.extend(["", "目标原文", event["objective"]])
-    last_message = payload.get("last_assistant_message")
-    if last_message:
-        lines.extend(["", "结果摘要", normalize_text(last_message, limit=3000)])
     return "\n".join(lines).rstrip() + "\n"
 
 

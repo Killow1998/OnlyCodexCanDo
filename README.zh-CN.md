@@ -48,18 +48,6 @@
 - SMTP secret 和运行期报告保持不入 Git；
 - 对常见邮箱域名自动推断 SMTP host、port 和安全模式，所以通常只需要用户提供发件邮箱、收件邮箱和发件邮箱密钥。
 
-安装 prompt：
-
-```text
-请从 https://github.com/Killow1998/OnlyCodexCanDo.git 安装并配置 TaskWatch skill。先检查目标 workspace，尽量自己推断真实的长任务启动命令、主日志、artifact 目录、进程匹配规则，以及是否已有 user systemd service，而不是让我手动把每个 flag 都填一遍。只在 Linux 下部署。对于 workspace 本地 monitor，请生成 .codex_monitor、run_with_monitor.sh、按小时的只读巡检报告、最终完成邮件，以及可选的 systemd --user timer。对于 goal-mode 任务，还要确保最终邮件能区分 complete、blocked 和 usageLimited。只有在确实需要邮件配置时，才向我索取三项信息：发件邮箱、收件邮箱、发件邮箱的 SMTP 密码或授权码。所有 secret、报告和本地运行期状态都不要提交到 Git。安装完成后运行 skill 检查；如果本机已经安装了全局 skill，也要验证全局副本一致性；最后把启动监控任务的准确命令告诉我。
-```
-
-仅安装全局 goal 终态邮件 hook 的 prompt：
-
-```text
-请从 https://github.com/Killow1998/OnlyCodexCanDo.git 只安装 TaskWatch 的全局 goal 终态邮件 hook。在 ~/.codex 下配置 Codex Stop hook，让 goal 任务在 complete、blocked 和 usageLimited 时发送终态邮件。如果本机已经有现成配置就复用。只有在尚未配置邮件时，才向我索取发件邮箱、收件邮箱和发件邮箱的 SMTP 密码或授权码。所有 secret 只能保存在本机忽略文件里，并在安装后做一次安全的 smoke test。
-```
-
 当前局限性：
 
 - 目前只支持 Linux。workspace-local timer 默认走 `systemd --user`。
@@ -71,7 +59,9 @@
 
 ## 安装 Skill
 
-对于 `lark-worklog-archive`，普通用户不需要自己逐条执行安装命令。把下面这段 prompt 交给 Codex 即可：
+### `lark-worklog-archive`
+
+普通用户不需要自己逐条执行安装命令。把下面这段 prompt 交给 Codex 即可：
 
 ```text
 请帮我安装并配置 lark-worklog-archive Skill，用于把每天通过 Codex/Agent 完成的开发工作归档到飞书工作记录。请使用公开仓库 https://github.com/Killow1998/OnlyCodexCanDo.git 通过 HTTPS 安装；安装或检查 lark-cli；如果已有 lark-cli app/config 就复用，不要重新创建飞书 app；否则发起一次性飞书用户授权，权限需要覆盖 docs、drive、markdown 和 search:docs:read；我只在网页上完成授权确认。授权后先运行 doctor 检查，优先搜索/注册已有的当前月工作记录文档；只有找不到已有文档且我明确同意时，才创建新的月度文档。最后告诉我以后可以直接说“今日归档”。不要把任何飞书文档 URL、OpenID、App ID、token、secret 或 registry 提交到 Git。
@@ -79,7 +69,21 @@
 
 给 Codex/Agent 看的安装细节在 [skills/lark-worklog-archive/references/setup.md](skills/lark-worklog-archive/references/setup.md)。
 
-对于 `TaskWatch`，Codex 应该先检查目标 workspace，尽量自己推断真实任务命令、日志路径、artifact 目录和已有 service 名称，再运行 installer。若只是要 goal 终态邮件，则安装全局 hook 即可。技能入口说明在 [skills/taskwatch/SKILL.md](skills/taskwatch/SKILL.md)。
+### `TaskWatch`
+
+对于 workspace 本地 monitor，Codex 应该先检查目标 workspace，尽量自己推断真实任务命令、日志路径、artifact 目录、进程匹配规则和已有 service 名称，再运行 installer：
+
+```text
+请从 https://github.com/Killow1998/OnlyCodexCanDo.git 安装并配置 TaskWatch skill。先检查目标 workspace，尽量自己推断真实的长任务启动命令、主日志、artifact 目录、进程匹配规则，以及是否已有 user systemd service，而不是让我手动把每个 flag 都填一遍。只在 Linux 下部署。对于 workspace 本地 monitor，请生成 .codex_monitor、run_with_monitor.sh、按小时的只读巡检报告、最终完成邮件，以及可选的 systemd --user timer。对于 goal-mode 任务，还要确保最终邮件能区分 complete、blocked 和 usageLimited。只有在确实需要邮件配置时，才向我索取三项信息：发件邮箱、收件邮箱、发件邮箱的 SMTP 密码或授权码。所有 secret、报告和本地运行期状态都不要提交到 Git。安装完成后运行 skill 检查；如果本机已经安装了全局 skill，也要验证全局副本一致性；最后把启动监控任务的准确命令告诉我。
+```
+
+如果只是要全局 goal 终态邮件，不需要 workspace 本地 monitor：
+
+```text
+请从 https://github.com/Killow1998/OnlyCodexCanDo.git 只安装 TaskWatch 的全局 goal 终态邮件 hook。在 ~/.codex 下配置 Codex Stop hook，让 goal 任务在 complete、blocked 和 usageLimited 时发送终态邮件。如果本机已经有现成配置就复用。只有在尚未配置邮件时，才向我索取发件邮箱、收件邮箱和发件邮箱的 SMTP 密码或授权码。所有 secret 只能保存在本机忽略文件里，并在安装后做一次安全的 smoke test。
+```
+
+技能入口说明在 [skills/taskwatch/SKILL.md](skills/taskwatch/SKILL.md)。
 
 ## 仓库规则
 

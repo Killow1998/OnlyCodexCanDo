@@ -50,7 +50,7 @@ class TaskWatchHookTests(unittest.TestCase):
         self.assertEqual("usageLimited", event["status"])
         self.assertEqual("usage-limit-fallback", event["source"])
 
-    def test_build_body_includes_task_purpose_archive_and_timing(self) -> None:
+    def test_build_body_is_result_focused(self) -> None:
         transcript = """{"timestamp":"2026-05-25T10:00:00Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"请测试 taskwatch，并在结束后归档今天的工作。"}]}}
 {"timestamp":"2026-05-25T10:30:00Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_1","output":"Updated worklog https://example.com/doc for 05-25-2026 with 2 item(s).\\nMonthly document: 05-2026 工作记录\\n"}}
 {"timestamp":"2026-05-25T11:00:00Z","type":"event_msg","payload":{"type":"thread_goal_updated","turnId":"turn-complete","goal":{"objective":"验证 TaskWatch 邮件并归档当天工作","status":"complete","updatedAt":"2026-05-25T11:00:00Z"}}}
@@ -72,11 +72,27 @@ class TaskWatchHookTests(unittest.TestCase):
             )
             subject = HOOK_MODULE.build_subject(event, HOOK_MODULE.collect_transcript_context(path, event))
         self.assertIn("任务是什么：验证 TaskWatch 邮件并归档当天工作", body)
-        self.assertIn("启动的目的：请测试 taskwatch，并在结束后归档今天的工作。", body)
         self.assertIn("是否完成归档：已完成", body)
         self.assertIn("花了多久：1小时", body)
         self.assertIn("结果摘要", body)
-        self.assertIn("TaskWatch Goal 完成通知 | 验证 TaskWatch 邮件并归档当天工作", subject)
+        self.assertIn("已完成归档。", body)
+        self.assertIn("已写入飞书工作记录（05-2026 工作记录）。", body)
+        self.assertNotIn("启动的目的", body)
+        self.assertNotIn("目标原文", body)
+        self.assertEqual("goal:验证 TaskWatch 邮件并归档当天工作", subject)
+
+    def test_archive_noise_does_not_surface_raw_command(self) -> None:
+        transcript = """{"timestamp":"2026-05-25T10:30:00Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_1","output":"{\\"cmd\\":\\"rg -n \\\\\\"need_user_authorization\\\\\\" /tmp/demo\\",\\"workdir\\":\\"/tmp\\",\\"yield_time_ms\\":1000,\\"max_output_tokens\\":600}"}}
+{"timestamp":"2026-05-25T11:00:00Z","type":"event_msg","payload":{"type":"thread_goal_updated","turnId":"turn-complete","goal":{"objective":"验证 TaskWatch 邮件并归档当天工作","status":"complete","updatedAt":"2026-05-25T11:00:00Z"}}}
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "session.jsonl"
+            path.write_text(transcript, encoding="utf-8")
+            event = HOOK_MODULE.detect_terminal_event(path)
+            assert event is not None
+            context = HOOK_MODULE.collect_transcript_context(path, event)
+        self.assertEqual("未检测到", context["archive_status"])
+        self.assertEqual("", context["archive_detail"])
 
     def test_install_global_hook_upserts_block_and_feature(self) -> None:
         original = "[features]\nmemories = true\n"
