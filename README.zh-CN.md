@@ -26,6 +26,7 @@
 - 通过 helper 脚本安全追加同一天内容，避免直接 overwrite；
 - 工作条目可以带 Markdown 链接，用于跳转到相关文档或 commit；
 - 真实文档映射只保存在本机忽略配置中。
+- 当前匹配 `lark-cli 1.0.51`；本机 CLI 过旧时先更新，不保留旧版授权输出兼容逻辑。
 
 ### `TaskWatch`
 
@@ -50,7 +51,8 @@
 
 当前局限性：
 
-- 目前只支持 Linux。workspace-local timer 默认走 `systemd --user`。
+- workspace-local monitor 只支持 Linux，timer 默认走 `systemd --user`。
+- Windows 下只安装全局 goal 终态 `Stop` hook，不部署 workspace 本地 training 或长任务 monitor。
 - 全局 goal 终态邮件依赖 Codex `Stop` hook。如果是断电、宿主机崩溃、或者外部直接 kill 导致 Codex 没有正常收尾，这条链路不会触发。
 - goal 归档状态属于 best-effort 检测。它依赖 Codex transcript 和本地 state 推断，特殊流程下可能显示为“未检测到”。
 - workspace-local monitor 假设任务本身已经有真实可运行的命令、日志或 artifact 目录；它不会替你发明任务逻辑。
@@ -82,6 +84,8 @@
 ```text
 请从 https://github.com/Killow1998/OnlyCodexCanDo.git 只安装 TaskWatch 的全局 goal 终态邮件 hook。在 ~/.codex 下配置 Codex Stop hook，让 goal 任务在 complete、blocked 和 usageLimited 时发送终态邮件。如果本机已经有现成配置就复用。只有在尚未配置邮件时，才向我索取发件邮箱、收件邮箱和发件邮箱的 SMTP 密码或授权码。所有 secret 只能保存在本机忽略文件里，并在安装后做一次安全的 smoke test。
 ```
+
+Windows 下使用这条“只安装全局 hook”的路径。Linux 主机才使用 workspace 本地 monitor 来监控 training、evaluation 或其他长时间任务，并通过 `systemd --user` 定时巡检。
 
 技能入口说明在 [skills/taskwatch/SKILL.md](skills/taskwatch/SKILL.md)。
 

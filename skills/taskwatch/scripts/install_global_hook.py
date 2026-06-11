@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
+import sys
 from pathlib import Path
 
 import install
@@ -22,13 +24,13 @@ BLOCK_END = "# taskwatch hook end"
 
 
 def build_hook_block() -> str:
-    hook_command = f'/usr/bin/python3 "{HOOK_SCRIPT}"'
+    hook_command = f'"{Path(sys.executable).resolve()}" "{HOOK_SCRIPT}"'
     return (
         f"{BLOCK_BEGIN}\n"
         "[[hooks.Stop]]\n\n"
         "[[hooks.Stop.hooks]]\n"
         'type = "command"\n'
-        f"command = '{hook_command}'\n"
+        f"command = {json.dumps(hook_command)}\n"
         "timeout = 20\n"
         'statusMessage = "TaskWatch checking goal status"\n'
         f"{BLOCK_END}\n"
@@ -67,7 +69,7 @@ def ensure_feature_hooks_enabled(text: str) -> str:
 def upsert_managed_block(text: str, block: str) -> str:
     pattern = re.compile(rf"{re.escape(BLOCK_BEGIN)}\n.*?{re.escape(BLOCK_END)}\n?", re.DOTALL)
     if pattern.search(text):
-        return pattern.sub(block, text, count=1)
+        return pattern.sub(lambda _: block, text, count=1)
     suffix = "" if not text or text.endswith("\n") else "\n"
     return text + suffix + block
 

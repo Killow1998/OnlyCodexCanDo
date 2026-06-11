@@ -1157,12 +1157,43 @@ def auth_status_payload() -> tuple[dict | None, str | None]:
     return payload if isinstance(payload, dict) else None, None
 
 
+def authorized_user_open_id(payload: dict) -> tuple[str | None, str | None]:
+    identities = payload.get("identities")
+    user = identities.get("user") if isinstance(identities, dict) else None
+    if isinstance(user, dict):
+        open_id = user.get("openId")
+        token_status = str(user.get("tokenStatus") or "")
+        status = str(user.get("status") or "")
+        if open_id and (user.get("available") is True or token_status == "valid" or status == "ready"):
+            return str(open_id), None
+        detail = str(user.get("message") or "")
+        if detail:
+            return None, detail
+        if open_id:
+            return None, f"user identity not authorized: status={status or 'unknown'}, tokenStatus={token_status or 'unknown'}"
+
+    detail = str(payload.get("note") or payload.get("message") or "")
+    return None, detail or "no authorized user identity"
+
+
+def auth_fix_hint(error: str | None = None) -> str:
+    base = 'lark-cli auth login --recommend --domain docs,drive,markdown --scope "search:docs:read"'
+    lowered = (error or "").lower()
+    if os.name == "nt" and ("keychain" in lowered or "no token" in lowered):
+        return (
+            "Windows Codex sandbox may not be able to read the lark-cli 1.0.51 credential store. "
+            f"First verify outside the sandbox with `{base}` or `lark-cli auth status`; "
+            "if that succeeds but this doctor still fails, run real Feishu operations with approved non-sandbox execution."
+        )
+    return base
+
+
 def current_user_open_id() -> str | None:
     payload, _ = auth_status_payload()
     if not payload:
         return None
-    value = payload.get("userOpenId")
-    return str(value) if value else None
+    value, _ = authorized_user_open_id(payload)
+    return value
 
 
 def load_registry_payload(path: str) -> dict:
@@ -1464,14 +1495,22 @@ def run_doctor(args: argparse.Namespace, archive_day: dt.date) -> int:
     if lark_path:
         payload, auth_error = auth_status_payload()
         if payload:
-            user_open_id = str(payload.get("userOpenId") or "")
-            add("ok", "auth", "authorized user" if user_open_id else "authorized; userOpenId missing")
+            user_open_id, user_error = authorized_user_open_id(payload)
+            if user_open_id:
+                add("ok", "auth", "authorized user")
+            else:
+                add(
+                    "fail",
+                    "auth",
+                    user_error or "not authorized",
+                    auth_fix_hint(user_error),
+                )
         else:
             add(
                 "fail",
                 "auth",
                 auth_error or "not authorized",
-                'lark-cli auth login --recommend --domain docs,drive,markdown --scope "search:docs:read"',
+                auth_fix_hint(auth_error),
             )
 
     docs: dict[str, str] = {}

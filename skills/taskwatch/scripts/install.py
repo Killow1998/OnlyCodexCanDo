@@ -844,44 +844,37 @@ def humanize_archive_detail(detail: str) -> str:
     return normalize_text(cleaned, limit=200)
 
 
-def summarize_result_text(text: str, *, limit: int = 220) -> str:
-    cleaned = strip_markdown(text)
-    lines: list[str] = []
-    in_code_block = False
-    for raw_line in cleaned.splitlines():
-        stripped = raw_line.strip()
-        if stripped.startswith("```"):
-            in_code_block = not in_code_block
-            continue
-        if in_code_block or not stripped or stripped.startswith("#"):
-            continue
-        stripped = re.sub(r"^[-*+>\d\.\)\s]+", "", stripped).strip()
-        if stripped:
-            lines.append(stripped)
-    summary = ""
-    for line in lines:
-        candidate = line if not summary else f"{summary} {line}"
-        if len(candidate) > limit:
-            if not summary:
-                return normalize_text(line, limit=limit)
-            break
-        summary = candidate
-    return normalize_text(summary, limit=limit)
-
-
-def build_result_summary(text: str, status: str, task_name: str) -> str:
-    summary = summarize_result_text(text)
-    if summary:
-        return summary
+def build_result_summary(status: str, task_name: str, archive_status: str, archive_detail: str = "") -> str:
     if status in {"complete", "done"}:
-        return f"本次已完成{task_name}。"
-    if status == "blocked":
-        return f"本次未完成{task_name}，当前被阻塞，需人工决定下一步。"
-    if status == "usageLimited":
-        return f"本次未完成{task_name}，Codex 使用额度已触顶。"
-    if status == "failed":
-        return f"本次未完成{task_name}，运行已失败，需要检查日志和最新产物。"
-    return f"{task_name}已结束，但缺少可用的结果摘要。"
+        conclusion = "goal 已完成。" if status == "complete" else "任务已完成。"
+        result = f"已完成「{task_name}」，Codex 正常收尾。"
+        next_step = "无需人工介入；如需要沉淀记录，可查看归档状态和 transcript。"
+    elif status == "blocked":
+        conclusion = "goal 未完成，当前处于 blocked。"
+        result = f"「{task_name}」被阻塞，尚未达到完成状态。"
+        next_step = "需要查看阻塞原因，决定补充信息、授权、环境修复或重新运行。"
+    elif status == "usageLimited":
+        conclusion = "goal 未完成，Codex 使用额度已触顶。"
+        result = f"「{task_name}」因额度限制中断。"
+        next_step = "等待额度恢复或切换可用额度后继续。"
+    elif status == "failed":
+        conclusion = "任务失败。"
+        result = f"「{task_name}」运行失败，尚未达到完成状态。"
+        next_step = "需要检查失败原因、日志和最新产物。"
+    else:
+        conclusion = "任务状态未知。"
+        result = f"「{task_name}」已触发终态通知，但没有可识别的完成状态。"
+        next_step = "需要查看 transcript 或运行日志确认真实结果。"
+
+    lines = [
+        f"- 结论：{conclusion}",
+        f"- 主要结果：{result}",
+        f"- 归档状态：{archive_status}",
+    ]
+    if archive_detail:
+        lines.append(f"- 归档说明：{archive_detail}")
+    lines.append(f"- 后续处理：{next_step}")
+    return "\n".join(lines)
 
 
 def extract_text_fragments(value: Any) -> list[str]:
@@ -1054,8 +1047,13 @@ def build_email_subject(context: dict[str, Any]) -> str:
     return "goal:unknown"
 
 
-def build_email_body(subject: str, body_text: str, context: dict[str, Any]) -> str:
-    result_summary = build_result_summary(body_text, str(context["status"]), str(context["task_name"]))
+def build_email_body(subject: str, _body_text: str, context: dict[str, Any]) -> str:
+    result_summary = build_result_summary(
+        str(context["status"]),
+        str(context["task_name"]),
+        str(context["archive_status"]),
+        str(context.get("archive_detail", "")),
+    )
     lines = [
         subject,
         "",
@@ -1078,8 +1076,6 @@ def build_email_body(subject: str, body_text: str, context: dict[str, Any]) -> s
         f"- 启动时间：{format_timestamp(context['started_at'])}",
         f"- 完成判定来源：{context['status']}",
     ]
-    if context["archive_detail"]:
-        lines.extend(["", "归档细节", f"- {context['archive_detail']}"])
     return "\\n".join(lines).rstrip() + "\\n"
 
 

@@ -43,6 +43,7 @@ class InstallScriptTests(unittest.TestCase):
         self.assertIn("exec bash -lc 'python3 -B scripts/train_low_level.py --profile foo'", file_map[".codex_monitor/run_command.sh"])
         self.assertIn("任务概况", file_map[".codex_monitor/scripts/send_mail.py"])
         self.assertIn("结果摘要", file_map[".codex_monitor/scripts/send_mail.py"])
+        self.assertIn("- 结论：", file_map[".codex_monitor/scripts/send_mail.py"])
         self.assertIn('return f"goal:{task_name}"', file_map[".codex_monitor/scripts/send_mail.py"])
 
     def test_infer_smtp_for_qq_mail(self) -> None:

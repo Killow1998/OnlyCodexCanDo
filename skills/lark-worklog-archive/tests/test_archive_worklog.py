@@ -51,7 +51,20 @@ class FakeLark:
     def __call__(self, args: list[str], check: bool = True, **kwargs) -> subprocess.CompletedProcess[str]:
         self.calls.append(list(args))
         if args == ["auth", "status"]:
-            return self.completed(args, {"userOpenId": self.user_open_id})
+            return self.completed(
+                args,
+                {
+                    "identity": "user",
+                    "identities": {
+                        "user": {
+                            "status": "ready",
+                            "available": True,
+                            "tokenStatus": "valid",
+                            "openId": self.user_open_id,
+                        }
+                    },
+                },
+            )
         if args[:2] == ["docs", "+search"]:
             return self.completed(args, {"data": {"results": self.search_results}})
         if args[:2] == ["docs", "+fetch"]:
@@ -749,7 +762,7 @@ class ArchiveWorklogTests(unittest.TestCase):
             (legacy_data / "master.key").parent.mkdir(parents=True, exist_ok=True)
             (legacy_config / "config.json").write_text('{"apps":[]}\n', encoding="utf-8")
             (legacy_data / "master.key").write_text("secret", encoding="utf-8")
-            with mock.patch.dict(os.environ, {"HOME": home, "CODEX_THREAD_ID": "thread-1"}, clear=True):
+            with mock.patch.dict(os.environ, {"HOME": home, "USERPROFILE": home, "CODEX_THREAD_ID": "thread-1"}, clear=True):
                 env = self.mod.lark_cli_env()
             config_dir = Path(env["LARKSUITE_CLI_CONFIG_DIR"])
             data_dir = Path(env["LARKSUITE_CLI_DATA_DIR"])
@@ -893,6 +906,35 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertEqual(install.node_version_tuple("v20.8.0"), (20, 8, 0))
         self.assertLess(install.node_version_tuple("v20.8.0"), (20, 12, 0))
         self.assertGreaterEqual(install.node_version_tuple("v20.12.0"), (20, 12, 0))
+
+    def test_auth_status_accepts_lark_cli_1_0_51_user_identity(self) -> None:
+        payload = {
+            "identity": "user",
+            "identities": {"user": {"status": "ready", "available": True, "tokenStatus": "valid", "openId": "ou_test"}},
+        }
+        self.assertEqual(self.mod.authorized_user_open_id(payload), ("ou_test", None))
+
+    def test_auth_status_rejects_lark_cli_missing_token(self) -> None:
+        payload = {
+            "identity": "none",
+            "identities": {
+                "user": {
+                    "status": "missing",
+                    "available": False,
+                    "tokenStatus": "no_token",
+                    "openId": "ou_test",
+                    "message": "User identity: missing (no token in keychain)",
+                }
+            },
+            "note": "No usable identity is available.",
+        }
+        self.assertEqual(self.mod.authorized_user_open_id(payload), (None, "User identity: missing (no token in keychain)"))
+
+    def test_auth_fix_hint_mentions_windows_sandbox_for_keychain_miss(self) -> None:
+        with mock.patch.object(self.mod.os, "name", "nt"):
+            hint = self.mod.auth_fix_hint("User identity: missing (no token in keychain)")
+        self.assertIn("Windows Codex sandbox", hint)
+        self.assertIn("non-sandbox", hint)
 
     def test_doctor_checks_registry_without_printing_doc_locator(self) -> None:
         fake = FakeLark("# 05-20-2026\n\n- 工作记录 / 知识管理\n  - 工作内容\n    - existing")

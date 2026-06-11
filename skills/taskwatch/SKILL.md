@@ -78,7 +78,8 @@ This skill has two deployment modes:
 
 ## Notes
 
-- Linux only for deployment. The generated timer targets `systemd --user`.
+- Workspace-local monitor deployment is Linux only. The generated timer targets `systemd --user`.
+- The global Codex Stop hook is cross-platform when Codex hooks and the current Python runtime are available.
 - The generated hourly monitor is read-only from Codex's perspective.
 - The generated systemd user timer installs without sudo.
 - Final email is optional. If `.codex_monitor/email.env` is missing, reports are still generated locally.

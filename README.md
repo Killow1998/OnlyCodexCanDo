@@ -26,6 +26,7 @@ Main behavior:
 - safe same-day appends through the helper script instead of direct document overwrite;
 - optional Markdown links in worklog items for related docs or commits;
 - private document mappings kept in local ignored config.
+- matched to `lark-cli 1.0.51`; update older CLI installs instead of relying on legacy auth-output compatibility.
 
 ### `TaskWatch`
 
@@ -50,7 +51,8 @@ Main behavior:
 
 Current limitations:
 
-- Linux only. The workspace-local timer path assumes `systemd --user`.
+- Workspace-local monitoring is Linux only. Its timer path assumes `systemd --user`.
+- On Windows, install only the global goal-terminal `Stop` hook. Do not deploy the workspace-local training or long-job monitor there.
 - The global goal-terminal mail path depends on the Codex `Stop` hook. It will not fire for power loss, host crash, or an external kill that bypasses Codex shutdown.
 - Goal archive detection is best-effort. It infers archive status from Codex transcripts and local state, so unusual flows may show `未检测到` / `not detected`.
 - Workspace-local monitoring assumes the job already has a real command, meaningful logs, or artifact directories. It does not invent task logic.
@@ -82,6 +84,8 @@ For global goal-terminal email only, install the hook without a workspace-local 
 ```text
 Please install only the global TaskWatch goal-terminal email hook from https://github.com/Killow1998/OnlyCodexCanDo.git. Configure the Codex Stop hook under ~/.codex so goal runs send terminal emails for complete, blocked, and usageLimited. Reuse existing settings if they are already present. Only ask me for sender email, recipient email, and the sender SMTP password or authorization code if mail is not configured yet. Keep all secrets in local ignored files and verify the hook with a safe smoke test.
 ```
+
+On Windows, use this global-hook-only path. Linux hosts can use the workspace-local monitor for training, evaluation, or other long-running jobs with `systemd --user`.
 
 The agent-facing instructions live in [skills/taskwatch/SKILL.md](skills/taskwatch/SKILL.md).
 

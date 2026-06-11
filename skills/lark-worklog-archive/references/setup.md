@@ -31,6 +31,8 @@ npx @larksuite/cli@latest install
 lark-cli --version
 ```
 
+Current supported and tested CLI version: `lark-cli 1.0.51`. The helper's auth checks parse the `auth status` shape from `1.0.51`; do not keep compatibility shims for older auth output. If the local CLI is older, update it with `lark-cli update` before debugging authorization.
+
 If `npx @larksuite/cli@latest install` fails with an `ERR_REQUIRE_ESM` or dependency engine warning, check Node.js. The current installer may require Node.js `20.12.0` or newer.
 
 On Windows Terminal / PowerShell, use the `.cmd` wrapper if `lark-cli.ps1` is blocked by execution policy:
