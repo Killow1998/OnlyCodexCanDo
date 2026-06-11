@@ -136,11 +136,44 @@ def parse_goal_event(raw_line: str) -> dict[str, Any] | None:
     }
 
 
+def parse_update_goal_output(raw_line: str) -> dict[str, Any] | None:
+    try:
+        item = json.loads(raw_line)
+    except json.JSONDecodeError:
+        return None
+    if item.get("type") != "response_item":
+        return None
+    payload = item.get("payload") or {}
+    if payload.get("type") != "function_call_output":
+        return None
+    output = payload.get("output")
+    if not isinstance(output, str):
+        return None
+    try:
+        result = json.loads(output)
+    except json.JSONDecodeError:
+        return None
+    goal = result.get("goal") if isinstance(result, dict) else None
+    if not isinstance(goal, dict):
+        return None
+    status = goal.get("status")
+    if status not in TERMINAL_STATUSES:
+        return None
+    return {
+        "status": status,
+        "objective": goal.get("objective", ""),
+        "turn_id": payload.get("turnId", ""),
+        "updated_at": goal.get("updatedAt", ""),
+        "timestamp": item.get("timestamp", ""),
+        "source": "update_goal",
+    }
+
+
 def detect_terminal_event(transcript_path: Path, last_assistant_message: str | None = None) -> dict[str, Any] | None:
     latest_goal_event: dict[str, Any] | None = None
     transcript_text = transcript_path.read_text(encoding="utf-8", errors="replace")
     for raw_line in transcript_text.splitlines():
-        event = parse_goal_event(raw_line)
+        event = parse_goal_event(raw_line) or parse_update_goal_output(raw_line)
         if event is not None:
             latest_goal_event = event
 

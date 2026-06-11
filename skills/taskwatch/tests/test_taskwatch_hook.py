@@ -40,6 +40,19 @@ class TaskWatchHookTests(unittest.TestCase):
         self.assertEqual("run task", event["objective"])
         self.assertEqual("thread_goal_updated", event["source"])
 
+    def test_detect_terminal_goal_from_update_goal_output(self) -> None:
+        transcript = """{"timestamp":"2026-06-11T10:37:03.708Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_1","output":"{\\"goal\\":{\\"threadId\\":\\"thread-1\\",\\"objective\\":\\"进行全面的code review\\",\\"status\\":\\"complete\\",\\"tokensUsed\\":164757,\\"timeUsedSeconds\\":488,\\"createdAt\\":1781173735,\\"updatedAt\\":1781174223},\\"remainingTokens\\":null}"}}
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "session.jsonl"
+            path.write_text(transcript, encoding="utf-8")
+            event = HOOK_MODULE.detect_terminal_event(path)
+        assert event is not None
+        self.assertEqual("complete", event["status"])
+        self.assertEqual("进行全面的code review", event["objective"])
+        self.assertEqual(1781174223, event["updated_at"])
+        self.assertEqual("update_goal", event["source"])
+
     def test_usage_limit_fallback(self) -> None:
         transcript = """{"type":"message","payload":{"text":"normal line"}}\n"""
         with tempfile.TemporaryDirectory() as tmpdir:
