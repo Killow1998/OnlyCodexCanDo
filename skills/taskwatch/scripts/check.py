@@ -18,11 +18,13 @@ QUICK_VALIDATE = Path.home() / ".codex" / "skills" / ".system" / "skill-creator"
 EXCLUDED_NAMES = {"__pycache__"}
 
 
-def run(name: str, args: list[str]) -> bool:
+def run(name: str, args: list[str], extra_env: dict[str, str] | None = None) -> bool:
     print(f"[run] {name}")
     env = os.environ.copy()
     env.setdefault("PYTHONUTF8", "1")
     env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+    if extra_env:
+        env.update(extra_env)
     proc = subprocess.run(args, cwd=REPO_ROOT, env=env, text=True, encoding="utf-8", errors="replace", check=False)
     if proc.returncode == 0:
         print(f"[ok] {name}")
@@ -115,7 +117,11 @@ def main() -> int:
             ],
         ),
         cache_dir_scan(),
-        run("install dry-run", [python, "-B", str(SKILL_DIR / "scripts" / "install.py"), str(SKILL_DIR), "--primary-log", "logs/run.log", "--dry-run"]),
+        run(
+            "install dry-run",
+            [python, "-B", str(SKILL_DIR / "scripts" / "install.py"), str(SKILL_DIR), "--primary-log", "logs/run.log", "--dry-run"],
+            {"TASKWATCH_ALLOW_WINDOWS_WORKSPACE_SCAFFOLD": "1"} if os.name == "nt" else None,
+        ),
         run(
             "global hook dry-run",
             [

@@ -1164,7 +1164,13 @@ def authorized_user_open_id(payload: dict) -> tuple[str | None, str | None]:
         open_id = user.get("openId")
         token_status = str(user.get("tokenStatus") or "")
         status = str(user.get("status") or "")
-        if open_id and (user.get("available") is True or token_status == "valid" or status == "ready"):
+        available = user.get("available")
+        if token_status in {"no_token", "missing", "expired", "invalid"} or available is False:
+            detail = str(user.get("message") or "")
+            if detail:
+                return None, detail
+            return None, f"user identity not authorized: status={status or 'unknown'}, tokenStatus={token_status or 'unknown'}"
+        if open_id and (available is True or token_status == "valid" or status == "ready"):
             return str(open_id), None
         detail = str(user.get("message") or "")
         if detail:

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shlex
 import stat
 from dataclasses import dataclass
@@ -1270,8 +1271,18 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def workspace_local_install_supported() -> bool:
+    return os.name != "nt" or os.environ.get("TASKWATCH_ALLOW_WINDOWS_WORKSPACE_SCAFFOLD") == "1"
+
+
 def main() -> int:
     args = parse_args()
+    if not workspace_local_install_supported():
+        raise SystemExit(
+            "TaskWatch workspace-local monitor is Linux only. "
+            "On Windows, install only the global goal Stop hook with "
+            "scripts/install_global_hook.py."
+        )
     workspace = Path(args.workspace).expanduser().resolve()
     if not workspace.exists() or not workspace.is_dir():
         raise SystemExit(f"workspace is missing or not a directory: {workspace}")

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 import re
@@ -159,8 +160,18 @@ def detect_terminal_event(transcript_path: Path, last_assistant_message: str | N
     return None
 
 
+def state_file_for_session(state_dir: Path, session_id: str) -> Path:
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", session_id).strip("._")
+    if not safe_name:
+        safe_name = "session"
+    if safe_name != session_id or len(safe_name) > 120:
+        digest = hashlib.sha256(session_id.encode("utf-8", errors="replace")).hexdigest()[:12]
+        safe_name = f"{safe_name[:80].rstrip('_') or 'session'}-{digest}"
+    return state_dir / f"{safe_name}.json"
+
+
 def load_sent_key(state_dir: Path, session_id: str) -> str:
-    state_file = state_dir / f"{session_id}.json"
+    state_file = state_file_for_session(state_dir, session_id)
     if not state_file.exists():
         return ""
     try:
@@ -173,7 +184,7 @@ def load_sent_key(state_dir: Path, session_id: str) -> str:
 
 def store_sent_key(state_dir: Path, session_id: str, key: str) -> None:
     state_dir.mkdir(parents=True, exist_ok=True)
-    state_file = state_dir / f"{session_id}.json"
+    state_file = state_file_for_session(state_dir, session_id)
     state_file.write_text(json.dumps({"last_sent_key": key}, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
 
 

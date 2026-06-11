@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
+import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -63,6 +66,15 @@ class InstallScriptTests(unittest.TestCase):
         self.assertIn("SMTP_PORT=587", content)
         self.assertIn("SMTP_SECURITY=starttls", content)
         self.assertIn("EMAIL_TO=target@example.com", content)
+
+    def test_main_refuses_workspace_local_install_on_windows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with mock.patch.object(MODULE.os, "name", "nt"):
+                with mock.patch.dict(os.environ, {}, clear=True):
+                    with mock.patch.object(sys, "argv", ["install.py", tmpdir]):
+                        with self.assertRaises(SystemExit) as raised:
+                            MODULE.main()
+        self.assertIn("workspace-local monitor is Linux only", str(raised.exception))
 
 
 if __name__ == "__main__":

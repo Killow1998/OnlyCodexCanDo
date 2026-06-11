@@ -930,6 +930,22 @@ class ArchiveWorklogTests(unittest.TestCase):
         }
         self.assertEqual(self.mod.authorized_user_open_id(payload), (None, "User identity: missing (no token in keychain)"))
 
+    def test_auth_status_rejects_ready_identity_without_token(self) -> None:
+        payload = {
+            "identity": "none",
+            "identities": {
+                "user": {
+                    "status": "ready",
+                    "available": False,
+                    "tokenStatus": "no_token",
+                    "openId": "ou_test",
+                }
+            },
+        }
+        open_id, detail = self.mod.authorized_user_open_id(payload)
+        self.assertIsNone(open_id)
+        self.assertIn("no_token", detail or "")
+
     def test_auth_fix_hint_mentions_windows_sandbox_for_keychain_miss(self) -> None:
         with mock.patch.object(self.mod.os, "name", "nt"):
             hint = self.mod.auth_fix_hint("User identity: missing (no token in keychain)")

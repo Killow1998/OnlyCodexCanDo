@@ -6,6 +6,7 @@
 
 - Matched `--doctor` authorization parsing to `lark-cli 1.0.51`.
 - Treated `identity: none`, unavailable user identities, and `tokenStatus: no_token` as failed authorization in `--doctor`.
+- Reject unavailable user identities even if an `openId` or stale `ready` status is still present in the auth payload.
 - Removed compatibility with older `auth status` output shapes; update `lark-cli` instead of carrying fallback parsing.
 
 ## 2026-05-26

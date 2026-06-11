@@ -99,6 +99,16 @@ class TaskWatchHookTests(unittest.TestCase):
         self.assertEqual("未检测到", context["archive_status"])
         self.assertEqual("", context["archive_detail"])
 
+    def test_state_file_for_session_sanitizes_windows_invalid_chars(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            session_id = r"C:\Users\me\.codex\sessions\2026-06-11:goal/session"
+            state_file = HOOK_MODULE.state_file_for_session(Path(tmpdir), session_id)
+            HOOK_MODULE.store_sent_key(Path(tmpdir), session_id, "sent-key")
+            self.assertEqual("sent-key", HOOK_MODULE.load_sent_key(Path(tmpdir), session_id))
+        self.assertNotIn(":", state_file.name)
+        self.assertNotIn("\\", state_file.name)
+        self.assertNotIn("/", state_file.name)
+
     def test_install_global_hook_upserts_block_and_feature(self) -> None:
         original = "[features]\nmemories = true\n"
         updated = INSTALL_HOOK_MODULE.upsert_managed_block(
