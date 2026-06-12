@@ -87,7 +87,7 @@ Please install only the global TaskWatch goal-terminal email hook from https://g
 
 On Windows, use this global-hook-only path. Linux hosts can use the workspace-local monitor for training, evaluation, or other long-running jobs with `systemd --user`.
 
-The agent-facing instructions live in [skills/taskwatch/SKILL.md](skills/taskwatch/SKILL.md).
+The agent-facing instructions live in [skills/taskwatch/SKILL.md](skills/taskwatch/SKILL.md). The usage guide is in [skills/taskwatch/references/usage.md](skills/taskwatch/references/usage.md).
 
 ## Repository Rules
 

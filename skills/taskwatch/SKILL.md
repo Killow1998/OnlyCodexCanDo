@@ -85,6 +85,11 @@ This skill has two deployment modes:
 - Final email is optional. If `.codex_monitor/email.env` is missing, reports are still generated locally.
 - For Codex goal-mode runs, use `--goal-mode` so the final email can distinguish `complete`, `blocked`, and `usageLimited`.
 - The global Codex hook watches goal terminal states only. It does not replace the workspace-local hourly monitor for training logs and artifacts.
+- On Windows Codex Desktop app, `[[hooks.Stop]]` did not auto-trigger after CLI trust in the 2026-06-12 verification; see `references/usage.md` before relying on Desktop app goal emails.
 - Codex should infer the real job command, logs, and artifact directories from the workspace whenever possible instead of asking the user to fill them manually.
 - Treat the real job exit code as the default completion signal. Existing `TRAIN_DONE` or `TRAIN_FAILED` markers are still read for backward compatibility.
 - After updating this skill in the repo, sync the installed copy under `~/.codex/skills/taskwatch`.
+
+## References
+
+- Usage guide: [references/usage.md](references/usage.md)

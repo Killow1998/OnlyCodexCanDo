@@ -764,7 +764,26 @@ def format_timestamp(value: Any) -> str:
 def format_duration(start: datetime | None, end: datetime | None) -> str:
     if start is None or end is None:
         return "unknown"
-    seconds = max(0, int((end - start).total_seconds()))
+    return format_duration_seconds(max(0, int((end - start).total_seconds())))
+
+
+def parse_duration_seconds(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return max(0, int(value))
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            return max(0, int(float(text)))
+        except ValueError:
+            return None
+    return None
+
+
+def format_duration_seconds(seconds: int) -> str:
     if seconds < 60:
         return f"{seconds}秒"
     minutes, remaining_seconds = divmod(seconds, 60)
@@ -777,7 +796,7 @@ def format_duration(start: datetime | None, end: datetime | None) -> str:
         parts.append(f"{remaining_hours}小时")
     if remaining_minutes:
         parts.append(f"{remaining_minutes}分钟")
-    if remaining_seconds and not parts:
+    if remaining_seconds and not (days or remaining_hours):
         parts.append(f"{remaining_seconds}秒")
     return "".join(parts) if parts else "0秒"
 
@@ -915,9 +934,46 @@ def parse_goal_event(raw_line: str) -> dict[str, Any] | None:
         "status": status,
         "objective": goal.get("objective", ""),
         "turn_id": payload.get("turnId", ""),
+        "created_at": goal.get("createdAt", ""),
         "updated_at": goal.get("updatedAt", ""),
+        "time_used_seconds": goal.get("timeUsedSeconds", ""),
         "timestamp": item.get("timestamp", ""),
         "source": "thread_goal_updated",
+    }
+
+
+def parse_update_goal_output(raw_line: str) -> dict[str, Any] | None:
+    try:
+        item = json.loads(raw_line)
+    except json.JSONDecodeError:
+        return None
+    if item.get("type") != "response_item":
+        return None
+    payload = item.get("payload") or {}
+    if payload.get("type") != "function_call_output":
+        return None
+    output = payload.get("output")
+    if not isinstance(output, str):
+        return None
+    try:
+        result = json.loads(output)
+    except json.JSONDecodeError:
+        return None
+    goal = result.get("goal") if isinstance(result, dict) else None
+    if not isinstance(goal, dict):
+        return None
+    status = goal.get("status")
+    if status not in TERMINAL_STATUSES:
+        return None
+    return {
+        "status": status,
+        "objective": goal.get("objective", ""),
+        "turn_id": payload.get("turnId", ""),
+        "created_at": goal.get("createdAt", ""),
+        "updated_at": goal.get("updatedAt", ""),
+        "time_used_seconds": goal.get("timeUsedSeconds", ""),
+        "timestamp": item.get("timestamp", ""),
+        "source": "update_goal",
     }
 
 
@@ -930,13 +986,13 @@ def resolve_goal_transcript() -> Path | None:
     return None
 
 
-def parse_transcript_context(transcript_path: Path) -> dict[str, str]:
+def parse_transcript_context(transcript_path: Path) -> dict[str, Any]:
     latest_goal_event: dict[str, Any] | None = None
     archive_attempted = False
     archive_success = ""
     archive_failure = ""
     for raw_line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines():
-        event = parse_goal_event(raw_line)
+        event = parse_goal_event(raw_line) or parse_update_goal_output(raw_line)
         if event is not None:
             latest_goal_event = event
         try:
@@ -964,8 +1020,10 @@ def parse_transcript_context(transcript_path: Path) -> dict[str, str]:
     archive_detail = humanize_archive_detail(archive_success or archive_failure)
     return {
         "objective": summarize_task_name(str((latest_goal_event or {}).get("objective", "")).strip(), limit=160),
+        "goal_created_at": (latest_goal_event or {}).get("created_at", ""),
         "goal_updated_at": str((latest_goal_event or {}).get("updated_at", "")),
         "goal_event_timestamp": str((latest_goal_event or {}).get("timestamp", "")),
+        "goal_time_used_seconds": (latest_goal_event or {}).get("time_used_seconds", ""),
         "archive_status": (
             "已完成"
             if archive_success
@@ -1027,7 +1085,13 @@ def collect_context() -> dict[str, Any]:
     task_name = transcript_context.get("objective") or label
     archive_status = transcript_context.get("archive_status") or ("未检测到" if goal_mode else "不适用")
     archive_detail = transcript_context.get("archive_detail") or ""
+    goal_started_at = parse_timestamp(transcript_context.get("goal_created_at"))
     finished_at = run_end or parse_timestamp(transcript_context.get("goal_updated_at") or transcript_context.get("goal_event_timestamp"))
+    duration_seconds = parse_duration_seconds(transcript_context.get("goal_time_used_seconds"))
+    if duration_seconds is None and goal_started_at is not None and finished_at is not None:
+        duration_seconds = max(0, int((finished_at - goal_started_at).total_seconds()))
+    if goal_started_at is not None:
+        run_start = goal_started_at
 
     return {
         "status": status or "unknown",
@@ -1036,6 +1100,7 @@ def collect_context() -> dict[str, Any]:
         "archive_detail": archive_detail,
         "started_at": run_start,
         "finished_at": finished_at,
+        "duration_seconds": duration_seconds,
         "exit_code": exit_code or "unknown",
         "goal_transcript": str(transcript_path) if transcript_path else "",
     }
@@ -1049,6 +1114,8 @@ def build_email_subject(context: dict[str, Any]) -> str:
 
 
 def build_email_body(subject: str, _body_text: str, context: dict[str, Any]) -> str:
+    duration_seconds = context.get("duration_seconds")
+    duration_text = format_duration_seconds(duration_seconds) if isinstance(duration_seconds, int) else format_duration(context["started_at"], context["finished_at"])
     result_summary = build_result_summary(
         str(context["status"]),
         str(context["task_name"]),
@@ -1064,7 +1131,7 @@ def build_email_body(subject: str, _body_text: str, context: dict[str, Any]) -> 
         f"- 是否需要介入：{intervention_status(context['status'])}",
         f"- 是否完成归档：{context['archive_status']}",
         f"- 完成时间：{format_timestamp(context['finished_at'])}",
-        f"- 花了多久：{format_duration(context['started_at'], context['finished_at'])}",
+        f"- 花了多久：{duration_text}",
         "",
         "结果摘要",
         result_summary,

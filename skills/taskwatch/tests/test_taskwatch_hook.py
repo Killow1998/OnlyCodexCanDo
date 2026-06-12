@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import tempfile
 import unittest
@@ -27,6 +28,26 @@ INSTALL_HOOK_MODULE = load_module("install_global_hook", SKILL_DIR / "scripts" /
 
 
 class TaskWatchHookTests(unittest.TestCase):
+    def test_audit_event_writes_jsonl(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_state_dir = HOOK_MODULE.STATE_DIR
+            original_audit_log_path = HOOK_MODULE.AUDIT_LOG_PATH
+            try:
+                HOOK_MODULE.STATE_DIR = Path(tmpdir)
+                HOOK_MODULE.AUDIT_LOG_PATH = Path(tmpdir) / "taskwatch-hook-audit.log"
+                HOOK_MODULE.audit_event("send_attempt", session_id="session-1", transcript_path=Path("session.jsonl"))
+                records = HOOK_MODULE.AUDIT_LOG_PATH.read_text(encoding="utf-8").splitlines()
+            finally:
+                HOOK_MODULE.STATE_DIR = original_state_dir
+                HOOK_MODULE.AUDIT_LOG_PATH = original_audit_log_path
+
+        self.assertEqual(1, len(records))
+        payload = json.loads(records[0])
+        self.assertEqual("send_attempt", payload["action"])
+        self.assertEqual("session-1", payload["session_id"])
+        self.assertEqual("session.jsonl", payload["transcript_path"])
+        self.assertIn("timestamp", payload)
+
     def test_detect_terminal_goal_event(self) -> None:
         transcript = """{"type":"event_msg","payload":{"type":"thread_goal_updated","goal":{"status":"active"}}}
 {"timestamp":"2026-05-25T10:00:00Z","type":"event_msg","payload":{"type":"thread_goal_updated","turnId":"abc","goal":{"objective":"run task","status":"blocked","updatedAt":"2026-05-25T10:00:00Z"}}}
@@ -52,6 +73,19 @@ class TaskWatchHookTests(unittest.TestCase):
         self.assertEqual("进行全面的code review", event["objective"])
         self.assertEqual(1781174223, event["updated_at"])
         self.assertEqual("update_goal", event["source"])
+
+    def test_build_body_prefers_goal_time_used_seconds(self) -> None:
+        transcript = """{"timestamp":"2026-06-11T07:42:05.794Z","type":"session_meta","payload":{"id":"thread-1"}}
+{"timestamp":"2026-06-11T10:37:03.708Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_1","output":"{\\"goal\\":{\\"threadId\\":\\"thread-1\\",\\"objective\\":\\"进行全面的code review\\",\\"status\\":\\"complete\\",\\"tokensUsed\\":164757,\\"timeUsedSeconds\\":488,\\"createdAt\\":1781173735,\\"updatedAt\\":1781174223},\\"remainingTokens\\":null}"}}
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "session.jsonl"
+            path.write_text(transcript, encoding="utf-8")
+            event = HOOK_MODULE.detect_terminal_event(path)
+            assert event is not None
+            body = HOOK_MODULE.build_body({"session_id": "thread-1", "cwd": "/repo"}, path, event)
+        self.assertIn("花了多久：8分钟8秒", body)
+        self.assertNotIn("花了多久：2小时", body)
 
     def test_usage_limit_fallback(self) -> None:
         transcript = """{"type":"message","payload":{"text":"normal line"}}\n"""

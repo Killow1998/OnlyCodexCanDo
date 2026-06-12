@@ -47,6 +47,8 @@ class InstallScriptTests(unittest.TestCase):
         self.assertIn("任务概况", file_map[".codex_monitor/scripts/send_mail.py"])
         self.assertIn("结果摘要", file_map[".codex_monitor/scripts/send_mail.py"])
         self.assertIn("- 结论：", file_map[".codex_monitor/scripts/send_mail.py"])
+        self.assertIn("parse_update_goal_output", file_map[".codex_monitor/scripts/send_mail.py"])
+        self.assertIn("goal_time_used_seconds", file_map[".codex_monitor/scripts/send_mail.py"])
         self.assertIn('return f"goal:{task_name}"', file_map[".codex_monitor/scripts/send_mail.py"])
 
     def test_infer_smtp_for_qq_mail(self) -> None:

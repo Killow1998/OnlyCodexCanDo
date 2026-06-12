@@ -87,7 +87,7 @@
 
 Windows 下使用这条“只安装全局 hook”的路径。Linux 主机才使用 workspace 本地 monitor 来监控 training、evaluation 或其他长时间任务，并通过 `systemd --user` 定时巡检。
 
-技能入口说明在 [skills/taskwatch/SKILL.md](skills/taskwatch/SKILL.md)。
+技能入口说明在 [skills/taskwatch/SKILL.md](skills/taskwatch/SKILL.md)。使用说明在 [skills/taskwatch/references/usage.md](skills/taskwatch/references/usage.md)。
 
 ## 仓库规则
 

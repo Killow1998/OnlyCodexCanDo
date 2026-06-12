@@ -20,6 +20,8 @@ from zoneinfo import ZoneInfo
 CODEX_HOME = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
 ENV_PATH = CODEX_HOME / "taskwatch.env"
 STATE_DIR = CODEX_HOME / "taskwatch-state"
+AUDIT_LOG_PATH = STATE_DIR / "taskwatch-hook-audit.log"
+AUDIT_LOG_MAX_BYTES = 1024 * 1024
 REQUIRED_KEYS = ("SMTP_HOST", "SMTP_PORT", "SMTP_SECURITY", "SMTP_USER", "SMTP_PASS", "EMAIL_FROM", "EMAIL_TO")
 TERMINAL_STATUSES = {"complete", "blocked", "usageLimited"}
 DISPLAY_TZ = ZoneInfo("Asia/Shanghai")
@@ -45,6 +47,32 @@ ARCHIVE_FAILURE_MARKERS = (
     "Repair failed",
     "archive failed",
 )
+
+
+def audit_event(action: str, **fields: Any) -> None:
+    try:
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        if AUDIT_LOG_PATH.exists() and AUDIT_LOG_PATH.stat().st_size > AUDIT_LOG_MAX_BYTES:
+            rotated_path = AUDIT_LOG_PATH.with_suffix(AUDIT_LOG_PATH.suffix + ".1")
+            if rotated_path.exists():
+                rotated_path.unlink()
+            AUDIT_LOG_PATH.replace(rotated_path)
+        record = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "action": action,
+            "pid": os.getpid(),
+        }
+        for key, value in fields.items():
+            if isinstance(value, Path):
+                record[key] = str(value)
+            elif isinstance(value, (str, int, float, bool)) or value is None:
+                record[key] = value
+            else:
+                record[key] = str(value)
+        with AUDIT_LOG_PATH.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=True, sort_keys=True) + "\n")
+    except Exception:
+        return
 
 
 def _load_env_file(path: Path) -> dict[str, str]:
@@ -130,7 +158,9 @@ def parse_goal_event(raw_line: str) -> dict[str, Any] | None:
         "status": status,
         "objective": goal.get("objective", ""),
         "turn_id": payload.get("turnId", ""),
+        "created_at": goal.get("createdAt", ""),
         "updated_at": goal.get("updatedAt", ""),
+        "time_used_seconds": goal.get("timeUsedSeconds", ""),
         "timestamp": item.get("timestamp", ""),
         "source": "thread_goal_updated",
     }
@@ -163,7 +193,9 @@ def parse_update_goal_output(raw_line: str) -> dict[str, Any] | None:
         "status": status,
         "objective": goal.get("objective", ""),
         "turn_id": payload.get("turnId", ""),
+        "created_at": goal.get("createdAt", ""),
         "updated_at": goal.get("updatedAt", ""),
+        "time_used_seconds": goal.get("timeUsedSeconds", ""),
         "timestamp": item.get("timestamp", ""),
         "source": "update_goal",
     }
@@ -276,7 +308,26 @@ def format_timestamp(value: Any) -> str:
 def format_duration(start: datetime | None, end: datetime | None) -> str:
     if start is None or end is None:
         return "unknown"
-    seconds = max(0, int((end - start).total_seconds()))
+    return format_duration_seconds(max(0, int((end - start).total_seconds())))
+
+
+def parse_duration_seconds(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return max(0, int(value))
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            return max(0, int(float(text)))
+        except ValueError:
+            return None
+    return None
+
+
+def format_duration_seconds(seconds: int) -> str:
     if seconds < 60:
         return f"{seconds}秒"
     minutes, remaining_seconds = divmod(seconds, 60)
@@ -289,7 +340,7 @@ def format_duration(start: datetime | None, end: datetime | None) -> str:
         parts.append(f"{remaining_hours}小时")
     if remaining_minutes:
         parts.append(f"{remaining_minutes}分钟")
-    if remaining_seconds and not parts:
+    if remaining_seconds and not (days or remaining_hours):
         parts.append(f"{remaining_seconds}秒")
     return "".join(parts) if parts else "0秒"
 
@@ -465,7 +516,13 @@ def collect_transcript_context(transcript_path: Path, event: dict[str, Any]) -> 
 
     objective = summarize_task_name(str(event.get("objective", "")).strip(), limit=160)
     task_name = objective or transcript_path.stem
+    goal_started_at = parse_timestamp(event.get("created_at"))
     ended_at = parse_timestamp(event.get("updated_at")) or parse_timestamp(event.get("timestamp"))
+    duration_seconds = parse_duration_seconds(event.get("time_used_seconds"))
+    if duration_seconds is None and goal_started_at is not None and ended_at is not None:
+        duration_seconds = max(0, int((ended_at - goal_started_at).total_seconds()))
+    if goal_started_at is not None:
+        started_at = goal_started_at
     archive_detail = humanize_archive_detail(archive_success or archive_failure)
 
     if archive_success:
@@ -481,6 +538,7 @@ def collect_transcript_context(transcript_path: Path, event: dict[str, Any]) -> 
         "task_name": task_name or "unknown",
         "started_at": started_at,
         "ended_at": ended_at,
+        "duration_seconds": duration_seconds,
         "archive_status": archive_status,
         "archive_detail": archive_detail,
     }
@@ -503,6 +561,8 @@ def build_body(
     context = context or collect_transcript_context(transcript_path, event)
     started_at = context["started_at"]
     ended_at = context["ended_at"]
+    duration_seconds = context.get("duration_seconds")
+    duration_text = format_duration_seconds(duration_seconds) if isinstance(duration_seconds, int) else format_duration(started_at, ended_at)
     subject = build_subject(event, context)
     result_summary = build_result_summary(
         event["status"],
@@ -519,7 +579,7 @@ def build_body(
         f"- 是否需要介入：{intervention_status(event['status'])}",
         f"- 是否完成归档：{context['archive_status']}",
         f"- 完成时间：{format_timestamp(ended_at)}",
-        f"- 花了多久：{format_duration(started_at, ended_at)}",
+        f"- 花了多久：{duration_text}",
         "",
         "结果摘要",
         result_summary,
@@ -543,41 +603,110 @@ def main() -> int:
     try:
         payload = json.load(sys.stdin)
     except json.JSONDecodeError as exc:
+        audit_event("invalid_payload", error_type=type(exc).__name__, error=str(exc))
         print(json.dumps({"continue": True}))
         print(f"taskwatch: invalid hook payload: {exc}", file=sys.stderr)
         return 0
 
+    audit_event(
+        "hook_started",
+        session_id=payload.get("session_id", ""),
+        cwd=payload.get("cwd", ""),
+        transcript_path=payload.get("transcript_path", ""),
+        has_last_assistant_message=bool(payload.get("last_assistant_message")),
+    )
+
     transcript_path = find_transcript_path(payload)
     if transcript_path is None:
+        audit_event("no_transcript", session_id=payload.get("session_id", ""))
         print(json.dumps({"continue": True}))
         return 0
 
     event = detect_terminal_event(transcript_path, payload.get("last_assistant_message"))
     if event is None:
+        audit_event(
+            "no_terminal_event",
+            session_id=payload.get("session_id", ""),
+            transcript_path=transcript_path,
+        )
         print(json.dumps({"continue": True}))
         return 0
 
     session_id = str(payload.get("session_id", "")).strip()
     if not session_id:
+        audit_event(
+            "missing_session_id",
+            transcript_path=transcript_path,
+            status=event.get("status", ""),
+            source=event.get("source", ""),
+        )
         print(json.dumps({"continue": True}))
         return 0
 
     state_key = terminal_key(session_id, event)
-    if load_sent_key(STATE_DIR, session_id) == state_key:
+    previous_state_key = load_sent_key(STATE_DIR, session_id)
+    if previous_state_key == state_key:
+        audit_event(
+            "dedup_skip",
+            session_id=session_id,
+            state_key=state_key,
+            status=event.get("status", ""),
+            source=event.get("source", ""),
+            updated_at=event.get("updated_at", ""),
+        )
         print(json.dumps({"continue": True}))
         return 0
 
     try:
         config = load_email_config()
-    except (FileNotFoundError, ValueError):
+    except (FileNotFoundError, ValueError) as exc:
+        audit_event(
+            "config_error",
+            session_id=session_id,
+            state_key=state_key,
+            error_type=type(exc).__name__,
+            error=str(exc),
+        )
         print(json.dumps({"continue": True}))
         return 0
 
     try:
         context = collect_transcript_context(transcript_path, event)
-        send_email(config, build_subject(event, context), build_body(payload, transcript_path, event, context))
+        subject = build_subject(event, context)
+        audit_event(
+            "send_attempt",
+            session_id=session_id,
+            state_key=state_key,
+            status=event.get("status", ""),
+            source=event.get("source", ""),
+            updated_at=event.get("updated_at", ""),
+            subject=subject,
+            smtp_host=config.get("SMTP_HOST", ""),
+            email_to=config.get("EMAIL_TO", ""),
+        )
+        send_email(config, subject, build_body(payload, transcript_path, event, context))
         store_sent_key(STATE_DIR, session_id, state_key)
+        audit_event(
+            "send_success",
+            session_id=session_id,
+            state_key=state_key,
+            status=event.get("status", ""),
+            source=event.get("source", ""),
+            updated_at=event.get("updated_at", ""),
+            subject=subject,
+            email_to=config.get("EMAIL_TO", ""),
+        )
     except Exception as exc:  # pragma: no cover - defensive hook behavior
+        audit_event(
+            "send_failure",
+            session_id=session_id,
+            state_key=state_key,
+            status=event.get("status", ""),
+            source=event.get("source", ""),
+            updated_at=event.get("updated_at", ""),
+            error_type=type(exc).__name__,
+            error=str(exc),
+        )
         print(f"taskwatch: failed to send goal email: {exc}", file=sys.stderr)
 
     print(json.dumps({"continue": True}))
