@@ -10,6 +10,7 @@ import os
 import re
 import smtplib
 import ssl
+import subprocess
 import sys
 from email.message import EmailMessage
 from pathlib import Path
@@ -48,6 +49,15 @@ ARCHIVE_FAILURE_MARKERS = (
     "need_user_authorization",
     "Repair failed",
     "archive failed",
+)
+TEST_SIGNAL_PATTERNS = (
+    ("pytest", re.compile(r"\bpytest\b.*\b(pass|passed|fail|failed|error|errors)\b|\b(pass|passed|fail|failed|error|errors)\b.*\bpytest\b", re.I)),
+    ("unittest", re.compile(r"\bunittest\b|Ran \d+ tests? in .*\b(OK|FAILED)\b", re.I)),
+    ("colcon test", re.compile(r"\bcolcon test\b|test result:.*\b(failures?|errors?)\b", re.I)),
+    ("cargo test", re.compile(r"\bcargo test\b|test result:.*\b(ok|FAILED)\b", re.I)),
+    ("npm test", re.compile(r"\bnpm test\b|\btest(s)?\b.*\b(pass|passed|fail|failed)\b", re.I)),
+    ("build", re.compile(r"\bbuild (succeeded|failed)\b|\b(successfully built|build error)\b", re.I)),
+    ("check", re.compile(r"\bcheck\.py\b.*\b(ok|pass|passed|fail|failed)\b|\bSkill is valid\b", re.I)),
 )
 
 
@@ -362,6 +372,13 @@ def format_duration_seconds(seconds: int) -> str:
     return "".join(parts) if parts else "0秒"
 
 
+def duration_for_context(context: dict[str, Any]) -> str:
+    duration_seconds = context.get("duration_seconds")
+    if isinstance(duration_seconds, int):
+        return format_duration_seconds(duration_seconds)
+    return format_duration(context["started_at"], context["ended_at"])
+
+
 def normalize_text(text: str, limit: int = 240) -> str:
     compact = " ".join(text.split())
     if len(compact) <= limit:
@@ -399,6 +416,109 @@ def is_noise_fragment(text: str) -> bool:
         return True
     noise_markers = ('"workdir":', '"yield_time_ms":', '"max_output_tokens":', '"cmd":')
     return any(marker in stripped for marker in noise_markers)
+
+
+def clean_digest_lines(text: str, limit: int = 8) -> list[str]:
+    lines: list[str] = []
+    in_code = False
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if line.startswith("```"):
+            in_code = not in_code
+            continue
+        if in_code or not line:
+            continue
+        line = re.sub(r"^[-*+]\s+", "", line)
+        line = re.sub(r"^\d+[.)]\s+", "", line)
+        if is_noise_fragment(line) or line.startswith(("{", "[", "}", "]")):
+            continue
+        if len(line) > 300:
+            continue
+        lines.append(normalize_text(line, limit=180))
+        if len(lines) >= limit:
+            break
+    if lines:
+        return lines
+    compact = normalize_text(text, limit=180)
+    return [compact] if compact and not is_noise_fragment(compact) else []
+
+
+def last_assistant_text_from_transcript(transcript_path: Path) -> str:
+    last_text = ""
+    for raw_line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            item = json.loads(raw_line)
+        except json.JSONDecodeError:
+            continue
+        payload = item.get("payload") or {}
+        if item.get("type") != "response_item" or payload.get("type") != "message":
+            continue
+        if payload.get("role") != "assistant":
+            continue
+        fragments = extract_text_fragments(payload.get("content"))
+        if fragments:
+            last_text = "\n".join(fragments)
+    return last_text
+
+
+def extract_final_assistant_digest(transcript_path: Path, last_assistant_message: str | None) -> list[str]:
+    text = (last_assistant_message or "").strip() or last_assistant_text_from_transcript(transcript_path)
+    return clean_digest_lines(text, limit=8)
+
+
+def recent_transcript_text(transcript_path: Path, max_items: int = 80) -> str:
+    chunks: list[str] = []
+    lines = transcript_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    for raw_line in lines[-max_items:]:
+        try:
+            item = json.loads(raw_line)
+        except json.JSONDecodeError:
+            continue
+        chunks.extend(extract_text_fragments(item.get("payload")))
+    return "\n".join(chunks)
+
+
+def extract_test_signals(transcript_path: Path) -> list[str]:
+    text = recent_transcript_text(transcript_path)
+    signals: list[str] = []
+    for label, pattern in TEST_SIGNAL_PATTERNS:
+        if not pattern.search(text):
+            continue
+        status = "FAIL" if re.search(r"\b(fail|failed|failure|error|errors|FAILED)\b", text, re.I) else "PASS"
+        signals.append(f"{label}: {status}")
+    return signals[:5]
+
+
+def run_git(cwd: str, *args: str) -> str:
+    try:
+        result = subprocess.run(
+            ("git", "-C", cwd, *args),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except Exception:
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
+def collect_git_context(cwd: str | None) -> dict[str, str]:
+    if not cwd:
+        return {}
+    inside = run_git(cwd, "rev-parse", "--is-inside-work-tree")
+    if inside != "true":
+        return {}
+    status_lines = [line for line in run_git(cwd, "status", "--short").splitlines() if line.strip()]
+    diff_stat = run_git(cwd, "diff", "--stat", "HEAD~1..HEAD") or run_git(cwd, "diff", "--stat")
+    return {
+        "branch": run_git(cwd, "branch", "--show-current") or run_git(cwd, "rev-parse", "--short", "HEAD"),
+        "commit": run_git(cwd, "log", "-1", "--oneline"),
+        "dirty_count": str(len(status_lines)),
+        "diff_stat": normalize_text(diff_stat, limit=220),
+    }
 
 
 def humanize_archive_detail(detail: str) -> str:
@@ -494,6 +614,16 @@ def intervention_status(status: str) -> str:
     return "unknown"
 
 
+def status_label(status: str) -> str:
+    if status == "complete":
+        return "DONE"
+    if status == "blocked":
+        return "BLOCKED"
+    if status == "usageLimited":
+        return "LIMITED"
+    return status.upper() or "UNKNOWN"
+
+
 def collect_transcript_context(transcript_path: Path, event: dict[str, Any]) -> dict[str, Any]:
     started_at: datetime | None = None
     archive_attempted = False
@@ -562,11 +692,15 @@ def collect_transcript_context(transcript_path: Path, event: dict[str, Any]) -> 
 
 
 def build_subject(event: dict[str, Any], context: dict[str, Any]) -> str:
-    del event
     task_name = summarize_task_name(str(context.get("task_name", "")).strip(), limit=48)
-    if task_name and task_name != "unknown":
-        return f"goal:{task_name}"
-    return "goal:unknown"
+    status = event.get("status", "")
+    if status == "complete":
+        return f"[TW:DONE][{duration_for_context(context)}] {task_name}"
+    if status == "blocked":
+        return f"[TW:BLOCKED][NEEDS-ACTION] {task_name}"
+    if status == "usageLimited":
+        return f"[TW:LIMITED] {task_name}"
+    return f"[TW:{status_label(str(status))}] {task_name}"
 
 
 def build_body(
@@ -578,8 +712,7 @@ def build_body(
     context = context or collect_transcript_context(transcript_path, event)
     started_at = context["started_at"]
     ended_at = context["ended_at"]
-    duration_seconds = context.get("duration_seconds")
-    duration_text = format_duration_seconds(duration_seconds) if isinstance(duration_seconds, int) else format_duration(started_at, ended_at)
+    duration_text = duration_for_context(context)
     subject = build_subject(event, context)
     result_summary = build_result_summary(
         event["status"],
@@ -587,28 +720,65 @@ def build_body(
         str(context["archive_status"]),
         str(context.get("archive_detail", "")),
     )
+    final_digest = extract_final_assistant_digest(transcript_path, payload.get("last_assistant_message"))
+    git_context = collect_git_context(str(payload.get("cwd", "") or ""))
+    test_signals = extract_test_signals(transcript_path)
+
     lines = [
         subject,
         "",
-        "任务概况",
-        f"- 任务是什么：{context['task_name']}",
-        f"- 完成情况：{summarize_status(event['status'])}",
+        "一眼结论",
+        f"- 状态：{status_label(event['status'])}",
+        f"- 任务：{context['task_name']}",
+        f"- 结果：{summarize_status(event['status'])}",
         f"- 是否需要介入：{intervention_status(event['status'])}",
-        f"- 是否完成归档：{context['archive_status']}",
-        f"- 完成时间：{format_timestamp(ended_at)}",
-        f"- 花了多久：{duration_text}",
         "",
-        "结果摘要",
-        result_summary,
-        "",
-        "运行信息",
-        f"- session_id：{payload.get('session_id', '')}",
-        f"- turn_id：{event.get('turn_id', '') or payload.get('turn_id', '')}",
-        f"- 工作目录：{payload.get('cwd', '')}",
-        f"- transcript：{transcript_path}",
-        f"- 事件来源：{event.get('source', '')}",
-        f"- 启动时间：{format_timestamp(started_at)}",
+        "本次产出",
     ]
+    if git_context:
+        lines.extend(
+            [
+                f"- 当前分支：{git_context.get('branch', '')}",
+                f"- 最新提交：{git_context.get('commit', '')}",
+                f"- 未提交文件：{git_context.get('dirty_count', '0')} 个",
+            ]
+        )
+        if git_context.get("diff_stat"):
+            lines.append(f"- diff stat：{git_context['diff_stat']}")
+    else:
+        lines.append("- 代码变更：未检测到 git 仓库")
+    if test_signals:
+        lines.append(f"- 验证：{'; '.join(test_signals)}")
+    else:
+        lines.append("- 验证：未检测到")
+    lines.extend(
+        [
+            f"- 归档：{context['archive_status']}",
+            f"- 耗时：{duration_text}",
+            "",
+            "Codex 最后结论",
+        ]
+    )
+    if final_digest:
+        lines.extend(f"- {line}" for line in final_digest)
+    else:
+        lines.append("- 未检测到可用的最后结论")
+    lines.extend(
+        [
+            "",
+            "后续处理",
+            result_summary,
+            "",
+            "Debug",
+            f"- session_id：{payload.get('session_id', '')}",
+            f"- turn_id：{event.get('turn_id', '') or payload.get('turn_id', '')}",
+            f"- cwd：{payload.get('cwd', '')}",
+            f"- transcript：{transcript_path}",
+            f"- event_source：{event.get('source', '')}",
+            f"- started_at：{format_timestamp(started_at)}",
+            f"- ended_at：{format_timestamp(ended_at)}",
+        ]
+    )
     if event.get("timestamp"):
         lines.append(f"- event_timestamp：{format_timestamp(event['timestamp'])}")
     if event.get("updated_at"):

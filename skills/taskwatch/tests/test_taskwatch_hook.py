@@ -86,7 +86,7 @@ class TaskWatchHookTests(unittest.TestCase):
             event = HOOK_MODULE.detect_terminal_event(path)
             assert event is not None
             body = HOOK_MODULE.build_body({"session_id": "thread-1", "cwd": "/repo"}, path, event)
-        self.assertIn("花了多久：8分钟8秒", body)
+        self.assertIn("- 耗时：8分钟8秒", body)
         self.assertNotIn("花了多久：2小时", body)
 
     def test_usage_limit_fallback(self) -> None:
@@ -125,26 +125,30 @@ class TaskWatchHookTests(unittest.TestCase):
                     "session_id": "session-1",
                     "cwd": "/home/user",
                     "turn_id": "turn-complete",
-                    "last_assistant_message": "已完成归档。",
+                    "last_assistant_message": "- 完成了 TaskWatch 邮件验证。\n- python -B skills/taskwatch/scripts/check.py: PASS\n```json\n{\"cmd\":\"ignore me\"}\n```",
                 },
                 path,
                 event,
             )
             subject = HOOK_MODULE.build_subject(event, HOOK_MODULE.collect_transcript_context(path, event))
-        self.assertIn("任务是什么：验证 TaskWatch 邮件并归档当天工作", body)
-        self.assertIn("是否完成归档：已完成", body)
-        self.assertIn("花了多久：1小时", body)
-        self.assertIn("结果摘要", body)
+        self.assertIn("一眼结论", body)
+        self.assertIn("- 任务：验证 TaskWatch 邮件并归档当天工作", body)
+        self.assertIn("- 归档：已完成", body)
+        self.assertIn("- 耗时：1小时", body)
+        self.assertIn("本次产出", body)
+        self.assertIn("Codex 最后结论", body)
+        self.assertIn("- 完成了 TaskWatch 邮件验证。", body)
+        self.assertIn("- python -B skills/taskwatch/scripts/check.py: PASS", body)
         self.assertIn("- 结论：goal 已完成。", body)
         self.assertIn("- 主要结果：已完成「验证 TaskWatch 邮件并归档当天工作」，Codex 正常收尾。", body)
         self.assertIn("- 归档状态：已完成", body)
         self.assertIn("- 归档说明：已写入飞书工作记录（05-2026 工作记录）。", body)
         self.assertIn("- 后续处理：无需人工介入", body)
-        self.assertNotIn("已完成归档。", body)
+        self.assertNotIn("ignore me", body)
         self.assertIn("已写入飞书工作记录（05-2026 工作记录）。", body)
         self.assertNotIn("启动的目的", body)
         self.assertNotIn("目标原文", body)
-        self.assertEqual("goal:验证 TaskWatch 邮件并归档当天工作", subject)
+        self.assertEqual("[TW:DONE][1小时] 验证 TaskWatch 邮件并归档当天工作", subject)
 
     def test_archive_noise_does_not_surface_raw_command(self) -> None:
         transcript = """{"timestamp":"2026-05-25T10:30:00Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_1","output":"{\\"cmd\\":\\"rg -n \\\\\\"need_user_authorization\\\\\\" /tmp/demo\\",\\"workdir\\":\\"/tmp\\",\\"yield_time_ms\\":1000,\\"max_output_tokens\\":600}"}}
@@ -158,6 +162,18 @@ class TaskWatchHookTests(unittest.TestCase):
             context = HOOK_MODULE.collect_transcript_context(path, event)
         self.assertEqual("未检测到", context["archive_status"])
         self.assertEqual("", context["archive_detail"])
+
+    def test_git_context_missing_does_not_fail_body(self) -> None:
+        transcript = """{"timestamp":"2026-05-25T11:00:00Z","type":"event_msg","payload":{"type":"thread_goal_updated","turnId":"turn-complete","goal":{"objective":"no git repo","status":"complete","updatedAt":"2026-05-25T11:00:00Z"}}}
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "session.jsonl"
+            path.write_text(transcript, encoding="utf-8")
+            event = HOOK_MODULE.detect_terminal_event(path)
+            assert event is not None
+            body = HOOK_MODULE.build_body({"session_id": "session-1", "cwd": tmpdir}, path, event)
+
+        self.assertIn("- 代码变更：未检测到 git 仓库", body)
 
     def test_state_file_for_session_sanitizes_windows_invalid_chars(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -61,21 +61,22 @@ python skills/taskwatch/scripts/install_global_hook.py --hook-only
 邮件主题格式：
 
 ```text
-goal:<任务名>
+[TW:DONE][<duration>] <任务名>
+[TW:BLOCKED][NEEDS-ACTION] <任务名>
+[TW:LIMITED] <任务名>
 ```
 
 正文包含：
 
-- 任务概况；
-- 完成情况；
-- 是否需要介入；
-- 是否完成归档；
-- 完成时间；
-- 花了多久；
-- 结果摘要；
-- 运行信息。
+- 一眼结论：状态、任务、结果、是否需要介入；
+- 本次产出：git 分支、最新提交、未提交文件数、diff stat、测试/构建信号、归档状态、耗时；
+- Codex 最后结论：清洗后的最后 assistant digest，优先来自 hook payload，其次来自 transcript；
+- 后续处理：complete / blocked / usageLimited 的简短处理建议；
+- Debug：session_id、turn_id、cwd、transcript、事件来源和时间戳。
 
-`花了多久` 的计算优先级：
+hook 只做确定性、快速、只读的信息抽取，不调用 LLM 二次总结。git 信息使用短超时命令读取；不是 git 仓库或读取失败时静默跳过。digest 会过滤代码块、JSON、命令参数和明显日志噪声。
+
+`duration` / `耗时` 的计算优先级：
 
 1. `update_goal` 或 goal event 中的 `timeUsedSeconds`；
 2. goal 的 `createdAt` 到 `updatedAt`；
