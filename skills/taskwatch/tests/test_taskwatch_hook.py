@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import importlib.util
 import json
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -97,6 +99,17 @@ class TaskWatchHookTests(unittest.TestCase):
         self.assertEqual("usageLimited", event["status"])
         self.assertEqual("usage-limit-fallback", event["source"])
 
+    def test_detect_terminal_event_ignores_stale_goal_state_when_now_is_given(self) -> None:
+        transcript = """{"timestamp":"2026-06-22T03:00:00Z","type":"event_msg","payload":{"type":"thread_goal_updated","turnId":"old","goal":{"objective":"old goal","status":"complete","updatedAt":"2026-06-22T03:00:00Z"}}}
+{"timestamp":"2026-06-22T04:00:00Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"ordinary follow-up"}]}}
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "session.jsonl"
+            path.write_text(transcript, encoding="utf-8")
+            event = HOOK_MODULE.detect_terminal_event(path, now=datetime(2026, 6, 22, 4, 0, tzinfo=timezone.utc))
+
+        self.assertIsNone(event)
+
     def test_build_body_is_result_focused(self) -> None:
         transcript = """{"timestamp":"2026-05-25T10:00:00Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"请测试 taskwatch，并在结束后归档今天的工作。"}]}}
 {"timestamp":"2026-05-25T10:30:00Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_1","output":"Updated worklog https://example.com/doc for 05-25-2026 with 2 item(s).\\nMonthly document: 05-2026 工作记录\\n"}}
@@ -155,6 +168,22 @@ class TaskWatchHookTests(unittest.TestCase):
         self.assertNotIn(":", state_file.name)
         self.assertNotIn("\\", state_file.name)
         self.assertNotIn("/", state_file.name)
+
+    def test_send_email_uses_short_default_timeout(self) -> None:
+        config = {
+            "SMTP_HOST": "smtp.example.com",
+            "SMTP_PORT": "587",
+            "SMTP_SECURITY": "starttls",
+            "SMTP_USER": "sender@example.com",
+            "SMTP_PASS": "secret",
+            "EMAIL_FROM": "sender@example.com",
+            "EMAIL_TO": "target@example.com",
+        }
+        with mock.patch.object(HOOK_MODULE.smtplib, "SMTP") as smtp:
+            smtp.return_value.__enter__.return_value = mock.Mock()
+            HOOK_MODULE.send_email(config, "subject", "body")
+
+        self.assertEqual(HOOK_MODULE.DEFAULT_SMTP_TIMEOUT_SECONDS, smtp.call_args.kwargs["timeout"])
 
     def test_install_global_hook_upserts_block_and_feature(self) -> None:
         original = "[features]\nmemories = true\n"

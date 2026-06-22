@@ -25,6 +25,8 @@ AUDIT_LOG_MAX_BYTES = 1024 * 1024
 REQUIRED_KEYS = ("SMTP_HOST", "SMTP_PORT", "SMTP_SECURITY", "SMTP_USER", "SMTP_PASS", "EMAIL_FROM", "EMAIL_TO")
 TERMINAL_STATUSES = {"complete", "blocked", "usageLimited"}
 DISPLAY_TZ = ZoneInfo("Asia/Shanghai")
+DEFAULT_SMTP_TIMEOUT_SECONDS = 5.0
+TERMINAL_EVENT_MAX_AGE_SECONDS = 10 * 60
 USAGE_LIMIT_MARKERS = (
     "You've hit your usage limit",
     "Visit https://chatgpt.com/codex/settings/usage",
@@ -101,6 +103,7 @@ def load_email_config(path: Path = ENV_PATH) -> dict[str, str]:
 def send_email(config: dict[str, str], subject: str, body: str) -> None:
     smtp_port = int(config["SMTP_PORT"])
     security = config["SMTP_SECURITY"].strip().lower()
+    smtp_timeout = float(config.get("SMTP_TIMEOUT_SECONDS") or DEFAULT_SMTP_TIMEOUT_SECONDS)
 
     message = EmailMessage()
     message["Subject"] = subject
@@ -110,13 +113,13 @@ def send_email(config: dict[str, str], subject: str, body: str) -> None:
 
     if security == "ssl":
         context = ssl.create_default_context()
-        with smtplib.SMTP_SSL(config["SMTP_HOST"], smtp_port, timeout=30, context=context) as smtp:
+        with smtplib.SMTP_SSL(config["SMTP_HOST"], smtp_port, timeout=smtp_timeout, context=context) as smtp:
             smtp.login(config["SMTP_USER"], config["SMTP_PASS"])
             smtp.send_message(message)
         return
 
     context = ssl.create_default_context()
-    with smtplib.SMTP(config["SMTP_HOST"], smtp_port, timeout=30) as smtp:
+    with smtplib.SMTP(config["SMTP_HOST"], smtp_port, timeout=smtp_timeout) as smtp:
         smtp.ehlo()
         if security == "starttls":
             smtp.starttls(context=context)
@@ -201,7 +204,21 @@ def parse_update_goal_output(raw_line: str) -> dict[str, Any] | None:
     }
 
 
-def detect_terminal_event(transcript_path: Path, last_assistant_message: str | None = None) -> dict[str, Any] | None:
+def event_is_fresh(event: dict[str, Any], now: datetime | None = None) -> bool:
+    if now is None:
+        return True
+    event_time = parse_timestamp(event.get("updated_at")) or parse_timestamp(event.get("timestamp"))
+    if event_time is None:
+        return True
+    # ponytail: only notify for recent terminal events; old transcript state can be re-read on every Stop hook.
+    return abs((now - event_time).total_seconds()) <= TERMINAL_EVENT_MAX_AGE_SECONDS
+
+
+def detect_terminal_event(
+    transcript_path: Path,
+    last_assistant_message: str | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any] | None:
     latest_goal_event: dict[str, Any] | None = None
     transcript_text = transcript_path.read_text(encoding="utf-8", errors="replace")
     for raw_line in transcript_text.splitlines():
@@ -209,7 +226,7 @@ def detect_terminal_event(transcript_path: Path, last_assistant_message: str | N
         if event is not None:
             latest_goal_event = event
 
-    if latest_goal_event is not None:
+    if latest_goal_event is not None and event_is_fresh(latest_goal_event, now=now):
         return latest_goal_event
 
     fallback_text = (last_assistant_message or "") + "\n" + transcript_text[-4000:]
@@ -622,7 +639,7 @@ def main() -> int:
         print(json.dumps({"continue": True}))
         return 0
 
-    event = detect_terminal_event(transcript_path, payload.get("last_assistant_message"))
+    event = detect_terminal_event(transcript_path, payload.get("last_assistant_message"), now=datetime.now(timezone.utc))
     if event is None:
         audit_event(
             "no_terminal_event",
