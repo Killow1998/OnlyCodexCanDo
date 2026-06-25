@@ -1041,8 +1041,6 @@ def update_doc(doc: str, content_xml: str, revision_id: int, title: str | None =
         "--content",
         content_xml,
     ]
-    if title:
-        args.extend(["--new-title", title])
     proc = run_lark(args, check=False)
     if proc.returncode == 0:
         return True
