@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -74,6 +75,11 @@ def upsert_managed_block(text: str, block: str) -> str:
     return text + suffix + block
 
 
+def remove_managed_block(text: str) -> str:
+    pattern = re.compile(rf"{re.escape(BLOCK_BEGIN)}\n.*?{re.escape(BLOCK_END)}\n?", re.DOTALL)
+    return pattern.sub("", text, count=1)
+
+
 def write_email_env(args: argparse.Namespace) -> str:
     if args.sender_email and args.recipient_email and args.sender_password:
         content = install.build_email_env(
@@ -99,7 +105,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sender-email", help="SMTP sender address.")
     parser.add_argument("--recipient-email", help="Notification recipient address.")
-    parser.add_argument("--sender-password", help="SMTP authorization code or app password.")
+    parser.add_argument("--sender-password", default=os.environ.get("TASKWATCH_SENDER_PASSWORD"), help="SMTP authorization code or app password. Defaults to $TASKWATCH_SENDER_PASSWORD to keep the secret out of shell history.")
     parser.add_argument("--smtp-host", help="Override SMTP host.")
     parser.add_argument("--smtp-port", type=int, help="Override SMTP port.")
     parser.add_argument(
@@ -117,12 +123,60 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Install or refresh the Stop hook without writing SMTP settings.",
     )
+    parser.add_argument(
+        "--remove",
+        action="store_true",
+        help="Remove the managed Stop hook block from ~/.codex/config.toml. Keeps taskwatch.env and state unless --purge.",
+    )
+    parser.add_argument(
+        "--purge",
+        action="store_true",
+        help="With --remove, also delete taskwatch.env and the taskwatch-state directory.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Show what would be changed without writing files.")
     return parser.parse_args()
 
 
+def remove_hook(args: argparse.Namespace) -> int:
+    config_changed = False
+    if CONFIG_PATH.exists():
+        config_text = CONFIG_PATH.read_text(encoding="utf-8")
+        updated = remove_managed_block(config_text)
+        config_changed = updated != config_text
+        if config_changed and not args.dry_run:
+            CONFIG_PATH.write_text(updated, encoding="utf-8")
+
+    mode = "dry-run" if args.dry_run else "removed"
+    print(f"[summary] mode: {mode}")
+    if config_changed:
+        print(f"[summary] config file: {CONFIG_PATH} (managed stop hook block removed)")
+    else:
+        print(f"[summary] config file: {CONFIG_PATH} (no managed stop hook block found)")
+    print("[summary] the [features] hooks flag was left unchanged; other hooks may still use it")
+
+    if args.purge:
+        for target in (ENV_PATH, STATE_DIR):
+            if not target.exists():
+                continue
+            if args.dry_run:
+                print(f"[summary] would delete {target}")
+            elif target.is_dir():
+                shutil.rmtree(target, ignore_errors=True)
+                print(f"[summary] deleted {target}")
+            else:
+                target.unlink()
+                print(f"[summary] deleted {target}")
+    else:
+        kept = [str(path) for path in (ENV_PATH, STATE_DIR) if path.exists()]
+        if kept:
+            print("[summary] kept (use --purge to delete): " + ", ".join(kept))
+    return 0
+
+
 def main() -> int:
     args = parse_args()
+    if args.remove:
+        return remove_hook(args)
     global_skill_dir = Path(args.global_skill_dir).expanduser().resolve()
     hook_script = global_skill_dir / "scripts" / "taskwatch_stop_hook.py"
 

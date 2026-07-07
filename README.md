@@ -40,14 +40,15 @@ It is designed for prompts such as:
 
 Main behavior:
 
-- generates a workspace-local `.codex_monitor` scaffold;
+- generates a `.codex_monitor` scaffold, either workspace-local or (with `--central`) under `~/.codex/taskwatch/jobs/<name>/` so the workspace stays clean;
 - writes a configurable `run_command.sh` and `monitor.env`;
 - installs hourly report and final summary scripts;
 - supports Codex goal-mode terminal emails for `complete`, `blocked`, and `usageLimited`;
 - can also install a global Codex `Stop` hook for terminal goal alerts without a workspace-local monitor;
 - supports a systemd user timer without sudo;
 - keeps SMTP secrets and runtime reports out of Git;
-- can infer SMTP host, port, and security from the sender email for common providers, so the user usually only needs sender email, recipient email, and sender password.
+- can infer SMTP host, port, and security from the sender email for common providers, so the user usually only needs sender email, recipient email, and sender password;
+- supports clean removal: `install.py --uninstall` for a scaffold, `install_global_hook.py --remove` for the global hook.
 
 Current limitations:
 

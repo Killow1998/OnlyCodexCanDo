@@ -40,14 +40,15 @@
 
 主要行为：
 
-- 生成 workspace 本地的 `.codex_monitor` 脚手架；
+- 生成 `.codex_monitor` 脚手架：默认在 workspace 内，加 `--central` 时整体放到 `~/.codex/taskwatch/jobs/<name>/`，工程目录不新增任何文件；
 - 写入可配置的 `run_command.sh` 和 `monitor.env`；
 - 安装小时报告和最终总结脚本；
 - 支持 Codex goal-mode 在最终邮件里区分 `complete`、`blocked` 和 `usageLimited`；
 - 也可以只安装全局 Codex `Stop` hook，用于 goal 终态邮件告警，不依赖 workspace 本地 monitor；
 - 支持无 sudo 的 systemd user timer；
 - SMTP secret 和运行期报告保持不入 Git；
-- 对常见邮箱域名自动推断 SMTP host、port 和安全模式，所以通常只需要用户提供发件邮箱、收件邮箱和发件邮箱密钥。
+- 对常见邮箱域名自动推断 SMTP host、port 和安全模式，所以通常只需要用户提供发件邮箱、收件邮箱和发件邮箱密钥；
+- 支持干净卸载：脚手架用 `install.py --uninstall`，全局 hook 用 `install_global_hook.py --remove`。
 
 当前局限性：
 

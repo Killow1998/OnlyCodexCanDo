@@ -23,11 +23,13 @@ Desktop app 下需要 goal 完成邮件时，优先继续验证或改接 Desktop
 安装或刷新全局 hook：
 
 ```bash
+export TASKWATCH_SENDER_PASSWORD='smtp-app-password'
 python skills/taskwatch/scripts/install_global_hook.py \
   --sender-email sender@example.com \
-  --recipient-email receiver@example.com \
-  --sender-password 'smtp-app-password'
+  --recipient-email receiver@example.com
 ```
+
+优先用 `TASKWATCH_SENDER_PASSWORD` 环境变量传授权码，避免密码进入 shell history 和进程列表；`--sender-password` 仍然可用，且显式传入时优先。
 
 已有 `~/.codex/taskwatch.env` 时，可以只刷新 hook，不覆盖邮件配置：
 
@@ -104,7 +106,9 @@ python skills/taskwatch/scripts/install.py /abs/workspace \
   --run-command 'python3 -B scripts/run.py --arg value'
 ```
 
-启动任务：
+默认脚手架写入 workspace 内（`.codex_monitor/` 和 `run_with_monitor.sh`）。如果不希望工程目录出现任何监控文件，加 `--central`：整套脚手架会生成到 `~/.codex/taskwatch/jobs/<systemd-basename>/`，workspace 保持干净，目标目录通过 `monitor.env` 里的 `CODEX_MONITOR_WORKSPACE` 记录。自定义位置用 `--job-dir`。
+
+启动任务（central 模式下换成 `~/.codex/taskwatch/jobs/<name>/run_with_monitor.sh`）：
 
 ```bash
 ./run_with_monitor.sh
@@ -121,6 +125,26 @@ CODEX_MONITOR_SKIP_EMAIL=1 .codex_monitor/scripts/hourly_check.sh
 ```bash
 .codex_monitor/scripts/install_systemd_timer.sh
 .codex_monitor/scripts/uninstall_systemd_timer.sh
+```
+
+## 卸载
+
+卸载 workspace-local monitor（默认保留 `email.env`、reports、snapshots、state；加 `--purge` 一并删除；`systemctl` 可用时会先执行 timer 卸载）：
+
+```bash
+python skills/taskwatch/scripts/install.py /abs/workspace --uninstall
+```
+
+central 模式的任务用安装时相同的布局参数：
+
+```bash
+python skills/taskwatch/scripts/install.py /abs/workspace --central --systemd-basename codex-long-job-monitor --uninstall
+```
+
+移除全局 Stop hook（只删 `~/.codex/config.toml` 里的托管 block，保留 `taskwatch.env` 与去重状态；加 `--purge` 一并删除）：
+
+```bash
+python skills/taskwatch/scripts/install_global_hook.py --remove
 ```
 
 ## 验证
