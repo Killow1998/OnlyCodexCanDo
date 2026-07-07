@@ -9,6 +9,8 @@ Archive verified daily Codex/Agent work into the user's monthly Feishu/Lark work
 
 Real Feishu document URLs, OpenID values, app IDs, tokens, secrets, and local registry values are runtime/private data only. Do not commit them to Git.
 
+Command examples assume a repo checkout. When running from the installed copy, replace `skills/lark-worklog-archive` with `~/.codex/skills/lark-worklog-archive`.
+
 ## Output Rules
 
 - Keep one worklog document per month, titled `MM-YYYY 工作记录`.
@@ -34,16 +36,22 @@ Real Feishu document URLs, OpenID values, app IDs, tokens, secrets, and local re
      --item "工作记录 / 知识管理::结果::运行 check.py 通过。"
    ```
 
-3. Archive through the helper:
+3. Archive through the helper with `--queue-failed` so a failed write is not lost:
 
    ```bash
    python skills/lark-worklog-archive/scripts/archive_worklog.py \
+     --queue-failed \
      --item "工作记录 / 知识管理::背景与目标::为了后续周报和复盘，需要让工作记录从流水账变成总结。" \
      --item "工作记录 / 知识管理::工作内容::完成 X。" \
      --item "工作记录 / 知识管理::结果::运行 Y 通过。"
    ```
 
+4. If archiving fails, run `--doctor`, fix what it reports, then re-run the archive command. Queued failed items for the same date replay automatically on the next successful run.
+5. To backfill another day, add `--date MM-DD-YYYY` and keep that day's heading position (newest date first).
+
 The helper uses a per-month lock, latest Feishu revision, retry, dedupe, and post-write verification. Same-day writes first try guarded section replace, then fall back to full-document rewrite if replace or verification fails.
+
+For a shared team worklog, `--team` mode with explicit author attribution is documented in [references/setup.md](references/setup.md).
 
 ## Checks
 
@@ -51,6 +59,12 @@ Run doctor when setup, auth, registry, or document access may be stale:
 
 ```bash
 python skills/lark-worklog-archive/scripts/archive_worklog.py --doctor
+```
+
+Never run bare `lark-cli` commands; use the `--lark-cli` passthrough so auth stays in the single managed credential store (bare calls write to a diverging legacy store and drop authorization):
+
+```bash
+python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli auth status
 ```
 
 Run release checks before sharing changes:

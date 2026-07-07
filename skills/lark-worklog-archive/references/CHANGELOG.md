@@ -1,5 +1,19 @@
 # Lark Worklog Archive Changelog
 
+## 2026-07-07
+
+### Single persistent lark-cli credential store
+
+- The helper now always points `lark-cli` at the managed store `~/.codex/memories/runtime/lark-cli/`, inside and outside Codex, instead of only when `CODEX_THREAD_ID` is set. Diverging legacy/managed stores rotated Feishu refresh tokens independently and kept invalidating each other, which looked like auth randomly dropping.
+- Added the `--lark-cli` passthrough so `auth login`, `auth status`, and `config` commands run inside the managed environment; setup docs now route all raw CLI calls through it.
+- `--doctor` warns when the legacy store (`~/.lark-cli`, `~/.local/share/lark-cli`) is newer than the managed store.
+
+### SKILL.md failure path and check.py bytecode fix
+
+- Documented the daily-archive failure path in `SKILL.md`: archive with `--queue-failed`, run `--doctor` on failure, and rely on same-date automatic replay of queued items.
+- Documented `--date` backfill, team-mode pointer, and the installed-copy path convention in `SKILL.md`.
+- Fixed `check.py` writing `__pycache__` into the skill during its own subprocess runs, which made the next `cache directory scan` fail; subprocesses now run with `PYTHONDONTWRITEBYTECODE=1` and `-B`.
+
 ## 2026-06-11
 
 ### lark-cli 1.0.51 auth status handling

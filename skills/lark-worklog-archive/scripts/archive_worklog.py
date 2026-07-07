@@ -206,12 +206,13 @@ def lark_cli_command() -> str | None:
 
 
 def codex_managed_lark_root() -> str | None:
+    # Always use one persistent credential store, in and out of Codex.
+    # Splitting stores per environment rots auth: Feishu refresh tokens
+    # rotate, so two diverging copies invalidate each other's sessions.
     configured = os.environ.get("LARK_WORKLOG_LARK_RUNTIME_ROOT")
     if configured:
         return os.path.abspath(os.path.expanduser(configured))
-    if os.environ.get("CODEX_THREAD_ID") or os.environ.get("CODEX_CI") == "1":
-        return os.path.join(os.path.expanduser("~"), ".codex", "memories", "runtime", "lark-cli")
-    return None
+    return os.path.join(os.path.expanduser("~"), ".codex", "memories", "runtime", "lark-cli")
 
 
 def legacy_lark_config_dir() -> str:
@@ -246,6 +247,46 @@ def lark_cli_env() -> dict[str, str]:
         copy_tree_if_missing(legacy_lark_data_dir(), os.path.join(data_dir, "lark-cli"))
         env["LARKSUITE_CLI_DATA_DIR"] = data_dir
     return env
+
+
+def newest_mtime(root: str) -> float:
+    latest = 0.0
+    for dirpath, _dirnames, filenames in os.walk(root):
+        for name in filenames:
+            try:
+                latest = max(latest, os.path.getmtime(os.path.join(dirpath, name)))
+            except OSError:
+                continue
+    return latest
+
+
+def legacy_store_divergence() -> str | None:
+    """Return a warning when the legacy lark-cli store is newer than the managed one."""
+    runtime_root = codex_managed_lark_root()
+    if not runtime_root or os.environ.get("LARKSUITE_CLI_CONFIG_DIR") or os.environ.get("LARKSUITE_CLI_DATA_DIR"):
+        return None
+    managed_latest = newest_mtime(runtime_root) if os.path.isdir(runtime_root) else 0.0
+    legacy_latest = max(
+        newest_mtime(legacy_lark_config_dir()) if os.path.isdir(legacy_lark_config_dir()) else 0.0,
+        newest_mtime(legacy_lark_data_dir()) if os.path.isdir(legacy_lark_data_dir()) else 0.0,
+    )
+    if legacy_latest > managed_latest > 0.0:
+        return (
+            "legacy lark-cli store is newer than the managed store; "
+            "a raw `lark-cli auth login` probably wrote credentials to the old location. "
+            "Re-run authorization through `archive_worklog.py --lark-cli auth login ...` "
+            "so every environment shares the managed store."
+        )
+    return None
+
+
+def run_lark_passthrough(cli_args: list[str]) -> int:
+    command = lark_cli_command()
+    if not command:
+        raise SystemExit("lark-cli not found. Run: npx @larksuite/cli@latest install")
+    env = lark_cli_env()
+    proc = subprocess.run([command, *cli_args], env=env, check=False)
+    return proc.returncode
 
 
 def run_lark(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -1494,6 +1535,15 @@ def run_doctor(args: argparse.Namespace, archive_day: dt.date) -> int:
     else:
         add("fail", "lark-cli", "not found", "npx @larksuite/cli@latest install")
 
+    divergence = legacy_store_divergence()
+    if divergence:
+        add(
+            "warn",
+            "credential store",
+            divergence,
+            f"{sys.argv[0]} --lark-cli auth login --recommend --domain docs,drive,markdown --scope search:docs:read",
+        )
+
     payload: dict | None = None
     user_open_id: str | None = None
     if lark_path:
@@ -1833,7 +1883,18 @@ def main() -> int:
     parser.add_argument("--verbose", action="store_true", help="Print extra operational messages without dumping document content.")
     parser.add_argument("--print-doc", action="store_true", help="Print the full document locator after a successful init or archive.")
     parser.add_argument("--retries", type=int, default=3, help="Retry on revision conflicts.")
+    parser.add_argument(
+        "--lark-cli",
+        dest="lark_cli",
+        nargs=argparse.REMAINDER,
+        help="Run a raw lark-cli command inside the managed credential environment, e.g. --lark-cli auth login --recommend. Use this instead of a bare lark-cli call so auth state stays in one persistent store.",
+    )
     args = parser.parse_args()
+
+    if args.lark_cli is not None:
+        if not args.lark_cli:
+            raise SystemExit("usage: --lark-cli <lark-cli arguments>, e.g. --lark-cli auth status")
+        return run_lark_passthrough(args.lark_cli)
     RUN_LARK_VERBOSE = bool(args.verbose or os.environ.get("LARK_WORKLOG_VERBOSE"))
 
     archive_day = parse_date(args.date) if args.date else today(args.tz)

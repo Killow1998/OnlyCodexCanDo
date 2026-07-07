@@ -41,42 +41,33 @@ On Windows Terminal / PowerShell, use the `.cmd` wrapper if `lark-cli.ps1` is bl
 & "$env:APPDATA\npm\lark-cli.cmd" --version
 ```
 
-Check existing CLI app/config before initializing:
+Check existing CLI app/config before initializing (always through the passthrough so the managed store is used):
 
 ```bash
-lark-cli auth status
-lark-cli config show
+python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli auth status
+python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli config show
 ```
 
-```powershell
-& "$env:APPDATA\npm\lark-cli.cmd" auth status
-& "$env:APPDATA\npm\lark-cli.cmd" config show
+The helper always points `lark-cli` at one persistent managed credential store: `~/.codex/memories/runtime/lark-cli/` (config under `config/`, encrypted credentials under `data/lark-cli/`), both inside and outside Codex. On first use it migrates existing legacy state from `~/.lark-cli` and `~/.local/share/lark-cli`. Do not run bare `lark-cli auth login` afterwards: that writes credentials to the legacy location, the two stores then rotate refresh tokens independently and invalidate each other, and auth appears to "randomly drop". Run every `lark-cli` command through the helper's `--lark-cli` passthrough instead, which injects the managed environment:
+
+```bash
+python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli auth status
 ```
 
-When this skill runs inside Codex, it defaults `lark-cli` state to `~/.codex/memories/runtime/lark-cli/`. Config lives under `config/`; encrypted credential files are copied from `~/.local/share/lark-cli` into `data/lark-cli/` because the released CLI appends its own service directory under `LARKSUITE_CLI_DATA_DIR`. This keeps release-package auth writable and persistent inside the Codex sandbox. Override with `LARK_WORKLOG_LARK_RUNTIME_ROOT`, `LARKSUITE_CLI_CONFIG_DIR`, or `LARKSUITE_CLI_DATA_DIR` only when you need a different persistent location.
+`--doctor` warns when the legacy store is newer than the managed store (the usual sign that a bare `lark-cli auth login` happened). Override the store location with `LARK_WORKLOG_LARK_RUNTIME_ROOT`, `LARKSUITE_CLI_CONFIG_DIR`, or `LARKSUITE_CLI_DATA_DIR` only when you need a different persistent location.
 
 Only initialize a new CLI app/config when no existing config is present. Reinstalling this skill should not create a new Feishu app. If the user already has a Feishu CLI app, tell them to choose or reuse it instead of creating a parallel app.
 
 ```bash
-lark-cli config init --new
+python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli config init --new
 ```
 
-Start one-time user authorization:
+Start one-time user authorization (same command on Linux, macOS, and Windows PowerShell):
 
 ```bash
-LARK_CLI_NO_PROXY=1 lark-cli auth login \
+python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli auth login \
   --recommend \
   --domain docs,drive,markdown \
-  --scope "search:docs:read"
-```
-
-Windows PowerShell:
-
-```powershell
-$env:LARK_CLI_NO_PROXY='1'
-& "$env:APPDATA\npm\lark-cli.cmd" auth login `
-  --recommend `
-  --domain docs,drive,markdown `
   --scope "search:docs:read"
 ```
 

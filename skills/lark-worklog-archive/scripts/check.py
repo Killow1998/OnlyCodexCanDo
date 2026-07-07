@@ -28,6 +28,7 @@ def run(name: str, args: list[str]) -> bool:
     print(f"[run] {name}")
     env = os.environ.copy()
     env.setdefault("PYTHONUTF8", "1")
+    env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
     proc = subprocess.run(args, cwd=REPO_ROOT, env=env, text=True, encoding="utf-8", errors="replace", check=False)
     if proc.returncode == 0:
         print(f"[ok] {name}")
@@ -132,10 +133,10 @@ def main() -> int:
         run("syntax check", [python, "-B", "-c", syntax_code, str(SKILL_DIR / "scripts" / "archive_worklog.py"), str(SKILL_DIR / "scripts" / "install.py"), str(SKILL_DIR / "scripts" / "check.py")]),
         sensitive_scan(),
         cache_dir_scan(),
-        run("install dry-run", [python, str(SKILL_DIR / "scripts" / "install.py"), "--dry-run"]),
+        run("install dry-run", [python, "-B", str(SKILL_DIR / "scripts" / "install.py"), "--dry-run"]),
     ]
     if QUICK_VALIDATE.exists():
-        checks.append(run("skill validate", [python, str(QUICK_VALIDATE), str(SKILL_DIR.relative_to(REPO_ROOT))]))
+        checks.append(run("skill validate", [python, "-B", str(QUICK_VALIDATE), str(SKILL_DIR.relative_to(REPO_ROOT))]))
     else:
         print(f"[warn] skill validate skipped; not found: {QUICK_VALIDATE}")
     if not args.skip_global:

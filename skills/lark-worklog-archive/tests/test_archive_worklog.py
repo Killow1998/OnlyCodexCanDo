@@ -216,7 +216,7 @@ class ArchiveWorklogTests(unittest.TestCase):
   - 安装并配置 RTK，用于 Codex、Claude Code、Gemini CLI 的命令输出压缩与 token 节省。
 - 其他
   - 工作内容
-    - 整理 Go2W RL 工作区，建立 /home/user/rl_ws/go2w_rl 作为新的统一工作区。
+    - 整理 RL 工作区，建立 /home/user/rl_ws/demo_rl 作为新的统一工作区。
 """
         groups = self.mod.normalize_section_groups(section)
         self.assertEqual(set(groups), {"其他"})
@@ -228,7 +228,7 @@ class ArchiveWorklogTests(unittest.TestCase):
             self.flatten(groups["其他"]["工作内容"]),
             [
                 "安装并配置 RTK，用于 Codex、Claude Code、Gemini CLI 的命令输出压缩与 token 节省。",
-                "整理 Go2W RL 工作区，建立 /home/user/rl_ws/go2w_rl 作为新的统一工作区。",
+                "整理 RL 工作区，建立 /home/user/rl_ws/demo_rl 作为新的统一工作区。",
             ],
         )
 
@@ -645,7 +645,7 @@ class ArchiveWorklogTests(unittest.TestCase):
                 "--date",
                 "2026-05-20",
                 "--item",
-                "Go2W / Unitree 开发环境::工作内容::完成远程 Codex 开发环境准备。",
+                "机器人 / 开发环境::工作内容::完成远程 Codex 开发环境准备。",
             ):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(self.mod.main(), 0)
@@ -688,7 +688,7 @@ class ArchiveWorklogTests(unittest.TestCase):
 
 - 实机 / 硬件部署
   - 工作内容
-    - 连续完成 Isaac 诊断和 PPO 训练排查，定位 Go2W lateral controller 的仿真接触问题。
+    - 连续完成 Isaac 诊断和 PPO 训练排查，定位 lateral controller 的仿真接触问题。
   - 结果
     - 当前 checkpoint 仍需继续评估。
 """
@@ -771,6 +771,49 @@ class ArchiveWorklogTests(unittest.TestCase):
             self.assertEqual((config_dir / "config.json").read_text(encoding="utf-8"), '{"apps":[]}\n')
             self.assertEqual((data_dir / "lark-cli" / "master.key").read_text(encoding="utf-8"), "secret")
             self.assertEqual(env["LARK_CLI_NO_PROXY"], "1")
+
+    def test_lark_cli_env_uses_managed_runtime_outside_codex_too(self) -> None:
+        with tempfile.TemporaryDirectory() as home:
+            with mock.patch.dict(os.environ, {"HOME": home, "USERPROFILE": home}, clear=True):
+                env = self.mod.lark_cli_env()
+            self.assertEqual(
+                Path(env["LARKSUITE_CLI_CONFIG_DIR"]),
+                Path(home) / ".codex" / "memories" / "runtime" / "lark-cli" / "config",
+            )
+            self.assertEqual(
+                Path(env["LARKSUITE_CLI_DATA_DIR"]),
+                Path(home) / ".codex" / "memories" / "runtime" / "lark-cli" / "data",
+            )
+
+    def test_legacy_store_divergence_warns_when_legacy_is_newer(self) -> None:
+        with tempfile.TemporaryDirectory() as home:
+            managed = Path(home) / ".codex" / "memories" / "runtime" / "lark-cli" / "config"
+            legacy = Path(home) / ".lark-cli"
+            managed.mkdir(parents=True)
+            legacy.mkdir(parents=True)
+            (managed / "config.json").write_text("{}", encoding="utf-8")
+            (legacy / "config.json").write_text("{}", encoding="utf-8")
+            old = 1_600_000_000
+            os.utime(managed / "config.json", (old, old))
+            os.utime(legacy / "config.json", (old + 100, old + 100))
+            with mock.patch.dict(os.environ, {"HOME": home, "USERPROFILE": home}, clear=True):
+                warning = self.mod.legacy_store_divergence()
+            self.assertIsNotNone(warning)
+            self.assertIn("--lark-cli auth login", warning)
+
+    def test_legacy_store_divergence_silent_when_managed_is_current(self) -> None:
+        with tempfile.TemporaryDirectory() as home:
+            managed = Path(home) / ".codex" / "memories" / "runtime" / "lark-cli" / "config"
+            legacy = Path(home) / ".lark-cli"
+            managed.mkdir(parents=True)
+            legacy.mkdir(parents=True)
+            (managed / "config.json").write_text("{}", encoding="utf-8")
+            (legacy / "config.json").write_text("{}", encoding="utf-8")
+            old = 1_600_000_000
+            os.utime(legacy / "config.json", (old, old))
+            os.utime(managed / "config.json", (old + 100, old + 100))
+            with mock.patch.dict(os.environ, {"HOME": home, "USERPROFILE": home}, clear=True):
+                self.assertIsNone(self.mod.legacy_store_divergence())
 
     def test_lark_cli_env_respects_explicit_runtime_overrides(self) -> None:
         with mock.patch.dict(
@@ -892,7 +935,8 @@ class ArchiveWorklogTests(unittest.TestCase):
         skill = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
         self.assertIn('lark-cli.cmd', setup)
         self.assertIn("Windows Terminal", setup)
-        self.assertIn("$env:LARK_CLI_NO_PROXY", setup)
+        self.assertIn("--lark-cli auth login", setup)
+        self.assertNotIn("\nLARK_CLI_NO_PROXY=1 lark-cli auth login", setup)
         self.assertIn("release check commands", setup)
         self.assertIn("python skills/lark-worklog-archive/scripts/check.py", skill)
         self.assertNotIn("python3 skills/", setup)
