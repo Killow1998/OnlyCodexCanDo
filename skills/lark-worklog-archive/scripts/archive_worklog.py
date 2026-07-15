@@ -143,8 +143,46 @@ def ensure_parent_dir(path: str) -> str:
     absolute = expanded_path(path)
     parent = os.path.dirname(absolute)
     if parent:
-        os.makedirs(parent, exist_ok=True)
+        existed = os.path.isdir(parent)
+        os.makedirs(parent, mode=0o700, exist_ok=True)
+        if not existed or os.path.basename(parent) == "lark-worklog-archive":
+            os.chmod(parent, 0o700)
     return absolute
+
+
+def secure_private_path(path: str) -> str:
+    absolute = expanded_path(path)
+    parent = os.path.dirname(absolute)
+    if parent and os.path.isdir(parent) and os.path.basename(parent) == "lark-worklog-archive":
+        os.chmod(parent, 0o700)
+    if os.path.exists(absolute):
+        os.chmod(absolute, 0o600)
+    return absolute
+
+
+def atomic_write_private(path: str, content: str) -> None:
+    absolute = ensure_parent_dir(path)
+    parent = os.path.dirname(absolute) or os.getcwd()
+    fd, temporary = tempfile.mkstemp(prefix=f".{os.path.basename(absolute)}.", dir=parent)
+    try:
+        fchmod = getattr(os, "fchmod", None)
+        if callable(fchmod):
+            try:
+                fchmod(fd, 0o600)
+            except (OSError, NotImplementedError):
+                pass
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            fd = -1
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, absolute)
+        os.chmod(absolute, 0o600)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def lark_content_arg(content: str) -> tuple[str, str | None]:
@@ -937,6 +975,31 @@ def parse_blocks(xml_content: str) -> list[dict[str, str]]:
     return blocks
 
 
+SUPPORTED_WORKLOG_XML_TAGS = {"title", "h1", "ul", "li", "a"}
+
+
+def unsupported_worklog_xml_tags(xml_content: str) -> set[str]:
+    try:
+        root = ET.fromstring(f"<root>{xml_content}</root>")
+    except ET.ParseError:
+        return {"invalid-xml"}
+    return {element.tag for element in root.iter() if element is not root and element.tag not in SUPPORTED_WORKLOG_XML_TAGS}
+
+
+def require_safe_automatic_overwrite(doc: str, force_overwrite: bool) -> None:
+    if force_overwrite:
+        return
+    xml_content, _ = fetch_doc_xml(doc)
+    unsupported = unsupported_worklog_xml_tags(xml_content)
+    if unsupported:
+        names = ", ".join(sorted(unsupported))
+        raise SystemExit(
+            "Refusing automatic full-document overwrite because the monthly document contains "
+            f"unsupported block types: {names}. Preserve those blocks manually or rerun with "
+            "--force-overwrite after reviewing the document."
+        )
+
+
 def find_heading_id(xml_content: str, date: str) -> str | None:
     for block in parse_blocks(xml_content):
         if block["tag"] in {"title", "h1"} and block["text"] == date and block["id"]:
@@ -1185,6 +1248,15 @@ def verify_items(doc: str, date: str, items: list[str]) -> int:
     return revision_id
 
 
+def verify_document_sections(doc: str, expected: str) -> int:
+    content, revision_id = fetch_doc(doc)
+    expected_sections = [(date, section_signature(section)) for date, section in split_sections(expected) if date]
+    actual_sections = [(date, section_signature(section)) for date, section in split_sections(content) if date]
+    if actual_sections != expected_sections:
+        raise SystemExit("Verification failed; full-document rewrite did not preserve all worklog sections.")
+    return revision_id
+
+
 def auth_status_payload() -> tuple[dict | None, str | None]:
     proc = run_lark(["auth", "status"], check=False)
     if proc.returncode != 0:
@@ -1226,7 +1298,7 @@ def auth_fix_hint(error: str | None = None) -> str:
     lowered = (error or "").lower()
     if os.name == "nt" and ("keychain" in lowered or "no token" in lowered):
         return (
-            "Windows Codex sandbox may not be able to read the lark-cli 1.0.51 credential store. "
+            "Windows Codex sandbox may not be able to read the supported lark-cli credential store. "
             f"First verify outside the sandbox with `{base}` or `lark-cli auth status`; "
             "if that succeeds but this doctor still fails, run real Feishu operations with approved non-sandbox execution."
         )
@@ -1242,7 +1314,7 @@ def current_user_open_id() -> str | None:
 
 
 def load_registry_payload(path: str) -> dict:
-    path = expanded_path(path)
+    path = secure_private_path(path)
     if not os.path.exists(path):
         return {}
     with open(path, "r", encoding="utf-8-sig") as handle:
@@ -1318,7 +1390,7 @@ def ensure_registry_access(args: argparse.Namespace, owner_open_id: str | None, 
 
 
 def save_registry(path: str, docs: dict[str, str], owner_open_id: str | None = None, metadata: dict | None = None) -> bool:
-    path = ensure_parent_dir(path)
+    path = secure_private_path(path)
     payload = {
         "schema_version": 1,
         "owner_open_id": owner_open_id,
@@ -1335,8 +1407,7 @@ def save_registry(path: str, docs: dict[str, str], owner_open_id: str | None = N
     new = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
     if old == new:
         return False
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write(new)
+    atomic_write_private(path, new)
     return True
 
 
@@ -1346,7 +1417,7 @@ def cache_scope(registry_path: str) -> str:
 
 
 def load_json_file(path: str, fallback):
-    path = expanded_path(path)
+    path = secure_private_path(path)
     if not os.path.exists(path):
         return fallback
     try:
@@ -1357,10 +1428,8 @@ def load_json_file(path: str, fallback):
 
 
 def save_json_file(path: str, payload) -> None:
-    path = ensure_parent_dir(path)
-    with open(path, "w", encoding="utf-8") as handle:
-        json.dump(payload, handle, ensure_ascii=False, indent=2)
-        handle.write("\n")
+    content = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+    atomic_write_private(path, content)
 
 
 def cached_doc(cache_path: str, registry_path: str, key: str, title: str) -> str | None:
@@ -1394,7 +1463,7 @@ def remember_doc_cache(cache_path: str, registry_path: str, key: str, title: str
 
 
 def read_failed_queue(path: str) -> list[dict]:
-    path = expanded_path(path)
+    path = secure_private_path(path)
     if not os.path.exists(path):
         return []
     entries: list[dict] = []
@@ -1413,10 +1482,8 @@ def read_failed_queue(path: str) -> list[dict]:
 
 
 def write_failed_queue(path: str, entries: list[dict]) -> None:
-    path = ensure_parent_dir(path)
-    with open(path, "w", encoding="utf-8") as handle:
-        for entry in entries:
-            handle.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+    content = "".join(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n" for entry in entries)
+    atomic_write_private(path, content)
 
 
 def failed_queue_items(path: str, registry_path: str, date: str) -> list[str]:
@@ -1612,28 +1679,29 @@ def run_doctor(args: argparse.Namespace, archive_day: dt.date) -> int:
 
 
 def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date: str, items: list[str]) -> ArchiveResult:
-    docs, owner_open_id = load_registry(args.registry)
-    metadata = load_registry_metadata(args.registry)
     user_open_id = current_user_open_id()
-    if args.team:
-        metadata = normalized_registry_metadata(args, metadata, user_open_id)
-    ensure_registry_access(args, owner_open_id, metadata, user_open_id)
-    items = sign_team_items(items, metadata, author_name(args, metadata))
-    title = document_title(archive_day, metadata)
     key = month_key(archive_day)
-    doc = args.doc or docs.get(key)
-    if not doc and not args.no_cache:
-        doc = cached_doc(args.cache, args.registry, key, title)
-        if doc and args.verbose:
-            print(f"Using cached monthly document for {title}", file=sys.stderr)
-    if not doc and not args.no_search_existing:
-        doc = find_doc_by_title(title)
-        if doc and args.verbose:
-            print(f"Found existing monthly document: {title}", file=sys.stderr)
-
     written_items: list[str] = []
     cached_revision_id: int | None = None
+    full_overwrite_expected: str | None = None
     with month_lock(key, enabled=not args.no_lock):
+        docs, owner_open_id = load_registry(args.registry)
+        metadata = load_registry_metadata(args.registry)
+        if args.team:
+            metadata = normalized_registry_metadata(args, metadata, user_open_id)
+        ensure_registry_access(args, owner_open_id, metadata, user_open_id)
+        signed_items = sign_team_items(items, metadata, author_name(args, metadata))
+        title = document_title(archive_day, metadata)
+        doc = args.doc or docs.get(key)
+        if not doc and not args.no_cache:
+            doc = cached_doc(args.cache, args.registry, key, title)
+            if doc and args.verbose:
+                print(f"Using cached monthly document for {title}", file=sys.stderr)
+        if not doc and not args.no_search_existing:
+            doc = find_doc_by_title(title)
+            if doc and args.verbose:
+                print(f"Found existing monthly document: {title}", file=sys.stderr)
+
         for attempt in range(1, args.retries + 1):
             current, revision_id = fetch_doc(doc) if doc else ("", -1)
             cached_revision_id = revision_id if revision_id >= 0 else cached_revision_id
@@ -1645,7 +1713,7 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
                 for sub_items in subgroups.values()
                 for item in sub_items
             }
-            unique_items = [item for item in items if canonical_item(item) not in existing_items]
+            unique_items = [item for item in signed_items if canonical_item(item) not in existing_items]
             written_items = list(unique_items)
             if not unique_items and not args.normalize_only:
                 if doc and (not args.doc or args.register_doc):
@@ -1672,6 +1740,7 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
             same_day_top = bool(current_sections and current_sections[0][0] == archive_date)
             if not doc:
                 doc = create_doc(title, markdown_to_xml(merged, title))
+                full_overwrite_expected = merged
                 break
             if doc and same_day_top and existing_section and not has_prefix_content and not args.force_overwrite:
                 merged_section = dict(split_sections(merged)).get(archive_date, "")
@@ -1687,7 +1756,9 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
                     if section_signature(latest_section) == section_signature(merged_section):
                         cached_revision_id = latest_revision_id
                         break
+                    require_safe_automatic_overwrite(doc, args.force_overwrite)
                     if update_doc(doc, markdown_to_xml(fallback_merged, title), latest_revision_id, title=title):
+                        full_overwrite_expected = fallback_merged
                         break
             if not existing_section and not has_prefix_content and not args.force_overwrite:
                 xml_content, xml_revision = fetch_doc_xml(doc)
@@ -1695,7 +1766,9 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
                 new_groups = group_items(unique_items)
                 if title_id and insert_after_block(doc, title_id, day_section_to_xml(archive_date, new_groups), xml_revision):
                     break
+            require_safe_automatic_overwrite(doc, args.force_overwrite)
             if update_doc(doc, markdown_to_xml(merged, title), revision_id, title=title):
+                full_overwrite_expected = merged
                 break
             if attempt == args.retries:
                 raise SystemExit("Update failed after revision-conflict retries.")
@@ -1703,7 +1776,9 @@ def archive_worklog(args: argparse.Namespace, archive_day: dt.date, archive_date
         if not args.doc or args.register_doc:
             docs[key] = doc
             save_registry(args.registry, docs, owner_open_id or user_open_id, metadata)
-        if written_items:
+        if full_overwrite_expected is not None:
+            cached_revision_id = verify_document_sections(doc, full_overwrite_expected)
+        elif written_items:
             cached_revision_id = verify_items(doc, archive_date, written_items)
         if doc and not args.no_cache:
             remember_doc_cache(args.cache, args.registry, key, title, doc, cached_revision_id)
@@ -1792,15 +1867,16 @@ def run_init(args: argparse.Namespace, archive_day: dt.date, archive_date: str) 
             "lark-cli user auth is not ready. "
             'Run: lark-cli auth login --recommend --domain docs,drive,markdown --scope "search:docs:read"'
         )
-    docs, owner_open_id = load_registry(args.registry)
-    metadata = normalized_registry_metadata(args, load_registry_metadata(args.registry), user_open_id)
-    ensure_registry_access(args, owner_open_id, metadata, user_open_id)
-
     key = month_key(archive_day)
-    title = document_title(archive_day, metadata)
-    doc = args.doc or docs.get(key)
     action = "Registered"
     with month_lock(key, enabled=not args.no_lock):
+        docs, owner_open_id = load_registry(args.registry)
+        metadata = normalized_registry_metadata(args, load_registry_metadata(args.registry), user_open_id)
+        ensure_registry_access(args, owner_open_id, metadata, user_open_id)
+        title = document_title(archive_day, metadata)
+        doc = args.doc or docs.get(key)
+        if not doc and not args.no_cache:
+            doc = cached_doc(args.cache, args.registry, key, title)
         if not doc and not args.no_search_existing:
             doc = find_doc_by_title(title)
         if not doc:

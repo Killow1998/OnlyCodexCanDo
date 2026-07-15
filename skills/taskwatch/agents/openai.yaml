@@ -1,4 +1,4 @@
 interface:
   display_name: "TaskWatch"
-  short_description: "Scaffold a read-only Codex monitor or goal-status hook for long-running jobs on Linux."
-  default_prompt: "Set up or update a workspace-local Codex monitor for a long-running Linux job, or install the global TaskWatch Stop hook for goal terminal email notification."
+  short_description: "Scaffold a Linux job monitor or cross-platform Codex goal-status hook."
+  default_prompt: "Set up a Linux workspace monitor for a long-running job, or install the cross-platform global TaskWatch Stop hook for goal terminal email notification."

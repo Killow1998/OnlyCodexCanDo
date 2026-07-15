@@ -63,6 +63,16 @@ class TaskWatchHookTests(unittest.TestCase):
         self.assertEqual("run task", event["objective"])
         self.assertEqual("thread_goal_updated", event["source"])
 
+    def test_detect_terminal_goal_uses_latest_nonterminal_state(self) -> None:
+        transcript = """{"timestamp":"2026-07-14T10:00:00Z","type":"event_msg","payload":{"type":"thread_goal_updated","goal":{"status":"blocked"}}}
+{"timestamp":"2026-07-14T10:01:00Z","type":"event_msg","payload":{"type":"thread_goal_updated","goal":{"status":"active"}}}
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "session.jsonl"
+            path.write_text(transcript, encoding="utf-8")
+            event = HOOK_MODULE.detect_terminal_event(path)
+        self.assertIsNone(event)
+
     def test_detect_terminal_goal_from_update_goal_output(self) -> None:
         transcript = """{"timestamp":"2026-06-11T10:37:03.708Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_1","output":"{\\"goal\\":{\\"threadId\\":\\"thread-1\\",\\"objective\\":\\"进行全面的code review\\",\\"status\\":\\"complete\\",\\"tokensUsed\\":164757,\\"timeUsedSeconds\\":488,\\"createdAt\\":1781173735,\\"updatedAt\\":1781174223},\\"remainingTokens\\":null}"}}
 """
@@ -98,6 +108,24 @@ class TaskWatchHookTests(unittest.TestCase):
         assert event is not None
         self.assertEqual("usageLimited", event["status"])
         self.assertEqual("usage-limit-fallback", event["source"])
+
+    def test_find_transcript_session_id_matching_is_exact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sessions = Path(tmpdir) / "sessions"
+            sessions.mkdir()
+            wrong = sessions / "rollout-session-10.jsonl"
+            exact = sessions / "unrelated-name.jsonl"
+            wrong.write_text(
+                json.dumps({"type": "session_meta", "payload": {"id": "session-10"}}) + "\n",
+                encoding="utf-8",
+            )
+            exact.write_text(
+                json.dumps({"type": "session_meta", "payload": {"id": "session-1"}}) + "\n",
+                encoding="utf-8",
+            )
+            with mock.patch.object(HOOK_MODULE, "CODEX_HOME", Path(tmpdir)):
+                resolved = HOOK_MODULE.find_transcript_path({"session_id": "session-1"})
+        self.assertEqual(exact, resolved)
 
     def test_detect_terminal_event_ignores_stale_goal_state_when_now_is_given(self) -> None:
         transcript = """{"timestamp":"2026-06-22T03:00:00Z","type":"event_msg","payload":{"type":"thread_goal_updated","turnId":"old","goal":{"objective":"old goal","status":"complete","updatedAt":"2026-06-22T03:00:00Z"}}}
@@ -181,6 +209,8 @@ class TaskWatchHookTests(unittest.TestCase):
             state_file = HOOK_MODULE.state_file_for_session(Path(tmpdir), session_id)
             HOOK_MODULE.store_sent_key(Path(tmpdir), session_id, "sent-key")
             self.assertEqual("sent-key", HOOK_MODULE.load_sent_key(Path(tmpdir), session_id))
+            self.assertEqual(0o700, Path(tmpdir).stat().st_mode & 0o777)
+            self.assertEqual(0o600, HOOK_MODULE.state_file_for_session(Path(tmpdir), session_id).stat().st_mode & 0o777)
         self.assertNotIn(":", state_file.name)
         self.assertNotIn("\\", state_file.name)
         self.assertNotIn("/", state_file.name)
@@ -212,6 +242,70 @@ class TaskWatchHookTests(unittest.TestCase):
         self.assertIn('statusMessage = "TaskWatch checking goal status"', updated)
         rewritten = INSTALL_HOOK_MODULE.upsert_managed_block(updated, INSTALL_HOOK_MODULE.build_hook_block())
         self.assertEqual(1, rewritten.count(INSTALL_HOOK_MODULE.BLOCK_BEGIN))
+
+    def test_large_transcript_is_streamed_once_and_reuses_bounded_facts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "large-session.jsonl"
+            noise = json.dumps(
+                {
+                    "timestamp": "2026-07-14T00:00:00Z",
+                    "type": "response_item",
+                    "payload": {"type": "message", "role": "user", "content": [{"text": "x" * 200}]},
+                }
+            )
+            with path.open("w", encoding="utf-8") as handle:
+                for _ in range(30000):
+                    handle.write(noise + "\n")
+                handle.write(
+                    json.dumps(
+                        {
+                            "timestamp": "2026-07-14T00:10:00Z",
+                            "type": "response_item",
+                            "payload": {
+                                "type": "message",
+                                "role": "assistant",
+                                "content": [{"text": "完成大 transcript 回归。\nRan 42 tests in 1.0s OK"}],
+                            },
+                        }
+                    )
+                    + "\n"
+                )
+                handle.write(
+                    json.dumps(
+                        {
+                            "timestamp": "2026-07-14T00:10:01Z",
+                            "type": "event_msg",
+                            "payload": {
+                                "type": "thread_goal_updated",
+                                "goal": {"objective": "large transcript", "status": "complete"},
+                            },
+                        }
+                    )
+                    + "\n"
+                )
+
+            original_loads = HOOK_MODULE.json.loads
+            with (
+                mock.patch.object(Path, "read_text", side_effect=AssertionError("whole-file read forbidden")),
+                mock.patch.object(HOOK_MODULE.json, "loads", wraps=original_loads) as loads,
+            ):
+                facts = HOOK_MODULE.scan_transcript(path)
+                event = HOOK_MODULE.detect_terminal_event(path, facts=facts)
+                assert event is not None
+                context = HOOK_MODULE.collect_transcript_context(path, event, facts)
+                body = HOOK_MODULE.build_body(
+                    {"session_id": "large-session", "cwd": tmpdir},
+                    path,
+                    event,
+                    context,
+                    facts,
+                )
+                self.assertEqual(30002, loads.call_count)
+
+        self.assertEqual("complete", event["status"])
+        self.assertLessEqual(len(facts.recent_text_chunks), 80)
+        self.assertIn("完成大 transcript 回归。", body)
+        self.assertIn("unittest: PASS", body)
 
 
 if __name__ == "__main__":

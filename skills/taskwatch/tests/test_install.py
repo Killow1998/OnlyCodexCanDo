@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -96,6 +98,7 @@ class InstallScriptTests(unittest.TestCase):
             monitor_env = (scaffold / ".codex_monitor" / "monitor.env").read_text(encoding="utf-8")
             self.assertIn("CODEX_MONITOR_WORKSPACE=", monitor_env)
             self.assertIn(workspace.name, monitor_env)
+            self.assertEqual(0o700, (scaffold / ".codex_monitor" / "state").stat().st_mode & 0o777)
             self.assertEqual([], [p for p in workspace.iterdir()])
 
     def test_uninstall_removes_managed_files_and_keeps_runtime(self) -> None:
@@ -206,6 +209,244 @@ class InstallScriptTests(unittest.TestCase):
                             MODULE.main()
         self.assertIn("workspace-local monitor is Linux only", str(raised.exception))
 
+    def test_partial_email_config_leaves_workspace_untouched(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            workspace.mkdir()
+            argv = [
+                "install.py",
+                str(workspace),
+                "--sender-email",
+                "sender@example.com",
+                "--recipient-email",
+                "target@example.com",
+            ]
+            with mock.patch.dict(os.environ, {"TASKWATCH_ALLOW_WINDOWS_WORKSPACE_SCAFFOLD": "1"}, clear=True):
+                with mock.patch.object(sys, "argv", argv):
+                    with self.assertRaises(SystemExit):
+                        MODULE.main()
+            self.assertEqual([], list(workspace.iterdir()))
+
+    def test_unsafe_basename_leaves_central_target_untouched(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            codex_home = Path(tmpdir) / "codex-home"
+            workspace.mkdir()
+            argv = ["install.py", str(workspace), "--central", "--systemd-basename", "../escape"]
+            with mock.patch.dict(
+                os.environ,
+                {"CODEX_HOME": str(codex_home), "TASKWATCH_ALLOW_WINDOWS_WORKSPACE_SCAFFOLD": "1"},
+                clear=True,
+            ):
+                with mock.patch.object(sys, "argv", argv):
+                    with self.assertRaises(SystemExit):
+                        MODULE.main()
+            self.assertFalse(codex_home.exists())
+
+    def test_unsafe_basename_uninstall_does_not_mutate_resolved_escape_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            codex_home = Path(tmpdir) / "codex-home"
+            escaped = codex_home / "taskwatch" / "escape"
+            workspace.mkdir()
+            escaped.mkdir(parents=True)
+            sentinel = escaped / "run_with_monitor.sh"
+            sentinel.write_text("preserve\n", encoding="utf-8")
+            argv = [
+                "install.py",
+                str(workspace),
+                "--central",
+                "--systemd-basename",
+                "../escape",
+                "--uninstall",
+            ]
+            with mock.patch.dict(
+                os.environ,
+                {"CODEX_HOME": str(codex_home), "TASKWATCH_ALLOW_WINDOWS_WORKSPACE_SCAFFOLD": "1"},
+                clear=True,
+            ):
+                with mock.patch.object(sys, "argv", argv):
+                    with self.assertRaises(SystemExit):
+                        MODULE.main()
+            self.assertEqual("preserve\n", sentinel.read_text(encoding="utf-8"))
+
+    def test_purge_requires_uninstall_and_leaves_workspace_untouched(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            workspace.mkdir()
+            with mock.patch.object(sys, "argv", ["install.py", str(workspace), "--purge"]):
+                with self.assertRaises(SystemExit):
+                    MODULE.main()
+            self.assertEqual([], list(workspace.iterdir()))
+
+    def test_unsafe_generated_paths_leave_workspace_untouched(self) -> None:
+        cases = [
+            ("--primary-log", "logs/run log.txt"),
+            ("--progress-log", "logs/it's.log"),
+            ("--artifact-dir", "result files"),
+            ("--artifact-dir", "result's"),
+        ]
+        for option, value in cases:
+            with self.subTest(option=option, value=value), tempfile.TemporaryDirectory() as tmpdir:
+                workspace = Path(tmpdir) / "workspace"
+                workspace.mkdir()
+                with mock.patch.dict(os.environ, {"TASKWATCH_ALLOW_WINDOWS_WORKSPACE_SCAFFOLD": "1"}):
+                    with mock.patch.object(sys, "argv", ["install.py", str(workspace), option, value]):
+                        with self.assertRaises(SystemExit):
+                            MODULE.main()
+                self.assertEqual([], list(workspace.iterdir()))
+
+    def run_generated_goal_check(self, transcripts: list[str], session_id: str = "") -> tuple[Path, list[Path]]:
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        root = Path(tempdir.name)
+        workspace = root / "workspace"
+        codex_home = root / "codex-home"
+        workspace.mkdir()
+        with mock.patch.dict(os.environ, {"TASKWATCH_ALLOW_WINDOWS_WORKSPACE_SCAFFOLD": "1"}):
+            with mock.patch.object(
+                sys,
+                "argv",
+                ["install.py", str(workspace), "--goal-mode", "--primary-log", "logs/run.log"],
+            ):
+                self.assertEqual(0, MODULE.main())
+        monitor = workspace / ".codex_monitor"
+        with (monitor / "monitor.env").open("a", encoding="utf-8") as handle:
+            handle.write("CODEX_MONITOR_CODEX_BIN=/nonexistent\n")
+            if session_id:
+                handle.write(f"CODEX_MONITOR_SESSION_ID={session_id}\n")
+        state = monitor / "state"
+        start = state / "run_start_time.txt"
+        start.write_text("2026-07-14 00:00:00 UTC\n", encoding="utf-8")
+        os.utime(start, (1, 1))
+        paths: list[Path] = []
+        for index, transcript in enumerate(transcripts):
+            path = codex_home / "sessions" / f"session-{index}.jsonl"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(transcript, encoding="utf-8")
+            paths.append(path.resolve())
+        result = subprocess.run(
+            ["bash", str(monitor / "scripts" / "hourly_check.sh")],
+            cwd=workspace,
+            env={**os.environ, "CODEX_HOME": str(codex_home), "CODEX_MONITOR_SKIP_EMAIL": "1"},
+            text=True,
+            capture_output=True,
+            timeout=20,
+            check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        return state, paths
+
+    def test_generated_goal_mode_detects_update_goal_only_and_records_real_path(self) -> None:
+        output = json.dumps(
+            {"goal": {"objective": "generated goal", "status": "complete", "updatedAt": "2026-07-14T00:00:00Z"}}
+        )
+        transcript = json.dumps(
+            {
+                "type": "response_item",
+                "payload": {"type": "function_call_output", "output": output},
+            }
+        ) + "\n"
+        state, paths = self.run_generated_goal_check([transcript])
+        self.assertEqual("complete", (state / "goal_final_status.txt").read_text(encoding="utf-8").strip())
+        source = Path((state / "goal_final_status_source.txt").read_text(encoding="utf-8").strip())
+        self.assertEqual(paths[0], source)
+        self.assertTrue(source.is_file())
+
+    def test_generated_goal_mode_rejects_two_ambiguous_sessions(self) -> None:
+        def transcript(status: str) -> str:
+            return json.dumps(
+                {
+                    "type": "event_msg",
+                    "payload": {"type": "thread_goal_updated", "goal": {"status": status}},
+                }
+            ) + "\n"
+
+        state, _ = self.run_generated_goal_check([transcript("complete"), transcript("blocked")])
+        self.assertFalse((state / "goal_final_status.txt").exists())
+        self.assertFalse((state / "goal_final_status_source.txt").exists())
+
+    def test_generated_goal_mode_rejects_active_job_plus_unrelated_terminal_session(self) -> None:
+        active = json.dumps(
+            {
+                "type": "event_msg",
+                "payload": {"type": "thread_goal_updated", "goal": {"status": "active"}},
+            }
+        ) + "\n"
+        terminal = json.dumps(
+            {
+                "type": "event_msg",
+                "payload": {"type": "thread_goal_updated", "goal": {"status": "complete"}},
+            }
+        ) + "\n"
+        state, _ = self.run_generated_goal_check([active, terminal])
+        self.assertFalse((state / "goal_final_status.txt").exists())
+        self.assertFalse((state / "goal_final_status_source.txt").exists())
+
+    def test_generated_goal_mode_session_id_matching_is_exact(self) -> None:
+        transcript = "\n".join(
+            [
+                json.dumps({"type": "session_meta", "payload": {"id": "session-10"}}),
+                json.dumps(
+                    {
+                        "type": "event_msg",
+                        "payload": {"type": "thread_goal_updated", "goal": {"status": "complete"}},
+                    }
+                ),
+            ]
+        ) + "\n"
+        state, _ = self.run_generated_goal_check([transcript], session_id="session-1")
+        self.assertFalse((state / "goal_final_status.txt").exists())
+
+    def test_generated_goal_mode_uses_latest_nonterminal_state(self) -> None:
+        transcript = "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "event_msg",
+                        "payload": {"type": "thread_goal_updated", "goal": {"status": "complete"}},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "event_msg",
+                        "payload": {"type": "thread_goal_updated", "goal": {"status": "active"}},
+                    }
+                ),
+            ]
+        ) + "\n"
+        state, _ = self.run_generated_goal_check([transcript])
+        self.assertFalse((state / "goal_final_status.txt").exists())
+        self.assertFalse((state / "goal_final_status_source.txt").exists())
+
+    def test_generated_run_wrapper_clears_stale_goal_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / "workspace"
+            workspace.mkdir()
+            with mock.patch.dict(os.environ, {"TASKWATCH_ALLOW_WINDOWS_WORKSPACE_SCAFFOLD": "1"}):
+                with mock.patch.object(sys, "argv", ["install.py", str(workspace)]):
+                    self.assertEqual(0, MODULE.main())
+            state = workspace / ".codex_monitor" / "state"
+            stale = (
+                "goal_final_status.txt",
+                "goal_final_status_source.txt",
+                "goal_final_status_line.txt",
+                "goal_transcript_path.txt",
+            )
+            for name in stale:
+                (state / name).write_text("stale\n", encoding="utf-8")
+            result = subprocess.run(
+                ["bash", str(workspace / "run_with_monitor.sh")],
+                cwd=workspace,
+                text=True,
+                capture_output=True,
+                timeout=10,
+                check=False,
+            )
+            self.assertEqual(2, result.returncode)
+            for name in stale:
+                self.assertFalse((state / name).exists(), name)
+
 
 HOOK_SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "install_global_hook.py"
 sys.path.insert(0, str(HOOK_SCRIPT_PATH.parent))
@@ -229,6 +470,76 @@ class GlobalHookScriptTests(unittest.TestCase):
     def test_remove_managed_block_leaves_untouched_config(self) -> None:
         text = "[features]\nhooks = true\n"
         self.assertEqual(text, HOOK_MODULE.remove_managed_block(text))
+
+    def hook_paths(self, root: Path):
+        codex_home = root / "codex-home"
+        skill = codex_home / "skills" / "taskwatch"
+        hook = skill / "scripts" / "taskwatch_stop_hook.py"
+        hook.parent.mkdir(parents=True)
+        hook.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+        return mock.patch.multiple(
+            HOOK_MODULE,
+            CODEX_HOME=codex_home,
+            CONFIG_PATH=codex_home / "config.toml",
+            ENV_PATH=codex_home / "taskwatch.env",
+            STATE_DIR=codex_home / "taskwatch-state",
+            GLOBAL_SKILL_DIR=skill,
+            HOOK_SCRIPT=hook,
+        )
+
+    def test_hook_only_without_env_is_transactional(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with self.hook_paths(root):
+                with mock.patch.object(sys, "argv", ["install_global_hook.py", "--hook-only"]):
+                    with self.assertRaises(SystemExit):
+                        HOOK_MODULE.main()
+                self.assertFalse(HOOK_MODULE.CONFIG_PATH.exists())
+                self.assertFalse(HOOK_MODULE.STATE_DIR.exists())
+
+    def test_purge_requires_remove_and_is_transactional(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with self.hook_paths(root):
+                HOOK_MODULE.ENV_PATH.write_text("preserve\n", encoding="utf-8")
+                HOOK_MODULE.STATE_DIR.mkdir()
+                marker = HOOK_MODULE.STATE_DIR / "preserve.json"
+                marker.write_text("preserve\n", encoding="utf-8")
+                with mock.patch.object(sys, "argv", ["install_global_hook.py", "--purge"]):
+                    with self.assertRaises(SystemExit) as raised:
+                        HOOK_MODULE.main()
+                self.assertIn("--purge requires --remove", str(raised.exception))
+                self.assertEqual("preserve\n", HOOK_MODULE.ENV_PATH.read_text(encoding="utf-8"))
+                self.assertEqual("preserve\n", marker.read_text(encoding="utf-8"))
+                self.assertFalse(HOOK_MODULE.CONFIG_PATH.exists())
+
+    def test_global_env_and_state_permissions_are_tightened(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with self.hook_paths(root):
+                HOOK_MODULE.ENV_PATH.write_text("old\n", encoding="utf-8")
+                HOOK_MODULE.ENV_PATH.chmod(0o664)
+                argv = [
+                    "install_global_hook.py",
+                    "--sender-email",
+                    "sender@example.com",
+                    "--recipient-email",
+                    "target@example.com",
+                    "--sender-password",
+                    "secret",
+                ]
+                with mock.patch.object(sys, "argv", argv):
+                    self.assertEqual(0, HOOK_MODULE.main())
+                self.assertEqual(0o600, HOOK_MODULE.ENV_PATH.stat().st_mode & 0o777)
+                self.assertEqual(0o700, HOOK_MODULE.STATE_DIR.stat().st_mode & 0o777)
+
+    def test_private_env_write_works_without_fchmod(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = Path(tmpdir) / "taskwatch.env"
+            with mock.patch.object(HOOK_MODULE.os, "fchmod", None):
+                HOOK_MODULE.write_private_file(target, "secret\n")
+            self.assertEqual("secret\n", target.read_text(encoding="utf-8"))
+            self.assertEqual(0o600, target.stat().st_mode & 0o777)
 
 
 if __name__ == "__main__":

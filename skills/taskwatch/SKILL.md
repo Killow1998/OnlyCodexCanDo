@@ -1,6 +1,6 @@
 ---
 name: taskwatch
-description: Scaffold or update a reusable read-only Codex monitor for long-running Linux tasks. Use when the user wants hourly Codex summaries, final email delivery, a systemd user timer, a global Codex Stop hook for goal-terminal email alerts, or a workspace-local `.codex_monitor` setup for training, goal-mode runs, evaluation, or other long tasks with meaningful logs and artifacts.
+description: Scaffold or update a reusable read-only Codex monitor for long-running tasks. Use when the user wants hourly Codex summaries, final email delivery, a systemd user timer, a cross-platform global Codex Stop hook for goal-terminal email alerts, or a Linux workspace-local `.codex_monitor` setup for training, goal-mode runs, evaluation, or other long tasks with meaningful logs and artifacts.
 ---
 
 # TaskWatch
@@ -120,6 +120,7 @@ With `--central`, the same scaffold lives under `~/.codex/taskwatch/jobs/<system
 - The generated hourly monitor is read-only from Codex's perspective.
 - Final email is optional. If `.codex_monitor/email.env` is missing, reports are still generated locally.
 - For Codex goal-mode runs, use `--goal-mode` so the final email can distinguish `complete`, `blocked`, and `usageLimited`.
+- Goal-mode session discovery fails closed when multiple recent transcripts are plausible. Set `CODEX_MONITOR_GOAL_TRANSCRIPT` or `CODEX_MONITOR_SESSION_ID` in `monitor.env` for exact binding.
 - On Windows Codex Desktop app, `[[hooks.Stop]]` did not auto-trigger after CLI trust in the 2026-06-12 verification; see [references/usage.md](references/usage.md) before relying on Desktop app goal emails.
 - Treat the real job exit code as the default completion signal. Existing `TRAIN_DONE` or `TRAIN_FAILED` markers are still read for backward compatibility.
 

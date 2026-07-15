@@ -476,6 +476,59 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("overwrite", fake.commands())
         self.assertIn("安装到全局 Codex skills。", fake.markdown)
 
+    def test_main_refuses_automatic_overwrite_for_unsupported_xml(self) -> None:
+        fake = FakeLark(
+            """# 05-19-2026
+
+- 工作记录 / 知识管理
+  - 工作内容
+    - 保留原记录。
+""",
+            xml='<title id="title-1">05-2026 工作记录</title><image id="image-1" token="asset"/>',
+        )
+        fake.fail_str_replace = True
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            with argv(
+                "--doc",
+                fake.doc,
+                "--registry",
+                str(Path(tempdir) / "registry.json"),
+                "--no-lock",
+                "--date",
+                "2026-05-19",
+                "--item",
+                "工作记录 / 知识管理::工作内容::新增记录。",
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    self.mod.main()
+        self.assertIn("unsupported block types: image", str(raised.exception))
+        self.assertNotIn("overwrite", fake.commands())
+        self.assertIn("保留原记录。", fake.markdown)
+
+    def test_force_overwrite_allows_reviewed_unsupported_xml(self) -> None:
+        fake = FakeLark(
+            "# 05-19-2026\n\n- 工作记录 / 知识管理\n  - 工作内容\n    - 保留原记录。",
+            xml='<title id="title-1">05-2026 工作记录</title><table id="table-1"/>',
+        )
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            with argv(
+                "--doc",
+                fake.doc,
+                "--registry",
+                str(Path(tempdir) / "registry.json"),
+                "--no-lock",
+                "--force-overwrite",
+                "--date",
+                "2026-05-19",
+                "--item",
+                "工作记录 / 知识管理::工作内容::新增记录。",
+            ):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(self.mod.main(), 0)
+        self.assertIn("overwrite", fake.commands())
+
     def test_main_same_day_falls_back_to_overwrite_when_section_verification_fails(self) -> None:
         fake = FakeLark(
             """# 05-20-2026
@@ -517,6 +570,49 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("安装到全局 Codex skills。", fake.markdown)
         self.assertIn("# 05-19-2026", fake.markdown)
         self.assertIn("保留相邻日期。", fake.markdown)
+
+    def test_archive_full_overwrite_verification_detects_lost_adjacent_date(self) -> None:
+        fake = FakeLark(
+            """# 05-20-2026
+
+- 工作记录 / 知识管理
+  - 工作内容
+    - 保留当天记录。
+
+# 05-19-2026
+
+- 实机 / 硬件部署
+  - 工作内容
+    - 必须保留的相邻日期记录。
+"""
+        )
+        original_call = fake.__call__
+
+        def lose_adjacent_date_after_overwrite(args: list[str], check: bool = True, **kwargs):
+            proc = original_call(args, check, **kwargs)
+            if args[:2] == ["docs", "+update"] and value_after(args, "--command") == "overwrite":
+                fake.markdown = dict(self.mod.split_sections(fake.markdown))["05-20-2026"]
+            return proc
+
+        self.mod.run_lark = lose_adjacent_date_after_overwrite
+        with tempfile.TemporaryDirectory() as tempdir:
+            with argv(
+                "--doc",
+                fake.doc,
+                "--registry",
+                str(Path(tempdir) / "registry.json"),
+                "--no-lock",
+                "--date",
+                "2026-05-20",
+                "--item",
+                r"工作记录 / 知识管理::结果::强制风险路径：验证 __pycache__ 和 skills\tests。",
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    self.mod.main()
+
+        self.assertIn("full-document rewrite did not preserve all worklog sections", str(raised.exception))
+        self.assertIn("强制风险路径", fake.markdown)
+        self.assertNotIn("05-19-2026", fake.markdown)
 
     def test_main_same_day_long_section_skips_section_replace(self) -> None:
         old_item = "旧内容" + "x" * 6500
@@ -1282,6 +1378,34 @@ class ArchiveWorklogTests(unittest.TestCase):
                 self.assertEqual(self.mod.failed_queue_items("failed-queue.jsonl", "monthly-docs.json", "05-20-2026"), ["item"])
                 self.assertTrue(self.mod.remove_failed_queue_date("failed-queue.jsonl", "monthly-docs.json", "05-20-2026"))
 
+    def test_private_state_writes_are_atomic_and_permissioned(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            private_dir = Path(tempdir) / "lark-worklog-archive"
+            private_dir.mkdir(mode=0o755)
+            registry = private_dir / "registry.json"
+            cache = private_dir / "cache.json"
+            queue = private_dir / "failed.jsonl"
+            for path in (registry, cache, queue):
+                path.write_text("{}\n", encoding="utf-8")
+                path.chmod(0o664)
+
+            self.mod.save_registry(str(registry), {"2026-05": "doc-a"}, "ou_test")
+            self.mod.save_json_file(str(cache), {"scope": {}})
+            self.mod.write_failed_queue(str(queue), [{"date": "05-20-2026"}])
+
+            self.assertEqual(0o700, private_dir.stat().st_mode & 0o777)
+            for path in (registry, cache, queue):
+                self.assertEqual(0o600, path.stat().st_mode & 0o777, path)
+            self.assertEqual([], list(private_dir.glob(".*.json*.*")))
+
+    def test_private_atomic_write_works_without_fchmod(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            target = Path(tempdir) / "lark-worklog-archive" / "registry.json"
+            with mock.patch.object(self.mod.os, "fchmod", None):
+                self.mod.atomic_write_private(str(target), "{}\n")
+            self.assertEqual("{}\n", target.read_text(encoding="utf-8"))
+            self.assertEqual(0o600, target.stat().st_mode & 0o777)
+
     def test_doc_cache_is_scoped_by_registry_and_title(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             cache = str(Path(tempdir) / "cache.json")
@@ -1336,6 +1460,33 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertEqual(payload["docs"]["2026-05"], existing_doc)
         self.assertEqual(fake.count_calls(["docs", "+create"]), 0)
         self.assertIn("Registered worklog 05-2026 工作记录", output.getvalue())
+
+    def test_archive_resolves_registry_after_acquiring_month_lock(self) -> None:
+        fake = FakeLark("# 05-20-2026\n\n- 工作记录 / 知识管理\n  - 工作内容\n    - 已有记录。")
+        self.mod.run_lark = fake
+        with tempfile.TemporaryDirectory() as tempdir:
+            registry = Path(tempdir) / "registry.json"
+
+            @contextlib.contextmanager
+            def competing_first_writer(_key: str, enabled: bool = True):
+                registry.write_text(json.dumps({"docs": {"2026-05": fake.doc}}), encoding="utf-8")
+                yield
+
+            with mock.patch.object(self.mod, "month_lock", competing_first_writer):
+                with argv(
+                    "--registry",
+                    str(registry),
+                    "--date",
+                    "2026-05-20",
+                    "--item",
+                    "工作记录 / 知识管理::工作内容::并发后的新增记录。",
+                ):
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        self.assertEqual(self.mod.main(), 0)
+
+        self.assertEqual(0, fake.count_calls(["docs", "+search"]))
+        self.assertEqual(0, fake.count_calls(["docs", "+create"]))
+        self.assertIn("并发后的新增记录。", fake.markdown)
 
     def test_init_existing_only_fails_without_creating_when_not_found(self) -> None:
         fake = FakeLark("")

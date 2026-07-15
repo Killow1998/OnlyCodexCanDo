@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from collections import deque
+from dataclasses import dataclass, field
 import hashlib
 import json
 import os
@@ -61,9 +63,27 @@ TEST_SIGNAL_PATTERNS = (
 )
 
 
+@dataclass
+class TranscriptFacts:
+    latest_goal_event: dict[str, Any] | None = None
+    started_at: datetime | None = None
+    last_assistant_text: str = ""
+    recent_text_chunks: deque[str] = field(default_factory=lambda: deque(maxlen=80))
+    archive_attempted: bool = False
+    archive_success: str = ""
+    archive_failure: str = ""
+    raw_tail: str = ""
+
+
+def ensure_private_state_dir(path: Path | None = None) -> None:
+    path = path or STATE_DIR
+    path.mkdir(parents=True, mode=0o700, exist_ok=True)
+    path.chmod(0o700)
+
+
 def audit_event(action: str, **fields: Any) -> None:
     try:
-        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        ensure_private_state_dir()
         if AUDIT_LOG_PATH.exists() and AUDIT_LOG_PATH.stat().st_size > AUDIT_LOG_MAX_BYTES:
             rotated_path = AUDIT_LOG_PATH.with_suffix(AUDIT_LOG_PATH.suffix + ".1")
             if rotated_path.exists():
@@ -83,6 +103,7 @@ def audit_event(action: str, **fields: Any) -> None:
                 record[key] = str(value)
         with AUDIT_LOG_PATH.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, ensure_ascii=True, sort_keys=True) + "\n")
+        AUDIT_LOG_PATH.chmod(0o600)
     except Exception:
         return
 
@@ -149,15 +170,32 @@ def find_transcript_path(payload: dict[str, Any]) -> Path | None:
     if not session_id:
         return None
     sessions_dir = CODEX_HOME / "sessions"
-    matches = sorted(sessions_dir.rglob(f"*{session_id}*.jsonl"))
-    return matches[-1] if matches else None
+    candidates = sorted(sessions_dir.rglob("*.jsonl"))
+    filename_matches = [
+        path
+        for path in candidates
+        if path.stem == session_id or path.stem.endswith("-" + str(session_id))
+    ]
+    if len(filename_matches) == 1:
+        return filename_matches[0]
+    exact_meta_matches: list[Path] = []
+    for path in candidates:
+        try:
+            with path.open("r", encoding="utf-8", errors="replace") as handle:
+                for raw_line in handle:
+                    try:
+                        item = json.loads(raw_line)
+                    except json.JSONDecodeError:
+                        continue
+                    if item.get("type") == "session_meta" and str((item.get("payload") or {}).get("id", "")) == str(session_id):
+                        exact_meta_matches.append(path)
+                        break
+        except OSError:
+            continue
+    return exact_meta_matches[0] if len(exact_meta_matches) == 1 else None
 
 
-def parse_goal_event(raw_line: str) -> dict[str, Any] | None:
-    try:
-        item = json.loads(raw_line)
-    except json.JSONDecodeError:
-        return None
+def parse_thread_goal_state_item(item: dict[str, Any]) -> dict[str, Any] | None:
     if item.get("type") != "event_msg":
         return None
     payload = item.get("payload") or {}
@@ -165,7 +203,7 @@ def parse_goal_event(raw_line: str) -> dict[str, Any] | None:
         return None
     goal = payload.get("goal") or {}
     status = goal.get("status")
-    if status not in TERMINAL_STATUSES:
+    if not isinstance(status, str):
         return None
     return {
         "status": status,
@@ -179,11 +217,20 @@ def parse_goal_event(raw_line: str) -> dict[str, Any] | None:
     }
 
 
-def parse_update_goal_output(raw_line: str) -> dict[str, Any] | None:
+def parse_goal_event_item(item: dict[str, Any]) -> dict[str, Any] | None:
+    state = parse_thread_goal_state_item(item)
+    return state if state is not None and state["status"] in TERMINAL_STATUSES else None
+
+
+def parse_goal_event(raw_line: str) -> dict[str, Any] | None:
     try:
         item = json.loads(raw_line)
     except json.JSONDecodeError:
         return None
+    return parse_goal_event_item(item) if isinstance(item, dict) else None
+
+
+def parse_update_goal_state_item(item: dict[str, Any]) -> dict[str, Any] | None:
     if item.get("type") != "response_item":
         return None
     payload = item.get("payload") or {}
@@ -200,7 +247,7 @@ def parse_update_goal_output(raw_line: str) -> dict[str, Any] | None:
     if not isinstance(goal, dict):
         return None
     status = goal.get("status")
-    if status not in TERMINAL_STATUSES:
+    if not isinstance(status, str):
         return None
     return {
         "status": status,
@@ -214,32 +261,84 @@ def parse_update_goal_output(raw_line: str) -> dict[str, Any] | None:
     }
 
 
+def parse_update_goal_output_item(item: dict[str, Any]) -> dict[str, Any] | None:
+    state = parse_update_goal_state_item(item)
+    return state if state is not None and state["status"] in TERMINAL_STATUSES else None
+
+
+def parse_update_goal_output(raw_line: str) -> dict[str, Any] | None:
+    try:
+        item = json.loads(raw_line)
+    except json.JSONDecodeError:
+        return None
+    return parse_update_goal_output_item(item) if isinstance(item, dict) else None
+
+
 def event_is_fresh(event: dict[str, Any], now: datetime | None = None) -> bool:
     if now is None:
         return True
     event_time = parse_timestamp(event.get("updated_at")) or parse_timestamp(event.get("timestamp"))
     if event_time is None:
         return True
-    # ponytail: only notify for recent terminal events; old transcript state can be re-read on every Stop hook.
+    # Only notify for recent terminal events; old transcript state can be re-read on every Stop hook.
     return abs((now - event_time).total_seconds()) <= TERMINAL_EVENT_MAX_AGE_SECONDS
+
+
+def scan_transcript(transcript_path: Path) -> TranscriptFacts:
+    facts = TranscriptFacts()
+    with transcript_path.open("r", encoding="utf-8", errors="replace") as handle:
+        for raw_line in handle:
+            facts.raw_tail = (facts.raw_tail + raw_line)[-4000:]
+            try:
+                item = json.loads(raw_line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(item, dict):
+                continue
+            goal_state = parse_thread_goal_state_item(item) or parse_update_goal_state_item(item)
+            if goal_state is not None:
+                facts.latest_goal_event = goal_state if goal_state["status"] in TERMINAL_STATUSES else None
+            if facts.started_at is None:
+                facts.started_at = parse_timestamp(item.get("timestamp"))
+            payload = item.get("payload") or {}
+            fragments = extract_text_fragments(payload)
+            if fragments:
+                facts.recent_text_chunks.append("\n".join(fragments)[-4000:])
+            if item.get("type") == "response_item" and payload.get("type") == "message" and payload.get("role") == "assistant":
+                assistant_fragments = extract_text_fragments(payload.get("content"))
+                if assistant_fragments:
+                    facts.last_assistant_text = "\n".join(assistant_fragments)[-16000:]
+            if item.get("type") != "response_item" or payload.get("type") != "function_call_output":
+                continue
+            for fragment in extract_text_fragments(payload.get("output")):
+                if not fragment.strip():
+                    continue
+                source = normalize_text(fragment, limit=800)
+                if is_noise_fragment(source):
+                    continue
+                lower = source.lower()
+                if any(marker.lower() in lower for marker in ARCHIVE_ATTEMPT_MARKERS):
+                    facts.archive_attempted = True
+                if not facts.archive_success and any(marker.lower() in lower for marker in ARCHIVE_SUCCESS_MARKERS):
+                    facts.archive_success = source
+                if not facts.archive_failure and any(marker.lower() in lower for marker in ARCHIVE_FAILURE_MARKERS):
+                    facts.archive_failure = source
+    return facts
 
 
 def detect_terminal_event(
     transcript_path: Path,
     last_assistant_message: str | None = None,
     now: datetime | None = None,
+    facts: TranscriptFacts | None = None,
 ) -> dict[str, Any] | None:
-    latest_goal_event: dict[str, Any] | None = None
-    transcript_text = transcript_path.read_text(encoding="utf-8", errors="replace")
-    for raw_line in transcript_text.splitlines():
-        event = parse_goal_event(raw_line) or parse_update_goal_output(raw_line)
-        if event is not None:
-            latest_goal_event = event
+    facts = facts or scan_transcript(transcript_path)
+    latest_goal_event = facts.latest_goal_event
 
     if latest_goal_event is not None and event_is_fresh(latest_goal_event, now=now):
         return latest_goal_event
 
-    fallback_text = (last_assistant_message or "") + "\n" + transcript_text[-4000:]
+    fallback_text = (last_assistant_message or "") + "\n" + facts.raw_tail
     if any(marker in fallback_text for marker in USAGE_LIMIT_MARKERS):
         return {
             "status": "usageLimited",
@@ -275,9 +374,10 @@ def load_sent_key(state_dir: Path, session_id: str) -> str:
 
 
 def store_sent_key(state_dir: Path, session_id: str, key: str) -> None:
-    state_dir.mkdir(parents=True, exist_ok=True)
+    ensure_private_state_dir(state_dir)
     state_file = state_file_for_session(state_dir, session_id)
     state_file.write_text(json.dumps({"last_sent_key": key}, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    state_file.chmod(0o600)
 
 
 def terminal_key(session_id: str, event: dict[str, Any]) -> str:
@@ -443,43 +543,30 @@ def clean_digest_lines(text: str, limit: int = 8) -> list[str]:
     return [compact] if compact and not is_noise_fragment(compact) else []
 
 
-def last_assistant_text_from_transcript(transcript_path: Path) -> str:
-    last_text = ""
-    for raw_line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines():
-        try:
-            item = json.loads(raw_line)
-        except json.JSONDecodeError:
-            continue
-        payload = item.get("payload") or {}
-        if item.get("type") != "response_item" or payload.get("type") != "message":
-            continue
-        if payload.get("role") != "assistant":
-            continue
-        fragments = extract_text_fragments(payload.get("content"))
-        if fragments:
-            last_text = "\n".join(fragments)
-    return last_text
+def last_assistant_text_from_transcript(transcript_path: Path, facts: TranscriptFacts | None = None) -> str:
+    return (facts or scan_transcript(transcript_path)).last_assistant_text
 
 
-def extract_final_assistant_digest(transcript_path: Path, last_assistant_message: str | None) -> list[str]:
-    text = (last_assistant_message or "").strip() or last_assistant_text_from_transcript(transcript_path)
+def extract_final_assistant_digest(
+    transcript_path: Path,
+    last_assistant_message: str | None,
+    facts: TranscriptFacts | None = None,
+) -> list[str]:
+    text = (last_assistant_message or "").strip() or last_assistant_text_from_transcript(transcript_path, facts)
     return clean_digest_lines(text, limit=8)
 
 
-def recent_transcript_text(transcript_path: Path, max_items: int = 80) -> str:
-    chunks: list[str] = []
-    lines = transcript_path.read_text(encoding="utf-8", errors="replace").splitlines()
-    for raw_line in lines[-max_items:]:
-        try:
-            item = json.loads(raw_line)
-        except json.JSONDecodeError:
-            continue
-        chunks.extend(extract_text_fragments(item.get("payload")))
-    return "\n".join(chunks)
+def recent_transcript_text(
+    transcript_path: Path,
+    max_items: int = 80,
+    facts: TranscriptFacts | None = None,
+) -> str:
+    collected = facts or scan_transcript(transcript_path)
+    return "\n".join(list(collected.recent_text_chunks)[-max_items:])
 
 
-def extract_test_signals(transcript_path: Path) -> list[str]:
-    text = recent_transcript_text(transcript_path)
+def extract_test_signals(transcript_path: Path, facts: TranscriptFacts | None = None) -> list[str]:
+    text = recent_transcript_text(transcript_path, facts=facts)
     signals: list[str] = []
     for label, pattern in TEST_SIGNAL_PATTERNS:
         if not pattern.search(text):
@@ -624,42 +711,16 @@ def status_label(status: str) -> str:
     return status.upper() or "UNKNOWN"
 
 
-def collect_transcript_context(transcript_path: Path, event: dict[str, Any]) -> dict[str, Any]:
-    started_at: datetime | None = None
-    archive_attempted = False
-    archive_success = ""
-    archive_failure = ""
-
-    for raw_line in transcript_path.read_text(encoding="utf-8", errors="replace").splitlines():
-        try:
-            item = json.loads(raw_line)
-        except json.JSONDecodeError:
-            continue
-
-        if started_at is None:
-            started_at = parse_timestamp(item.get("timestamp"))
-
-        item_type = item.get("type")
-        payload = item.get("payload") or {}
-
-        if item_type != "response_item" or payload.get("type") != "function_call_output":
-            continue
-
-        text_sources = [
-            normalize_text(fragment, limit=800)
-            for fragment in extract_text_fragments(payload.get("output"))
-            if fragment.strip()
-        ]
-        for source in text_sources:
-            if is_noise_fragment(source):
-                continue
-            lower = source.lower()
-            if any(marker.lower() in lower for marker in ARCHIVE_ATTEMPT_MARKERS):
-                archive_attempted = True
-            if not archive_success and any(marker.lower() in lower for marker in ARCHIVE_SUCCESS_MARKERS):
-                archive_success = source
-            if not archive_failure and any(marker.lower() in lower for marker in ARCHIVE_FAILURE_MARKERS):
-                archive_failure = source
+def collect_transcript_context(
+    transcript_path: Path,
+    event: dict[str, Any],
+    facts: TranscriptFacts | None = None,
+) -> dict[str, Any]:
+    facts = facts or scan_transcript(transcript_path)
+    started_at = facts.started_at
+    archive_attempted = facts.archive_attempted
+    archive_success = facts.archive_success
+    archive_failure = facts.archive_failure
 
     objective = summarize_task_name(str(event.get("objective", "")).strip(), limit=160)
     task_name = objective or transcript_path.stem
@@ -708,8 +769,10 @@ def build_body(
     transcript_path: Path,
     event: dict[str, Any],
     context: dict[str, Any] | None = None,
+    facts: TranscriptFacts | None = None,
 ) -> str:
-    context = context or collect_transcript_context(transcript_path, event)
+    facts = facts or scan_transcript(transcript_path)
+    context = context or collect_transcript_context(transcript_path, event, facts)
     started_at = context["started_at"]
     ended_at = context["ended_at"]
     duration_text = duration_for_context(context)
@@ -720,9 +783,9 @@ def build_body(
         str(context["archive_status"]),
         str(context.get("archive_detail", "")),
     )
-    final_digest = extract_final_assistant_digest(transcript_path, payload.get("last_assistant_message"))
+    final_digest = extract_final_assistant_digest(transcript_path, payload.get("last_assistant_message"), facts)
     git_context = collect_git_context(str(payload.get("cwd", "") or ""))
-    test_signals = extract_test_signals(transcript_path)
+    test_signals = extract_test_signals(transcript_path, facts)
 
     lines = [
         subject,
@@ -809,7 +872,13 @@ def main() -> int:
         print(json.dumps({"continue": True}))
         return 0
 
-    event = detect_terminal_event(transcript_path, payload.get("last_assistant_message"), now=datetime.now(timezone.utc))
+    facts = scan_transcript(transcript_path)
+    event = detect_terminal_event(
+        transcript_path,
+        payload.get("last_assistant_message"),
+        now=datetime.now(timezone.utc),
+        facts=facts,
+    )
     if event is None:
         audit_event(
             "no_terminal_event",
@@ -858,7 +927,7 @@ def main() -> int:
         return 0
 
     try:
-        context = collect_transcript_context(transcript_path, event)
+        context = collect_transcript_context(transcript_path, event, facts)
         subject = build_subject(event, context)
         audit_event(
             "send_attempt",
@@ -871,7 +940,7 @@ def main() -> int:
             smtp_host=config.get("SMTP_HOST", ""),
             email_to=config.get("EMAIL_TO", ""),
         )
-        send_email(config, subject, build_body(payload, transcript_path, event, context))
+        send_email(config, subject, build_body(payload, transcript_path, event, context, facts))
         store_sent_key(STATE_DIR, session_id, state_key)
         audit_event(
             "send_success",

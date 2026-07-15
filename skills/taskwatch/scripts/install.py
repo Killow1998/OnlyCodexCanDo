@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shlex
 import shutil
 import stat
@@ -175,6 +176,9 @@ CODEX_MONITOR_ARTIFACT_DIRS=@@ARTIFACT_DIRS_SHELL@@
 CODEX_MONITOR_PROCESS_GREP=@@PROCESS_GREP_SHELL@@
 CODEX_MONITOR_CODEX_MODEL=@@CODEX_MODEL_SHELL@@
 CODEX_MONITOR_GOAL_MODE=@@GOAL_MODE@@
+# Optional exact binding for goal mode. Set either a transcript path or session id.
+CODEX_MONITOR_GOAL_TRANSCRIPT=
+CODEX_MONITOR_SESSION_ID=
 """
 
 
@@ -205,11 +209,14 @@ WORKSPACE="${CODEX_MONITOR_WORKSPACE:-$SCAFFOLD_ROOT}"
 STATE_DIR="$MONITOR_DIR/state"
 LOG_DIR="$STATE_DIR/logs"
 mkdir -p "$STATE_DIR" "$LOG_DIR"
+chmod 700 "$STATE_DIR" "$LOG_DIR"
 
 rm -f "$STATE_DIR/RUN_DONE" "$STATE_DIR/RUN_FAILED" "$STATE_DIR/NOTIFIED_DONE"
 rm -f "$STATE_DIR/TRAIN_DONE" "$STATE_DIR/TRAIN_FAILED"
 rm -f "$STATE_DIR/run_end_time.txt" "$STATE_DIR/run_exit_code.txt"
 rm -f "$STATE_DIR/train_end_time.txt" "$STATE_DIR/train_exit_code.txt"
+rm -f "$STATE_DIR/goal_final_status.txt" "$STATE_DIR/goal_final_status_source.txt"
+rm -f "$STATE_DIR/goal_final_status_line.txt" "$STATE_DIR/goal_transcript_path.txt"
 
 date '+%Y-%m-%d %H:%M:%S %Z' > "$STATE_DIR/run_start_time.txt"
 
@@ -255,6 +262,7 @@ LOCK_FILE="$STATE_DIR/hourly_check.lock"
 CONFIG_FILE="$MONITOR_DIR/monitor.env"
 
 mkdir -p "$REPORT_DIR" "$SNAPSHOT_DIR" "$STATE_DIR"
+chmod 700 "$STATE_DIR"
 
 if [[ -f "$CONFIG_FILE" ]]; then
   # shellcheck disable=SC1090
@@ -329,9 +337,87 @@ collect_goal_status_lines() {
   if [[ "$GOAL_MODE" != "1" || ! -d "$sessions_root" || ! -f "$STATE_DIR/run_start_time.txt" ]]; then
     return 0
   fi
-  while IFS= read -r session_file; do
-    rg -n 'thread_goal_updated.*"status":"(complete|blocked|usageLimited)"' "$session_file" || true
-  done < <(find "$sessions_root" -type f -name '*.jsonl' -newer "$STATE_DIR/run_start_time.txt" 2>/dev/null | sort)
+  python3 - "$sessions_root" "$STATE_DIR/run_start_time.txt" "$STATE_DIR" \
+    "${CODEX_MONITOR_GOAL_TRANSCRIPT:-}" "${CODEX_MONITOR_SESSION_ID:-}" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+sessions_root = Path(sys.argv[1])
+run_start_file = Path(sys.argv[2])
+state_dir = Path(sys.argv[3])
+configured_transcript = sys.argv[4].strip()
+configured_session = sys.argv[5].strip()
+terminal = {"complete", "blocked", "usageLimited"}
+
+state_binding = state_dir / "goal_transcript_path.txt"
+if state_binding.is_file():
+    configured_transcript = state_binding.read_text(encoding="utf-8").strip()
+
+def terminal_event(path):
+    latest_state = None
+    session_id = ""
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as handle:
+            for raw in handle:
+                try:
+                    item = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                payload = item.get("payload") or {}
+                if item.get("type") == "session_meta":
+                    session_id = str(payload.get("id") or session_id)
+                goal = None
+                source = ""
+                if item.get("type") == "event_msg" and payload.get("type") == "thread_goal_updated":
+                    goal = payload.get("goal")
+                    source = "thread_goal_updated"
+                elif item.get("type") == "response_item" and payload.get("type") == "function_call_output":
+                    output = payload.get("output")
+                    if isinstance(output, str):
+                        try:
+                            result = json.loads(output)
+                        except json.JSONDecodeError:
+                            result = None
+                        if isinstance(result, dict):
+                            goal = result.get("goal")
+                            source = "update_goal"
+                if isinstance(goal, dict) and isinstance(goal.get("status"), str):
+                    latest_state = {"status": goal["status"], "source": source, "event": item}
+    except OSError:
+        return None, session_id
+    if latest_state is not None and latest_state["status"] in terminal:
+        return latest_state, session_id
+    return None, session_id
+
+explicit = Path(configured_transcript).expanduser() if configured_transcript else None
+if explicit is not None:
+    candidates = [explicit.resolve()] if explicit.is_file() and explicit.suffix == ".jsonl" else []
+else:
+    start_mtime = run_start_file.stat().st_mtime
+    candidates = []
+    for path in sessions_root.rglob("*.jsonl"):
+        try:
+            if path.stat().st_mtime >= start_mtime:
+                candidates.append(path)
+        except OSError:
+            continue
+
+if explicit is None and not configured_session and len(set(candidates)) != 1:
+    raise SystemExit(0)
+
+matches = []
+for path in sorted(set(candidates)):
+    event, session_id = terminal_event(path)
+    exact_filename_match = path.stem == configured_session or path.stem.endswith("-" + configured_session)
+    if configured_session and session_id != configured_session and not exact_filename_match:
+        continue
+    matches.append((path.resolve(), event))
+
+if len(matches) == 1 and matches[0][1] is not None:
+    path, event = matches[0]
+    print(str(path), event["status"], json.dumps(event, ensure_ascii=True, separators=(",", ":")), sep="\t")
+PY
 }
 
 detect_goal_terminal_state() {
@@ -342,40 +428,30 @@ detect_goal_terminal_state() {
   local goal_status=""
   local goal_source=""
   local goal_line=""
+  local resolved_goal=""
   local run_log=""
   run_log="$(state_read latest_run_log.txt)"
   if [[ -n "$run_log" && -f "$run_log" ]]; then
     goal_line="$(grep -E "You've hit your usage limit|usage limit|Visit https://chatgpt.com/codex/settings/usage" "$run_log" 2>/dev/null | tail -n 1 || true)"
     if [[ -n "$goal_line" ]]; then
       goal_status="usageLimited"
-      goal_source="$run_log"
     fi
   fi
 
   if [[ -z "$goal_status" ]]; then
-    while IFS= read -r candidate_line; do
-      [[ -z "$candidate_line" ]] && continue
-      goal_line="$candidate_line"
-    done < <(collect_goal_status_lines)
-    case "$goal_line" in
-      *'"status":"usageLimited"'*)
-        goal_status="usageLimited"
-        ;;
-      *'"status":"blocked"'*)
-        goal_status="blocked"
-        ;;
-      *'"status":"complete"'*)
-        goal_status="complete"
-        ;;
-    esac
-    if [[ -n "$goal_status" ]]; then
-      goal_source="$(printf '%s\n' "$goal_line" | cut -d: -f1)"
+    resolved_goal="$(collect_goal_status_lines | tail -n 1)"
+    if [[ -n "$resolved_goal" ]]; then
+      IFS=$'\t' read -r goal_source goal_status goal_line <<< "$resolved_goal"
     fi
   fi
 
   if [[ -n "$goal_status" ]]; then
     printf '%s\n' "$goal_status" > "$STATE_DIR/goal_final_status.txt"
-    printf '%s\n' "$goal_source" > "$STATE_DIR/goal_final_status_source.txt"
+    if [[ -n "$goal_source" && -f "$goal_source" && "$goal_source" == *.jsonl ]]; then
+      printf '%s\n' "$goal_source" > "$STATE_DIR/goal_final_status_source.txt"
+    else
+      rm -f "$STATE_DIR/goal_final_status_source.txt"
+    fi
     printf '%s\n' "$goal_line" > "$STATE_DIR/goal_final_status_line.txt"
   fi
 }
@@ -1250,6 +1326,68 @@ def infer_smtp(sender_email: str) -> tuple[str, int, str]:
     return (f"smtp.{domain}", 587, "starttls")
 
 
+def validate_relative_path(value: str, option: str, *, allow_empty: bool = True) -> None:
+    if not value and allow_empty:
+        return
+    path = Path(value)
+    if (
+        not value
+        or path.is_absolute()
+        or ".." in path.parts
+        or "'" in value
+        or any(char.isspace() or char == "\x00" for char in value)
+    ):
+        raise SystemExit(f"{option} must be a safe whitespace-free relative path without '..' or quotes: {value!r}")
+
+
+def validate_layout_inputs(args: argparse.Namespace) -> None:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.@-]*", args.systemd_basename):
+        raise SystemExit("systemd-basename contains unsafe characters")
+    if args.job_service and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.@-]*\.service", args.job_service):
+        raise SystemExit("job-service must be a safe .service unit name")
+
+
+def validate_install_inputs(args: argparse.Namespace) -> tuple[str, tuple[str, int, str] | None, str | None]:
+    validate_relative_path(args.primary_log, "primary-log")
+    validate_relative_path(args.progress_log, "progress-log")
+    for artifact_dir in args.artifact_dirs or []:
+        validate_relative_path(artifact_dir, "artifact-dir", allow_empty=False)
+    for name, value in (("label", args.label), ("process-grep", args.process_grep), ("codex-model", args.codex_model)):
+        if any(char in value for char in ("\x00", "\n", "\r")):
+            raise SystemExit(f"{name} must be a single line")
+
+    sender_password = args.sender_password or (
+        os.environ.get("TASKWATCH_SENDER_PASSWORD", "") if args.sender_email and args.recipient_email else ""
+    )
+    email_values = (args.sender_email, args.recipient_email, sender_password)
+    if any(email_values) and not all(email_values):
+        raise SystemExit("sender-email, recipient-email, and sender-password must be provided together")
+    if (args.smtp_host or args.smtp_port or args.smtp_security) and not all(email_values):
+        raise SystemExit("SMTP overrides require complete email credentials")
+    if not all(email_values):
+        return sender_password, None, None
+    for name, value in (("sender-email", args.sender_email), ("recipient-email", args.recipient_email)):
+        if value.count("@") != 1 or any(char in value for char in ("\x00", "\n", "\r", " ")):
+            raise SystemExit(f"{name} is not a valid email address")
+    resolved = infer_smtp(args.sender_email)
+    host = args.smtp_host or resolved[0]
+    port = args.smtp_port or resolved[1]
+    security = args.smtp_security or resolved[2]
+    if not host or any(char in host for char in ("\x00", "\n", "\r", " ")):
+        raise SystemExit("smtp-host is invalid")
+    if not 1 <= port <= 65535:
+        raise SystemExit("smtp-port must be between 1 and 65535")
+    content = build_email_env(
+        sender_email=args.sender_email,
+        recipient_email=args.recipient_email,
+        sender_password=sender_password,
+        smtp_host=host,
+        smtp_port=port,
+        smtp_security=security,
+    )
+    return sender_password, (host, port, security), content
+
+
 def build_replacements(config: InstallConfig) -> dict[str, str]:
     return {
         "WORKSPACE_SHELL": shell_quote(str(config.workspace)),
@@ -1451,6 +1589,9 @@ def uninstall_scaffold(scaffold_root: Path, *, purge: bool, dry_run: bool, allow
 
 def main() -> int:
     args = parse_args()
+    if args.purge and not args.uninstall:
+        raise SystemExit("--purge requires --uninstall")
+    validate_layout_inputs(args)
     if not workspace_local_install_supported() and not args.uninstall:
         raise SystemExit(
             "TaskWatch workspace-local monitor is Linux only. "
@@ -1473,6 +1614,8 @@ def main() -> int:
     if not workspace.exists() or not workspace.is_dir():
         raise SystemExit(f"workspace is missing or not a directory: {workspace}")
 
+    _, resolved_smtp, email_env = validate_install_inputs(args)
+
     artifact_dirs = tuple(args.artifact_dirs or ["logs", "outputs", "reports", "results", "artifacts"])
     config = InstallConfig(
         workspace=workspace,
@@ -1489,27 +1632,10 @@ def main() -> int:
     )
     file_map = build_file_map(config)
     write_files(scaffold_root, file_map, force=args.force, dry_run=args.dry_run)
+    if not args.dry_run:
+        (scaffold_root / ".codex_monitor" / "state").chmod(0o700)
 
-    sender_password = args.sender_password
-    if args.sender_email and args.recipient_email and not sender_password:
-        sender_password = os.environ.get("TASKWATCH_SENDER_PASSWORD", "")
-    email_values = [args.sender_email, args.recipient_email, sender_password]
-    resolved_smtp: tuple[str | None, int | None, str | None] = (None, None, None)
-    if any(email_values) and not all(email_values):
-        raise SystemExit("sender-email, recipient-email, and sender-password must be provided together")
-    if all(email_values):
-        resolved_smtp = infer_smtp(args.sender_email)
-        smtp_host = args.smtp_host or resolved_smtp[0]
-        smtp_port = args.smtp_port or resolved_smtp[1]
-        smtp_security = args.smtp_security or resolved_smtp[2]
-        email_env = build_email_env(
-            sender_email=args.sender_email,
-            recipient_email=args.recipient_email,
-            sender_password=sender_password,
-            smtp_host=smtp_host,
-            smtp_port=smtp_port,
-            smtp_security=smtp_security,
-        )
+    if email_env is not None:
         write_email_env(scaffold_root, email_env, dry_run=args.dry_run)
 
     if not args.dry_run:
@@ -1517,10 +1643,10 @@ def main() -> int:
             scaffold_root,
             workspace,
             config,
-            email_enabled=all(email_values),
-            smtp_host=resolved_smtp[0] if not args.smtp_host else args.smtp_host,
-            smtp_port=resolved_smtp[1] if not args.smtp_port else args.smtp_port,
-            smtp_security=resolved_smtp[2] if not args.smtp_security else args.smtp_security,
+            email_enabled=resolved_smtp is not None,
+            smtp_host=resolved_smtp[0] if resolved_smtp else None,
+            smtp_port=resolved_smtp[1] if resolved_smtp else None,
+            smtp_security=resolved_smtp[2] if resolved_smtp else None,
         )
     return 0
 

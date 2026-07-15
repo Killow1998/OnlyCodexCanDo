@@ -49,7 +49,7 @@ Command examples assume a repo checkout. When running from the installed copy, r
 4. If archiving fails, run `--doctor`, fix what it reports, then re-run the archive command. Queued failed items for the same date replay automatically on the next successful run.
 5. To backfill another day, add `--date MM-DD-YYYY` and keep that day's heading position (newest date first).
 
-The helper uses a per-month lock, latest Feishu revision, retry, dedupe, and post-write verification. Same-day writes first try guarded section replace, then fall back to full-document rewrite if replace or verification fails.
+The helper uses a per-month lock, latest Feishu revision, retry, dedupe, and post-write verification. Same-day writes first try guarded section replace. Automatic full-document fallback is allowed only for supported list-only worklogs; unsupported blocks require explicit `--force-overwrite` after review.
 
 For a shared team worklog, `--team` mode with explicit author attribution is documented in [references/setup.md](references/setup.md).
 

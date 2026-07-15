@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import tempfile
 import sys
 from pathlib import Path
 
@@ -90,15 +91,66 @@ def write_email_env(args: argparse.Namespace) -> str:
             smtp_port=args.smtp_port,
             smtp_security=args.smtp_security,
         )
-        ENV_PATH.parent.mkdir(parents=True, exist_ok=True)
-        ENV_PATH.write_text(content, encoding="utf-8")
+        write_private_file(ENV_PATH, content)
         return "written"
     if ENV_PATH.exists():
+        ENV_PATH.chmod(0o600)
         return "reused"
     raise SystemExit(
         "taskwatch email config missing. Provide --sender-email, --recipient-email, "
         "and --sender-password."
     )
+
+
+def write_private_file(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        fchmod = getattr(os, "fchmod", None)
+        if callable(fchmod):
+            try:
+                fchmod(fd, 0o600)
+            except (OSError, NotImplementedError):
+                pass
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            fd = -1
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.replace(path)
+        path.chmod(0o600)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        if temporary.exists():
+            temporary.unlink()
+
+
+def validate_email_args(args: argparse.Namespace) -> bool:
+    provided = (args.sender_email, args.recipient_email, args.sender_password)
+    if any(provided) and not all(provided):
+        raise SystemExit("sender-email, recipient-email, and sender-password must be provided together")
+    if (args.smtp_host or args.smtp_port or args.smtp_security) and not all(provided):
+        raise SystemExit("SMTP overrides require complete email credentials")
+    if all(provided):
+        for name, value in (("sender-email", args.sender_email), ("recipient-email", args.recipient_email)):
+            if value.count("@") != 1 or any(char in value for char in ("\x00", "\n", "\r", " ")):
+                raise SystemExit(f"{name} is not a valid email address")
+        if args.smtp_port is not None and not 1 <= args.smtp_port <= 65535:
+            raise SystemExit("smtp-port must be between 1 and 65535")
+        if args.smtp_host and any(char in args.smtp_host for char in ("\x00", "\n", "\r", " ")):
+            raise SystemExit("smtp-host is invalid")
+        install.build_email_env(
+            sender_email=args.sender_email,
+            recipient_email=args.recipient_email,
+            sender_password=args.sender_password,
+            smtp_host=args.smtp_host,
+            smtp_port=args.smtp_port,
+            smtp_security=args.smtp_security,
+        )
+        return True
+    return False
 
 
 def parse_args() -> argparse.Namespace:
@@ -175,8 +227,11 @@ def remove_hook(args: argparse.Namespace) -> int:
 
 def main() -> int:
     args = parse_args()
+    if args.purge and not args.remove:
+        raise SystemExit("--purge requires --remove")
     if args.remove:
         return remove_hook(args)
+    has_email_args = validate_email_args(args)
     global_skill_dir = Path(args.global_skill_dir).expanduser().resolve()
     hook_script = global_skill_dir / "scripts" / "taskwatch_stop_hook.py"
 
@@ -187,7 +242,7 @@ def main() -> int:
 
     env_action = "reused"
     env_preview = None
-    if args.sender_email and args.recipient_email and args.sender_password:
+    if has_email_args:
         env_preview = install.build_email_env(
             sender_email=args.sender_email,
             recipient_email=args.recipient_email,
@@ -197,10 +252,10 @@ def main() -> int:
             smtp_security=args.smtp_security,
         )
         env_action = "written"
-    elif not ENV_PATH.exists() and not args.hook_only:
+    elif not ENV_PATH.exists():
         raise SystemExit(
             "taskwatch email config missing. Provide --sender-email, --recipient-email, "
-            "and --sender-password."
+            "and --sender-password; --hook-only requires an existing taskwatch.env."
         )
 
     config_text = CONFIG_PATH.read_text(encoding="utf-8") if CONFIG_PATH.exists() else ""
@@ -216,13 +271,15 @@ def main() -> int:
             print("[summary] smtp config: inferred from sender")
         return 0
 
-    if args.hook_only and not (args.sender_email and args.recipient_email and args.sender_password):
+    if args.hook_only and not has_email_args:
         env_action = "skipped"
+        ENV_PATH.chmod(0o600)
     else:
         env_action = write_email_env(args)
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     CONFIG_PATH.write_text(updated_config, encoding="utf-8")
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    STATE_DIR.mkdir(parents=True, mode=0o700, exist_ok=True)
+    STATE_DIR.chmod(0o700)
 
     print("[summary] taskwatch global hook installed")
     print(f"[summary] env file: {ENV_PATH} ({env_action})")

@@ -37,6 +37,8 @@ python skills/taskwatch/scripts/install_global_hook.py \
 python skills/taskwatch/scripts/install_global_hook.py --hook-only
 ```
 
+`--hook-only` 要求该配置文件已经存在；干净环境必须先提供完整 SMTP 参数。安装器会把 `taskwatch.env` 收紧为 `0600`，把私有 state 目录收紧为 `0700`。
+
 安装后会写入：
 
 - `~/.codex/config.toml`：托管的 `Stop` hook block；
@@ -107,6 +109,10 @@ python skills/taskwatch/scripts/install.py /abs/workspace \
 ```
 
 默认脚手架写入 workspace 内（`.codex_monitor/` 和 `run_with_monitor.sh`）。如果不希望工程目录出现任何监控文件，加 `--central`：整套脚手架会生成到 `~/.codex/taskwatch/jobs/<systemd-basename>/`，workspace 保持干净，目标目录通过 `monitor.env` 里的 `CODEX_MONITOR_WORKSPACE` 记录。自定义位置用 `--job-dir`。
+
+Goal mode 会同时识别 `thread_goal_updated` 和 `update_goal` 终态。自动发现只有一个候选 transcript 时才采用；多个并发候选会保持 unknown。已知目标 transcript 或 session 时，在 `monitor.env` 设置 `CODEX_MONITOR_GOAL_TRANSCRIPT` 或 `CODEX_MONITOR_SESSION_ID`。
+
+`--primary-log`、`--progress-log` 和 `--artifact-dir` 必须是无空白、无单引号且不含 `..` 的相对路径；这是生成 shell 命令的安全边界。每次 `run_with_monitor.sh` 启动都会清除上一次运行生成的 goal 终态和自动绑定 state，但保留 `monitor.env` 中的显式绑定。
 
 启动任务（central 模式下换成 `~/.codex/taskwatch/jobs/<name>/run_with_monitor.sh`）：
 

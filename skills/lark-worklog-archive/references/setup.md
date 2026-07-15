@@ -31,7 +31,7 @@ npx @larksuite/cli@latest install
 lark-cli --version
 ```
 
-Current supported and tested CLI version: `lark-cli 1.0.51`. The helper's auth checks parse the `auth status` shape from `1.0.51`; do not keep compatibility shims for older auth output. If the local CLI is older, update it with `lark-cli update` before debugging authorization.
+Compatibility baseline: the helper is tested with `lark-cli 1.0.53` and expects its current `auth status` identity/token shape. Update older installations with `lark-cli update` before debugging authorization; re-run the skill checks when adopting a newer CLI shape.
 
 If `npx @larksuite/cli@latest install` fails with an `ERR_REQUIRE_ESM` or dependency engine warning, check Node.js. The current installer may require Node.js `20.12.0` or newer.
 
@@ -188,8 +188,9 @@ Avoid mixing raw Lark XML blocks with Markdown unless the target document has al
 - Daily headings use `MM-DD-YYYY`.
 - Use the helper instead of manual `docs +update overwrite`.
 - The helper uses local month locks, latest revision fetch, revision-id writes, retries, dedupe, and post-write verification.
-- Same-day writes first try a guarded same-day section replace, then fall back to full-document rewrite if replace or verification fails.
-- Structural repair, abnormal documents, `--force-overwrite`, and all-dates repair may use full-document rewrite.
+- Same-day writes first try a guarded section replace. Full-document fallback proceeds automatically only when fetched XML contains supported title/date/list/link blocks.
+- Images, tables, embeds, attachments, and other unsupported blocks stop automatic archive before overwrite. Use `--force-overwrite` only after reviewing and accepting removal of those blocks.
+- Structural repair and all-dates repair are explicit full-document rewrite operations.
 - Normal archive output is intentionally short to reduce token use.
 - Avoid `--dry-run`, manual full `docs +fetch`, or `--print-doc` unless debugging.
 - Keep `monthly-docs.local.json`, OpenID values, tokens, app IDs, secrets, and real document URLs out of Git.
