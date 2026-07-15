@@ -1451,6 +1451,13 @@ def uninstall_scaffold(scaffold_root: Path, *, purge: bool, dry_run: bool, allow
 
 def main() -> int:
     args = parse_args()
+    if not workspace_local_install_supported() and not args.uninstall:
+        raise SystemExit(
+            "TaskWatch workspace-local monitor is Linux only. "
+            "On Windows, install only the global goal Stop hook with "
+            "scripts/install_global_hook.py."
+        )
+
     workspace = Path(args.workspace).expanduser().resolve()
     scaffold_root = resolve_scaffold_root(args, workspace)
 
@@ -1463,12 +1470,6 @@ def main() -> int:
         )
         return 0
 
-    if not workspace_local_install_supported():
-        raise SystemExit(
-            "TaskWatch workspace-local monitor is Linux only. "
-            "On Windows, install only the global goal Stop hook with "
-            "scripts/install_global_hook.py."
-        )
     if not workspace.exists() or not workspace.is_dir():
         raise SystemExit(f"workspace is missing or not a directory: {workspace}")
 
