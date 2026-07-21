@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -98,7 +99,8 @@ class InstallScriptTests(unittest.TestCase):
             monitor_env = (scaffold / ".codex_monitor" / "monitor.env").read_text(encoding="utf-8")
             self.assertIn("CODEX_MONITOR_WORKSPACE=", monitor_env)
             self.assertIn(workspace.name, monitor_env)
-            self.assertEqual(0o700, (scaffold / ".codex_monitor" / "state").stat().st_mode & 0o777)
+            if os.name != "nt":
+                self.assertEqual(0o700, (scaffold / ".codex_monitor" / "state").stat().st_mode & 0o777)
             self.assertEqual([], [p for p in workspace.iterdir()])
 
     def test_uninstall_removes_managed_files_and_keeps_runtime(self) -> None:
@@ -297,6 +299,8 @@ class InstallScriptTests(unittest.TestCase):
                 self.assertEqual([], list(workspace.iterdir()))
 
     def run_generated_goal_check(self, transcripts: list[str], session_id: str = "") -> tuple[Path, list[Path]]:
+        if not shutil.which("bash"):
+            self.skipTest("generated workspace monitor requires bash")
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         root = Path(tempdir.name)
@@ -420,6 +424,8 @@ class InstallScriptTests(unittest.TestCase):
         self.assertFalse((state / "goal_final_status_source.txt").exists())
 
     def test_generated_run_wrapper_clears_stale_goal_state(self) -> None:
+        if not shutil.which("bash"):
+            self.skipTest("generated workspace monitor requires bash")
         with tempfile.TemporaryDirectory() as tmpdir:
             workspace = Path(tmpdir) / "workspace"
             workspace.mkdir()
@@ -530,16 +536,18 @@ class GlobalHookScriptTests(unittest.TestCase):
                 ]
                 with mock.patch.object(sys, "argv", argv):
                     self.assertEqual(0, HOOK_MODULE.main())
-                self.assertEqual(0o600, HOOK_MODULE.ENV_PATH.stat().st_mode & 0o777)
-                self.assertEqual(0o700, HOOK_MODULE.STATE_DIR.stat().st_mode & 0o777)
+                if os.name != "nt":
+                    self.assertEqual(0o600, HOOK_MODULE.ENV_PATH.stat().st_mode & 0o777)
+                    self.assertEqual(0o700, HOOK_MODULE.STATE_DIR.stat().st_mode & 0o777)
 
     def test_private_env_write_works_without_fchmod(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             target = Path(tmpdir) / "taskwatch.env"
-            with mock.patch.object(HOOK_MODULE.os, "fchmod", None):
+            with mock.patch.object(HOOK_MODULE.os, "fchmod", None, create=True):
                 HOOK_MODULE.write_private_file(target, "secret\n")
             self.assertEqual("secret\n", target.read_text(encoding="utf-8"))
-            self.assertEqual(0o600, target.stat().st_mode & 0o777)
+            if os.name != "nt":
+                self.assertEqual(0o600, target.stat().st_mode & 0o777)
 
 
 if __name__ == "__main__":

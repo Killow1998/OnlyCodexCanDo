@@ -1393,18 +1393,20 @@ class ArchiveWorklogTests(unittest.TestCase):
             self.mod.save_json_file(str(cache), {"scope": {}})
             self.mod.write_failed_queue(str(queue), [{"date": "05-20-2026"}])
 
-            self.assertEqual(0o700, private_dir.stat().st_mode & 0o777)
-            for path in (registry, cache, queue):
-                self.assertEqual(0o600, path.stat().st_mode & 0o777, path)
+            if os.name != "nt":
+                self.assertEqual(0o700, private_dir.stat().st_mode & 0o777)
+                for path in (registry, cache, queue):
+                    self.assertEqual(0o600, path.stat().st_mode & 0o777, path)
             self.assertEqual([], list(private_dir.glob(".*.json*.*")))
 
     def test_private_atomic_write_works_without_fchmod(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             target = Path(tempdir) / "lark-worklog-archive" / "registry.json"
-            with mock.patch.object(self.mod.os, "fchmod", None):
+            with mock.patch.object(self.mod.os, "fchmod", None, create=True):
                 self.mod.atomic_write_private(str(target), "{}\n")
             self.assertEqual("{}\n", target.read_text(encoding="utf-8"))
-            self.assertEqual(0o600, target.stat().st_mode & 0o777)
+            if os.name != "nt":
+                self.assertEqual(0o600, target.stat().st_mode & 0o777)
 
     def test_doc_cache_is_scoped_by_registry_and_title(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

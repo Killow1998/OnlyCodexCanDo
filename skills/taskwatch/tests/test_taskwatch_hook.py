@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import importlib.util
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -209,8 +210,9 @@ class TaskWatchHookTests(unittest.TestCase):
             state_file = HOOK_MODULE.state_file_for_session(Path(tmpdir), session_id)
             HOOK_MODULE.store_sent_key(Path(tmpdir), session_id, "sent-key")
             self.assertEqual("sent-key", HOOK_MODULE.load_sent_key(Path(tmpdir), session_id))
-            self.assertEqual(0o700, Path(tmpdir).stat().st_mode & 0o777)
-            self.assertEqual(0o600, HOOK_MODULE.state_file_for_session(Path(tmpdir), session_id).stat().st_mode & 0o777)
+            if os.name != "nt":
+                self.assertEqual(0o700, Path(tmpdir).stat().st_mode & 0o777)
+                self.assertEqual(0o600, HOOK_MODULE.state_file_for_session(Path(tmpdir), session_id).stat().st_mode & 0o777)
         self.assertNotIn(":", state_file.name)
         self.assertNotIn("\\", state_file.name)
         self.assertNotIn("/", state_file.name)
