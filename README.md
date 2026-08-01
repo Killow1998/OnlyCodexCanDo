@@ -8,6 +8,19 @@ This repo is not a memory store and is not tied to one single workflow. It shoul
 
 ## Skills
 
+### `CodexLFE`
+
+Configures Codex Orchestration to use a bounded GPT-5.6 Luna Max Fast custom Executor.
+
+Main behavior:
+
+- installs or validates only the canonical Codex Orchestration marketplace source;
+- creates a machine-local `codex_lfe_executor` custom agent without vendoring Orchestration;
+- derives any required Luna v2 compatibility catalog from the target machine's own model cache;
+- applies global changes only through explicit, preview-first `setup` and `disable` commands;
+- requires a full Codex restart before `verify` performs static checks and requests one real routed spawn;
+- fails closed on conflicting config, agent ownership, dependency provenance, or managed-state drift.
+
 ### `lark-worklog-archive`
 
 Archives daily Codex/Agent work into a monthly Feishu/Lark worklog document.
@@ -61,6 +74,27 @@ Current limitations:
 - The global hook and the workspace-local monitor are complementary: the hook handles goal terminal alerts, while the local monitor handles hourly artifact/log summaries.
 
 ## Install A Skill
+
+### `CodexLFE`
+
+Add this repository as a Codex plugin marketplace and install CodexLFE:
+
+```text
+codex plugin marketplace add https://github.com/Killow1998/OnlyCodexCanDo.git --json
+codex plugin add codex-lfe@only-codex-can-do --json
+```
+
+Then explicitly invoke setup in Codex:
+
+```text
+$codex-lfe:codex-lfe setup
+```
+
+After setup reports `RESTART_REQUIRED`, fully quit and reopen Codex, start a new task, and run:
+
+```text
+$codex-lfe:codex-lfe verify
+```
 
 ### `lark-worklog-archive`
 
