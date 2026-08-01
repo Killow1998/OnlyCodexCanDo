@@ -4,8 +4,6 @@ English | [中文](README.zh-CN.md)
 
 Public repository for reusable Codex skills.
 
-This repo is not a memory store and is not tied to one single workflow. It should contain only skill source files, public examples, scripts, and documentation. Private runtime data such as Feishu/Lark document URLs, OpenID values, app IDs, tokens, secrets, and local registries must stay out of Git.
-
 ## Skills
 
 ### `CodexLFE`

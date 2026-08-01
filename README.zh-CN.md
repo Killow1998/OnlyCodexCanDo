@@ -4,8 +4,6 @@
 
 这是一个公开的 Codex Skills 仓库。
 
-这个仓库不是记忆仓库，也不是只为某一个 workflow 服务。这里应该只保存可复用的 skill 源码、公开示例、脚本和说明文档。真实飞书文档 URL、OpenID、App ID、token、secret、本机 registry 等运行时私有信息不能进入 Git。
-
 ## Skills
 
 ### `CodexLFE`
