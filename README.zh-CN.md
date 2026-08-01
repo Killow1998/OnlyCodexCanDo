@@ -8,6 +8,19 @@
 
 ## Skills
 
+### `CodexLFE`
+
+让 Codex Orchestration 使用受约束的 GPT-5.6 Luna Max Fast 自定义 Executor。
+
+主要行为：
+
+- 只安装或验证 canonical Codex Orchestration marketplace 来源；
+- 创建本机 `codex_lfe_executor` custom agent，不复制或 vendor Orchestration；
+- 必要的 Luna v2 兼容 catalog 只从目标机器自己的模型缓存生成；
+- 只有显式、preview-first 的 `setup` 和 `disable` 才会修改全局状态；
+- setup 后必须完全重启 Codex，`verify` 才会做静态检查并请求一次真实 routed spawn；
+- 配置冲突、agent 归属冲突、依赖来源异常或 managed state drift 时全部 fail closed。
+
 ### `lark-worklog-archive`
 
 把每天通过 Codex/Agent 完成的工作归档到飞书/Lark 月度工作记录文档。
@@ -61,6 +74,27 @@
 - 全局 hook 和 workspace-local monitor 是互补关系：前者负责 goal 终态告警，后者负责按小时的日志和产物巡检。
 
 ## 安装 Skill
+
+### `CodexLFE`
+
+把本仓库添加为 Codex plugin marketplace，并安装 CodexLFE：
+
+```text
+codex plugin marketplace add https://github.com/Killow1998/OnlyCodexCanDo.git --json
+codex plugin add codex-lfe@only-codex-can-do --json
+```
+
+然后在 Codex 中显式运行 setup：
+
+```text
+$codex-lfe:codex-lfe setup
+```
+
+setup 返回 `RESTART_REQUIRED` 后，完全退出并重开 Codex，创建新任务，再运行：
+
+```text
+$codex-lfe:codex-lfe verify
+```
 
 ### `lark-worklog-archive`
 

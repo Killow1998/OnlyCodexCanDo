@@ -1,0 +1,21 @@
+{
+  "name": "codex-lfe",
+  "version": "0.1.0",
+  "description": "Safely configures canonical Codex Orchestration to use a Luna Max Fast executor.",
+  "author": {
+    "name": "Killow1998",
+    "url": "https://github.com/Killow1998"
+  },
+  "homepage": "https://github.com/Killow1998/OnlyCodexCanDo",
+  "repository": "https://github.com/Killow1998/OnlyCodexCanDo",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CodexLFE",
+    "shortDescription": "Configure Luna Max Fast execution safely.",
+    "longDescription": "CodexLFE checks the canonical Codex Orchestration dependency, creates a bounded Luna Max Fast custom executor, and manages the required machine-local Luna v2 compatibility shim with reversible state.",
+    "developerName": "Killow1998",
+    "category": "Developer Tools",
+    "capabilities": [],
+    "defaultPrompt": "Run CodexLFE status and explain whether setup is needed."
+  }
+}

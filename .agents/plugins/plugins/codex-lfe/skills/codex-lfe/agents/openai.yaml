@@ -1,0 +1,4 @@
+interface:
+  display_name: "CodexLFE"
+  short_description: "Configure Luna Max Fast execution safely"
+  default_prompt: "Use $codex-lfe:codex-lfe to set up Luna Max Fast execution."
