@@ -2,7 +2,59 @@
 
 English | [中文](README.zh-CN.md)
 
-Public repository for reusable Codex skills.
+Public repository for reusable Codex skills and agent workflow guidance.
+
+This repository publishes reusable skill source files, cross-project workflow patterns, configuration templates, examples, scripts, and documentation. It serves as a shared public source of stable rules and curated knowledge across multiple agent hosts.
+
+## Agent Workflow
+
+The cross-project operating model is documented in [Personal Agent Workflow](docs/agent-workflow.md). The Chinese source is [个人 Agent 工作流](docs/agent-workflow.zh-CN.md).
+
+It covers independent judgment, instruction layering, compatibility decisions, optional subagents and RTK, risk-proportional three-angle verification, and a clean project-document lifecycle. The reusable cross-platform core is [templates/AGENTS.global.md](templates/AGENTS.global.md). Platform rules are separate overlays so irrelevant instructions do not occupy every host's context.
+
+There are two independent deployment paths:
+
+| Path | Scope | Source |
+| --- | --- | --- |
+| Host-global behavior | One agent host, across its workspaces | [Rule-by-rule explanation](docs/global-agents.md), [global template](templates/AGENTS.global.md), and an applicable platform overlay |
+| Workspace continuity | One repository, across agents and hosts | [Rule-by-rule explanation](docs/workspace-continuous-documentation.md), [workspace templates](templates/workspace/), and that repository's existing `AGENTS.md` and `docs/` |
+
+Either path can be used alone. Using both is recommended: the host layer standardizes how the agent works, while the workspace layer preserves what the project knows. This is a recommended pairing, not a technical binding; deploy and review each diff independently, and do not duplicate the same rules in both layers.
+
+### Configure a PC's global AGENTS.md
+
+Give the following prompt to the Codex agent running on that PC:
+
+```text
+Configure this PC's global Codex AGENTS.md from the public repository https://github.com/Killow1998/OnlyCodexCanDo.git.
+
+1. Read templates/AGENTS.global.md as the cross-platform core.
+2. Detect the agent's actual runtime environment before choosing an overlay. If it is Windows native, also read and merge templates/platform/windows-shell.md. If it is Linux, macOS, or WSL acting as a Linux environment, do not load or copy the Windows overlay.
+3. Inspect the existing global AGENTS.md first. Preserve non-conflicting local rules, identify conflicts, and show me the proposed diff before writing. Do not overwrite the whole file blindly.
+4. Keep machine-specific paths, host names, credentials, session data, and project-only rules out of the shared core.
+5. Apply the change only after I confirm the diff. Before writing, create a recoverable local backup of the existing file. Then verify that the resulting file contains the cross-platform core exactly once and only the applicable platform overlay.
+
+Do not modify project repositories, remote hosts, or install any Skill unless I separately authorize it.
+```
+
+### Configure continuous documentation in a workspace
+
+Run this prompt from the target workspace. It does not modify the host's global `AGENTS.md`:
+
+```text
+Configure a continuous project-documentation workflow in this workspace using https://github.com/Killow1998/OnlyCodexCanDo.git.
+
+1. Read docs/agent-workflow.md, templates/workspace/AGENTS.docs-workflow.md, and templates/workspace/project-state.md from that public repository.
+2. Inspect this workspace's branch, working tree, AGENTS.md or equivalent agent instructions, README, and existing docs before proposing changes. Preserve unrelated work and reuse equivalent documents instead of creating duplicates.
+3. Show me a mapping from the existing documentation to the proposed canonical files. If no equivalent project-state document exists, propose docs/project-state.md from the template. Merge only the needed routing rules into the nearest applicable project AGENTS.md.
+4. Keep stable rules in AGENTS.md; keep verified project state, decisions, acceptance evidence, next safe action, and open risks in canonical docs. Reuse the project's existing worklog or changelog for completed history.
+5. Do not create permanent per-session handoff files. If a temporary handoff is genuinely needed, define how its unique information will be absorbed and how the task-created file will be closed or removed.
+6. Show the workspace-only diff before writing. Apply it only after I confirm, then verify all referenced paths, confirm that no duplicate documentation system was created, and leave the workspace clean. Preserve a recoverable copy of any existing file that must be structurally rewritten.
+
+Do not modify the host's global AGENTS.md, other workspaces, remote hosts, or install any Skill unless I separately authorize it.
+```
+
+Recommended combined deployment: run the host-global prompt once on each host, then run the workspace prompt only inside repositories that need durable continuity. Keep the two approvals and diffs separate.
 
 ## Skills
 
@@ -124,7 +176,7 @@ The agent-facing instructions live in [skills/taskwatch/SKILL.md](skills/taskwat
 
 ## Repository Rules
 
-- Keep this repository focused on reusable skills, not project memories or chat history.
+- Publish only curated knowledge that is safe and useful across projects. Keep raw sessions, host inventories, credentials, and private runtime state in a separately governed private layer.
 - Use HTTPS clone instructions for public users.
 - Keep real user configuration in ignored local files or user config directories.
 - Do not commit secrets, tokens, Feishu/Lark document URLs, OpenID values, app IDs, private API endpoints, or real registry values.

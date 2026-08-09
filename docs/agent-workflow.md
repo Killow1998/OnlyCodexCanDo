@@ -1,0 +1,146 @@
+# Personal Agent Workflow
+
+English | [中文](agent-workflow.zh-CN.md)
+
+This document defines public, cross-project defaults for coding agents. It is a decision framework, not a demand for hidden chain-of-thought or a ritual delay before every answer. The agent should judge before acting, then report conclusions, evidence, and unverified boundaries concisely.
+
+## Outcomes
+
+- Preserve the user's real goal, authorization, and acceptance surface.
+- Produce the simplest complete solution with evidence, not the fastest plausible reply.
+- Keep projects resumable without accumulating stale handoff files or private session dumps.
+- Use tools, Skills, subagents, and compatibility layers only when their benefit exceeds their context, maintenance, and failure cost.
+
+## Reasoning Preflight
+
+Before a non-trivial action, answer these questions internally:
+
+1. What outcome is the user actually trying to obtain, and how will it be observed?
+2. Which facts are verified, which conclusions are reasonable inferences, and which assumptions remain unverified?
+3. Does the request contain a weak premise, missing decision, hidden risk, or a cheaper equivalent path?
+4. From first principles, which constraints and invariants are truly necessary?
+5. By Occam's razor, what solution meets them with the fewest states, dependencies, and maintenance obligations?
+6. Through Socratic challenge, what counterexample, failure mode, or alternative would change the decision?
+
+Ask the user only when an unresolved answer materially changes architecture, data, permissions, security, compatibility, user-visible behavior, or authorization. Otherwise inspect the available evidence, state a low-risk assumption when useful, and continue.
+
+“Pause before answering” should become this internal preflight, not fixed waiting time or a verbose reasoning transcript.
+
+## Instruction Layers
+
+Use each layer for one kind of information:
+
+- Global `~/.codex/AGENTS.md`: stable personal defaults such as language, reporting style, risk tolerance, and tool preferences.
+- Repository or nested `AGENTS.md`: durable team and codebase rules, commands, boundaries, and routing to canonical docs.
+- Project `docs/`: architecture, decisions, verification methods, current project state, and human-readable work records.
+- Skills: repeatable procedures that benefit from richer instructions, scripts, references, assets, or checks.
+- Memories and session indexes: private local context. Curate or index them; do not copy raw histories into public repositories.
+
+Keep `AGENTS.md` small. Put a rule there when it is stable and repeatedly applicable, not merely because it mattered once. Codex's official customization guidance describes `AGENTS.md`, memories, Skills, MCP, and subagents as complementary layers rather than substitutes: <https://learn.chatgpt.com/docs/customization/overview>.
+
+## Two Independent Deployment Paths
+
+| Deployment | Owns | Must not own |
+| --- | --- | --- |
+| Host-global `AGENTS.md` | Stable personal behavior across workspaces on one host | Project state, project paths, session history |
+| Workspace documentation workflow | Durable context and document lifecycle for one repository across hosts | Personal communication defaults, host-specific shell rules |
+
+Each path must remain useful on its own and must have its own preview, approval, update, and removal process. Using both is recommended because they solve complementary problems. Do not implement the recommendation by copying rules between layers: global instructions govern behavior; project instructions route agents to that workspace's canonical knowledge.
+
+For the meaning and development impact of every rule, see [Host-Global AGENTS Rule Reference](global-agents.md) and [Workspace Continuous Documentation Rule Reference](workspace-continuous-documentation.md).
+
+### Lazy-load platform rules
+
+The cross-platform core does not carry Windows, Linux, or macOS details. When installing or updating global `AGENTS.md`, the agent verifies its actual runtime first and then reads the applicable `templates/platform/` overlay.
+
+- Windows native: load the Windows shell overlay.
+- Linux and macOS: do not load the Windows overlay.
+- WSL acting as a Linux environment: treat it as Linux; read Windows rules temporarily only when the task explicitly controls the Windows host.
+
+Do not copy every platform overlay to every host. Machine paths, version snapshots, and host names do not belong in shared templates.
+
+## Execution Defaults
+
+- Use Chinese for conversation and generated prose by default. Preserve the existing language of a project document. Keep code, APIs, errors, commands, product names, and proper nouns in English.
+- Be concise, direct, and candid. Challenge weak assumptions without turning every task into an interview.
+- Finish authorized work end to end and verify the actual user-facing result before claiming completion.
+- Prefer the current checkout. Do not create or use Git worktrees unless the user explicitly asks for them.
+- Default to one agent. Use subagents only with explicit user authorization and for genuinely independent work. Pass the minimum necessary context; do not duplicate full histories or images by default.
+- Use `rtk` selectively when its filtering saves context without hiding required evidence. Native output wins whenever filtering would reduce diagnostic confidence.
+- Use visualization only when relationships, state changes, layout, or comparisons become materially clearer than concise prose.
+- Prefer established, maintained dependencies when they reduce total complexity. Check the current project and authoritative documentation before adding or reimplementing one.
+
+## Compatibility Is a Decision
+
+Do not preserve or remove backward compatibility by reflex.
+
+| Context | Default direction | Decision evidence |
+| --- | --- | --- |
+| Personal research, prototype, unpublished experiment | Prefer direct migration and removal of obsolete paths | Active consumers, reproducibility needs, rollback cost |
+| Shared lab infrastructure, multi-user tooling, public package, industrial or production system | Prefer a bounded compatibility or migration plan | Supported versions, downstream users, deprecation window, rollback and observability |
+| Context is unclear or the choice changes architecture or user behavior | Ask the developer | Exact consumers, required contract, acceptable breakage |
+
+When compatibility is required, prefer an explicit version boundary, migration path, and removal condition over permanent fallbacks and silent dual behavior.
+
+## Implementation Discipline
+
+- Choose the simplest implementation that fully meets the current requirement. “Simple” means fewer states, dependencies, failure modes, and maintenance obligations—not merely the smallest diff.
+- Grow working systems in verified layers. Each layer should run end to end before the next capability is added.
+- Keep concerns separated, but do not add speculative abstractions, configuration, or extension points.
+- Preserve unrelated work and touch only files traceable to the request or a necessary induced fix.
+- Keep production code free of debug artifacts, dead code, stale branches, and temporary files created by the task.
+- Prefer long-lived architectural choices, but do not build an imagined future before the present acceptance criteria are met.
+
+## Risk-Proportional Three-Angle Verification
+
+Seek evidence from three complementary angles after code or configuration changes:
+
+1. Expected behavior: the intended path works on the real acceptance surface.
+2. Boundary behavior: a relevant edge, failure, or regression path is covered.
+3. Independent evidence: tests, static analysis, diff/config inspection, logs, build output, or real-interface review corroborates the result.
+
+Three-angle verification must not obstruct agile development. It does not require three test suites or full CI after every one-variable edit:
+
+- Low-risk local change: one fast targeted check may cover several angles; add a diff/config review.
+- Medium-risk change: run directly related tests plus one boundary or static check.
+- Core flow, shared module, permission, security, data, or user-interface change: expand to the real interface, integration path, and rollback behavior.
+
+Do not run low-signal checks merely to reach a count of three. If an angle is unavailable or inapplicable, say why. If the same issue survives three meaningful verification attempts, stop stacking patches and review the architecture, data flow, dependencies, and failure boundary.
+
+## Clean Documentation Lifecycle
+
+Use durable documents for continuity without leaving stale handoffs.
+
+```mermaid
+flowchart LR
+    A["Resume: read AGENTS and canonical docs"] --> B["Work: verify and implement"]
+    B --> C["Record durable decisions and project state"]
+    C --> D["Archive meaningful progress"]
+    D --> E["Merge unique temporary notes"]
+    E --> F["Remove task-created scratch and close stale handoffs"]
+    F --> A
+```
+
+- `AGENTS.md` stores stable rules and routes agents to canonical documents; it does not store task status.
+- `docs/` stores durable architecture, decisions, verification methods, and a human-readable record of meaningful phases.
+- Prefer one clearly named living project-state document when a project needs restart context. Update it in place instead of creating a new handoff for every session.
+- Use dated worklogs for historical progress. Record objectives, decisions, results, evidence, and open risks—not command transcripts.
+- A handoff document is temporary unless the project explicitly defines it as canonical. After the next worker absorbs it, merge unique knowledge into canonical docs and close or remove the task-created handoff.
+- Before finishing, reconcile task-created scratch notes and temporary reports. Promote durable knowledge, remove redundant temporary artifacts, and leave the workspace clean.
+- Never delete pre-existing user documents or histories without authorization. Cleanliness is not permission to destroy evidence.
+
+## Packaging Gate
+
+Do not create a Skill merely because a workflow can be written as one. Package it only when:
+
+- the trigger and expected output are stable;
+- the process repeats across tasks or projects;
+- progressive disclosure is useful;
+- scripts, references, assets, or automated checks add real value; and
+- installation, updates, and generated state do not cost more than the workflow saves.
+
+A meta-skill or Skill framework may help with authoring and evaluation, but its own benchmark is only candidate evidence. Review its code, dependencies, generated files, context footprint, and reproducibility before installation.
+
+## Updating This Workflow
+
+Change stable rules after repeated feedback, a corrected assumption, a recurring failure, or a verified tool/platform change. Keep one-off preferences and machine state out of the public guide. Update the English and Chinese versions together when their meaning changes.

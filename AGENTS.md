@@ -1,6 +1,6 @@
 # Agent Instructions
 
-This is a public repository of reusable agent skills. Keep it free of private runtime data and project-specific workflow rules.
+This is a public repository of reusable agent skills and workflow guidance. Keep it free of private runtime data and project-specific workflow rules.
 
 ## Repository Rules
 
@@ -8,6 +8,15 @@ This is a public repository of reusable agent skills. Keep it free of private ru
 - After changing a skill, run its release checks: `python -B skills/<skill>/scripts/check.py`.
 - After changing a skill, sync the installed global copy under `~/.codex/skills/<skill>` so `check.py` global consistency passes.
 - When changing installer flags, email templates, or hook trigger logic, extend the skill's tests in the same change.
+
+## Workflow Documentation
+
+- Before changing shared agent workflow guidance, read `docs/agent-workflow.md` and keep `docs/agent-workflow.zh-CN.md` semantically aligned.
+- Before changing host-global deployment guidance, read `docs/global-agents.md`; before changing workspace continuity guidance, read `docs/workspace-continuous-documentation.md`. Keep each English document aligned with its `.zh-CN.md` counterpart.
+- Keep `templates/AGENTS.global.md` platform-neutral. Put operating-system-specific rules in `templates/platform/` and load them only after the target environment is verified.
+- Keep host-global setup and workspace documentation setup independently deployable. Shared behavior belongs in the global template; project continuity belongs in `templates/workspace/` and the target repository.
+- Keep stable cross-project policy in the workflow guide. Never copy chat transcripts, session indexes, host names, private paths, or machine-specific state into this public repository.
+- Do not package a workflow as a Skill merely because it can be packaged. First confirm that its trigger and output are stable and that scripts, references, assets, or automated checks provide real value.
 
 ## Worklog Archiving
 

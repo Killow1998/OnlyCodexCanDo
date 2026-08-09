@@ -2,7 +2,59 @@
 
 [English](README.md) | 中文
 
-这是一个公开的 Codex Skills 仓库。
+这是一个公开的 Codex Skills 与 Agent 工作流说明仓库。
+
+这里发布可复用的 skill 源码、跨项目工作流、配置模板、公开示例、脚本和说明文档，并作为多个 Agent 终端共享稳定规则与提炼知识的公开来源。
+
+## Agent 工作流
+
+跨项目工作方式见[个人 Agent 工作流](docs/agent-workflow.zh-CN.md)，English version 见 [Personal Agent Workflow](docs/agent-workflow.md)。
+
+其中包括独立判断、指令分层、兼容性决策、可选的 subagent 与 RTK、风险成比例的三角验证，以及保持工程整洁的文档生命周期。可复用的跨平台核心位于 [templates/AGENTS.global.md](templates/AGENTS.global.md)。平台规则单独作为懒加载片段，避免无关内容占用每台主机的上下文。
+
+这里提供两条互相独立的部署路径：
+
+| 路径 | 作用范围 | 来源 |
+| --- | --- | --- |
+| 主机级全局行为 | 一台 Agent 主机上的所有 workspace | [逐条规则解读](docs/global-agents.zh-CN.md)、[全局模板](templates/AGENTS.global.md)和适用的平台 overlay |
+| Workspace 持续文档 | 一个仓库，跨 Agent、跨主机生效 | [逐条规则解读](docs/workspace-continuous-documentation.zh-CN.md)、[workspace 模板](templates/workspace/)和该仓库已有的 `AGENTS.md` 与 `docs/` |
+
+两条路径都可以单独使用，但推荐组合部署：主机层统一 Agent“怎么工作”，workspace 层保存项目“知道什么”。这是推荐绑定，不是技术强绑定；两份 diff 应分别审阅和批准，同一规则不要在两层重复维护。
+
+### 配置一台 PC 的全局 AGENTS.md
+
+把下面这段 Prompt 交给那台 PC 上运行的 Codex Agent：
+
+```text
+请根据公开仓库 https://github.com/Killow1998/OnlyCodexCanDo.git 配置这台 PC 的全局 Codex AGENTS.md。
+
+1. 读取 templates/AGENTS.global.md，作为跨平台核心。
+2. 先检测 Agent 实际运行环境，再决定是否读取平台片段。如果是 Windows native，继续读取并合并 templates/platform/windows-shell.md；如果是 Linux、macOS，或者作为 Linux 环境工作的 WSL，不读取也不复制 Windows 片段。
+3. 先检查现有全局 AGENTS.md。保留不冲突的本机规则，指出冲突，并在写入前向我展示拟议 diff，不要直接覆盖整个文件。
+4. 主机专用路径、主机名、凭据、session 数据和项目专用规则不得进入共享核心。
+5. 只有我确认 diff 后才应用。写入前为现有文件创建可恢复的本机备份；应用后验证跨平台核心只出现一次，并且只包含当前平台适用的 overlay。
+
+不要修改项目仓库、远端主机，也不要安装任何 Skill，除非我另行明确授权。
+```
+
+### 在一个 Workspace 中配置持续文档工作流
+
+在目标 workspace 中运行下面的 Prompt；它不会修改主机全局 `AGENTS.md`：
+
+```text
+请使用 https://github.com/Killow1998/OnlyCodexCanDo.git，在当前 workspace 中配置持续项目文档工作流。
+
+1. 读取该公开仓库的 docs/agent-workflow.zh-CN.md、templates/workspace/AGENTS.docs-workflow.md 和 templates/workspace/project-state.md。
+2. 提议修改前，先检查当前 workspace 的分支、工作树、AGENTS.md 或其他 Agent 指令、README 和已有 docs。保护无关工作，优先复用等价文档，不要创建重复体系。
+3. 向我展示“现有文档 -> 拟议规范文件”的映射。如果没有等价的项目状态文档，再根据模板提议创建 docs/project-state.md；只把必要的文档路由规则合并到作用范围最近的项目 AGENTS.md。
+4. AGENTS.md 只保存稳定规则；已验证项目状态、决策、验收证据、下一安全动作和未决风险进入规范文档；已完成历史复用项目现有的 worklog 或 changelog。
+5. 不创建永久的逐会话 handoff。确实需要临时 handoff 时，必须说明其唯一信息如何被吸收，以及任务创建的文件如何关闭或移除。
+6. 写入前展示仅限当前 workspace 的 diff。只有我确认后才应用；应用后验证所有引用路径，确认没有创建重复文档体系，并保持 workspace 整洁。现有文件确需结构性重写时，先保留可恢复副本。
+
+不要修改主机全局 AGENTS.md、其他 workspace、远端主机，也不要安装任何 Skill，除非我另行明确授权。
+```
+
+推荐组合部署方式：在每台主机上执行一次主机级 Prompt，只在需要耐久上下文的仓库中执行 workspace Prompt。两部分始终分别批准、分别验证。
 
 ## Skills
 
@@ -124,7 +176,7 @@ Windows 下使用这条“只安装全局 hook”的路径。Linux 主机才使�
 
 ## 仓库规则
 
-- 这个仓库只放可复用 skills，不放项目记忆或对话历史。
+- 只发布经过提炼、适合跨项目复用的知识；原始 session、主机清单、凭据和私有运行状态由独立的私有层管理。
 - 面向公开用户时使用 HTTPS clone。
 - 真实用户配置放在本机 ignored 文件或用户配置目录。
 - 不提交 secrets、tokens、飞书/Lark 文档 URL、OpenID、App ID、私有 API endpoint 或真实 registry。
