@@ -35,10 +35,10 @@
 
 ## Project Knowledge
 
-- When a workspace has or explicitly adopts a continuous documentation workflow, follow its project instructions and existing canonical docs. Do not create a documentation system merely because this global template exists.
-- In an adopted workflow, keep stable rules and document routing in project `AGENTS.md`; keep runtime status out of it.
-- Store durable architecture, decisions, verification methods, project state, and meaningful work records in the project's existing `docs/` structure.
-- Prefer one living project-state document over accumulating session handoffs. Merge durable knowledge from task-created temporary notes, then remove those temporary artifacts before finishing.
+- When a workspace explicitly adopts the documentation workflow, follow its project instructions and existing docs. Do not create a documentation system merely because this global template exists.
+- In an adopted workflow, keep stable rules and document paths in project `AGENTS.md`; keep current progress out of it.
+- Keep current specs and plans in `docs/active/`, stable algorithm and interface design in `docs/design/`, and completed-stage records in `docs/worklog/`, or reuse existing paths with the same roles.
+- After a meaningful stage, update the active plan when needed, update design only when the design changed, and write a worklog from the project's template. Do not require documentation after every small edit.
 - Never delete pre-existing user documents, histories, or evidence without authorization.
 
 ## Risk-Proportional Verification

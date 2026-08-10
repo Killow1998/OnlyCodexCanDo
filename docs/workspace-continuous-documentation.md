@@ -1,66 +1,115 @@
-# Workspace Continuous Documentation Rule Reference
+# Workspace Continuous Documentation Workflow
 
 English | [中文](workspace-continuous-documentation.zh-CN.md)
 
-This guide explains all six rules in the [project AGENTS snippet](../templates/workspace/AGENTS.docs-workflow.md) and why every field exists in the [project-state template](../templates/workspace/project-state.md). IDs `D1` through `D6` follow the AGENTS snippet's bullet order exactly.
+This workflow solves one problem: after a person or agent leaves a workspace for a while, they should still be able to see what is being built now, why the system is designed that way, and what was actually completed.
 
-## Core Concepts
+It is not a general knowledge-management system. The minimum structure has only three directories:
 
-### Canonical Source
+```text
+docs/
+├── active/    # specs and plans for work currently in progress
+├── design/    # stable algorithm, interface, and architecture design
+└── worklog/   # completed-stage records and the worklog template
+```
 
-A canonical source is the accepted current version of one kind of information. Interface design may be canonical in `docs/architecture.md`, while resumable current state may be canonical in `docs/project-state.md`. One source prevents conflicting `final`, `v2`, and handoff copies; other documents link to it instead of duplicating it.
+`worklog/` is the most important of the three. It preserves work that actually happened, verification evidence, failure causes, and experience worth reusing. When a lesson will continue to shape an algorithm, interface, or architecture, promote it into `design/`; do not create a fourth experience repository.
 
-### Living Project-State
+Projects may keep other directories they already use, but `archive/`, `backlog/`, `reviews/`, `runbook/`, and `handoff/` are not required by this workflow.
 
-A living project-state is an in-place updated restart entry point. It stores only the current goal, verified state, next safe action, and open risks, not full history. Completed material is archived and removed from living state so the file stays short and current.
+## What belongs in each directory
 
-### Durable Knowledge
+### `docs/active/`: what is being worked on now
 
-Durable knowledge remains valuable after the session: architecture decisions, failure boundaries, compatibility contracts, reliable verification methods, and user-corrected rules. Command transcripts, temporary logs, and obsolete intermediate guesses usually are not durable knowledge.
+Keep only specs or plans that are still active. Before a substantial task, a new agent reads the relevant document here to learn the goal, scope, constraints, acceptance criteria, current progress, and next step.
 
-### Verified State
+A useful active document normally includes:
 
-Verified state is the most recent project condition confirmed by code, tests, builds, the real interface, hardware, or other direct evidence. It records the method and date so a future session does not treat an old conclusion as current fact.
+- the problem being solved;
+- what is in and out of scope;
+- confirmed facts and assumptions that still need evidence;
+- implementation stages or steps;
+- how each stage will be accepted;
+- current progress and the next action.
 
-### Next Safe Action
+Do not leave completed plans in `active/` indefinitely. When work finishes, update long-lived algorithm and interface material in `design/`, record actual results in `worklog/`, then archive or clean up the plan using the project's existing convention. Never delete a pre-existing user document without authorization.
 
-The next safe action is a concrete next step that is safe under current evidence and risk boundaries, including its precondition and post-action verification. It lets the next agent continue without rediscovery or blind replay of a dangerous command.
+### `docs/design/`: why the system works this way
 
-### Worklog, Changelog, and Handoff
+Store designs that continue to affect development, such as:
 
-- A worklog records completed objectives, decisions, results, and problems for human review.
-- A changelog records version- or user-facing changes.
-- A handoff is a temporary transfer to a named consumer, not a permanent knowledge base.
+- algorithms and state transitions;
+- module responsibilities and boundaries;
+- interfaces, data formats, and error handling;
+- safety conditions and required invariants;
+- rationale for important design choices.
 
-Durable handoff content moves into project-state, architecture, decisions, or worklog, after which the task-created temporary file is closed.
+`design/` is not a daily progress report. Update it when an algorithm, interface, or architecture actually changes. Current execution status stays in `active/`.
 
-## AGENTS Rules: D1-D6
+### `docs/worklog/`: what was actually done
 
-| ID | Meaning | Development impact |
+After a meaningful stage is complete, add a dated or timestamped worklog. It supports review, context recovery, and reusable experience, but it is not a command transcript.
+
+Organize each worklog by objective with four sections:
+
+1. `Background and Goal`: why the work was needed;
+2. `Work Completed`: the main approach taken;
+3. `Result`: what finished, how it was verified, and any failure causes or lessons worth retaining;
+4. `Problems and Next Steps`: remaining, unverified, or risky items.
+
+Commands, files, commits, tests, and log paths may appear as evidence, but they should not define the document structure. Mark unverified claims explicitly. See [worklog-template.md](../templates/workspace/worklog-template.md). When deployed, place it at `docs/worklog/worklog-template.md`.
+
+## The complete development loop
+
+```text
+Start a task
+  -> read the project AGENTS.md
+  -> read the relevant current plan in docs/active/
+  -> read related docs/design/ documents as needed
+  -> implement and verify
+  -> update the active plan and design when they materially change
+  -> write a docs/worklog/ entry after a completed stage
+  -> remove completed plans from active when the task closes
+```
+
+In practice:
+
+1. **Before work**: check whether the task already has an active document. Create a spec or plan for substantial work when needed; do not create one for every small edit.
+2. **During work**: update the active document only when scope, approach, progress, or the next step materially changes.
+3. **When design changes**: update the long-lived algorithm, interface, or architecture document in `design/`; do not leave the change only in chat or a worklog.
+4. **After a stage**: update completion state in the active plan and write a worklog with results, evidence, and remaining problems.
+5. **At task completion**: make sure `design/` and `worklog/` contain what must survive, then move the finished plan out of `active/`. Reuse an existing archive if the project has one; do not create an archive system just for this workflow.
+
+## The project `AGENTS.md` only explains how to use the folders
+
+Do not copy specs, designs, or worklogs into the project `AGENTS.md`. It should contain only stable routing rules, for example:
+
+- read `docs/active/` before substantial work;
+- read related `docs/design/` before changing algorithms or interfaces;
+- write `docs/worklog/` from the template after a completed stage;
+- keep current progress and command logs out of `AGENTS.md`.
+
+See [AGENTS.docs-workflow.md](../templates/workspace/AGENTS.docs-workflow.md) for a mergeable rule snippet.
+
+## Deploying into an existing workspace
+
+Do not overwrite existing documentation. Inspect the project first, then make the smallest mapping:
+
+| Needed function | Reuse first | Create when missing |
 | --- | --- | --- |
-| D1 | Read project-state and its routed architecture, decision, verification, and worklog docs before non-trivial work. | Work continues from established facts, reducing rediscovery, conflicting implementations, and forgotten failures; small tasks do not load every document. |
-| D2 | Project `AGENTS.md` stores stable rules and routing, not task status, command transcripts, or host state. | Instructions stay small and durable, and startup context avoids stale progress and machine noise. |
-| D3 | Before meaningful phase completion or possible context loss, update durable decisions, verified state, acceptance evidence, next safe action, and risks. | Interruptions resume from trustworthy state; recording state transitions rather than every edit preserves agile speed. |
-| D4 | Prefer one living project-state; temporary handoffs need a consumer and closure plan, then are merged and cleaned up. | Prevents handoff accumulation and conflicting state files without removing real transfer capability. |
-| D5 | Reuse existing worklog, changelog, architecture records, and naming instead of creating a parallel system. | Lowers maintenance and information forks; templates adapt to the project rather than forcing the project to adapt. |
-| D6 | Before finishing, verify references, reconcile task notes, preserve user docs, and leave the workspace clean. | Prevents dead links, scratch files, and orphaned artifacts without using cleanliness to delete unknown-value material. |
+| Current spec or plan | Existing plan, roadmap, or milestone document | `docs/active/` |
+| Algorithm and technical design | Existing architecture, design, or spec documents | `docs/design/` |
+| Completed-stage record | Existing worklog, devlog, or progress archive | `docs/worklog/` |
 
-## Project-State Fields: S1-S7
+If existing paths already serve these roles, keep them and route to them from the project `AGENTS.md`. Do not duplicate a documentation system merely to match directory names.
 
-| ID | Field | Concept and development impact |
-| --- | --- | --- |
-| S1 | `Last verified` | Records when direct evidence last confirmed state, not merely when the file was edited. Old dates trigger revalidation. |
-| S2 | `Scope and Current Goal` | Defines scope, current objective, and real acceptance signal, preventing a local task from expanding into an unintended rewrite. |
-| S3 | `Verified State` | Captures confirmed facts, working paths, relevant branch/version/environment, and method so resumption uses evidence rather than session memory. |
-| S4 | `Decisions` | Preserves the decision, rationale, rejected alternatives, and compatibility boundary, reducing repeated debate and accidental architectural reversal. |
-| S5 | `Next Safe Action` | States the next step, precondition, and verification so handoff advances directly without replaying side-effecting operations blindly. |
-| S6 | `Open Risks and Unknowns` | Makes assumptions, impact, and resolution path explicit instead of hiding uncertainty under “done.” |
-| S7 | `Durable History` | Links existing worklogs, changelogs, or decisions and moves completed detail out of living state, keeping the restart entry concise. |
+## What this workflow deliberately does not require
 
-## Effect on Development Pace
+- No separate global-state file; current state belongs in the relevant active spec or plan.
+- No transfer document for every session.
+- No worklog for every small edit.
+- No session transcripts, command dumps, or private host state in the repository.
+- No mandatory `archive/`, `backlog/`, `reviews/`, or `runbook/` directories.
+- No deletion of unreviewed user documents in the name of cleanliness.
 
-Continuous documentation is not a report after every save. Useful triggers are an architecture or compatibility decision, changed real acceptance result, important failure boundary, meaningful phase completion, or approaching context compaction or transfer. A low-risk small edit only needs assurance that existing docs did not become false.
-
-It deploys independently from host-global AGENTS. When paired, global rules govern general behavior and workspace rules provide project knowledge. Essential project rules stay in the repository because collaborators cannot be assumed to share one global file.
-
-See [Host-Global AGENTS Rule Reference](global-agents.md) for the host-side rules.
+That is the entire workflow: **current work lives in `active/`, long-lived design lives in `design/`, and actual results and experience live in `worklog/`.**

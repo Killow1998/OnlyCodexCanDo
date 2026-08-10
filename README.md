@@ -10,14 +10,14 @@ This repository publishes reusable skill source files, cross-project workflow pa
 
 The cross-project operating model is documented in [Personal Agent Workflow](docs/agent-workflow.md). The Chinese source is [个人 Agent 工作流](docs/agent-workflow.zh-CN.md).
 
-It covers independent judgment, instruction layering, compatibility decisions, optional subagents and RTK, risk-proportional three-angle verification, and a clean project-document lifecycle. The reusable cross-platform core is [templates/AGENTS.global.md](templates/AGENTS.global.md). Platform rules are separate overlays so irrelevant instructions do not occupy every host's context.
+It covers independent judgment, instruction layering, compatibility decisions, optional subagents and RTK, risk-proportional three-angle verification, and the `active/design/worklog` documentation flow. The reusable cross-platform core is [templates/AGENTS.global.md](templates/AGENTS.global.md). Platform rules are separate overlays so irrelevant instructions do not occupy every host's context.
 
 There are two independent deployment paths:
 
 | Path | Scope | Source |
 | --- | --- | --- |
 | Host-global behavior | One agent host, across its workspaces | [Rule-by-rule explanation](docs/global-agents.md), [global template](templates/AGENTS.global.md), and an applicable platform overlay |
-| Workspace continuity | One repository, across agents and hosts | [Rule-by-rule explanation](docs/workspace-continuous-documentation.md), [workspace templates](templates/workspace/), and that repository's existing `AGENTS.md` and `docs/` |
+| Workspace continuity | One repository, across agents and hosts | [Three-directory workflow](docs/workspace-continuous-documentation.md), [workspace templates](templates/workspace/), and that repository's existing `AGENTS.md` and `docs/` |
 
 Either path can be used alone. Using both is recommended: the host layer standardizes how the agent works, while the workspace layer preserves what the project knows. This is a recommended pairing, not a technical binding; deploy and review each diff independently, and do not duplicate the same rules in both layers.
 
@@ -44,17 +44,17 @@ Run this prompt from the target workspace. It does not modify the host's global 
 ```text
 Configure a continuous project-documentation workflow in this workspace using https://github.com/Killow1998/OnlyCodexCanDo.git.
 
-1. Read docs/agent-workflow.md, templates/workspace/AGENTS.docs-workflow.md, and templates/workspace/project-state.md from that public repository.
+1. Read docs/workspace-continuous-documentation.md, templates/workspace/AGENTS.docs-workflow.md, and templates/workspace/worklog-template.md from that public repository.
 2. Inspect this workspace's branch, working tree, AGENTS.md or equivalent agent instructions, README, and existing docs before proposing changes. Preserve unrelated work and reuse equivalent documents instead of creating duplicates.
-3. Show me a mapping from the existing documentation to the proposed canonical files. If no equivalent project-state document exists, propose docs/project-state.md from the template. Merge only the needed routing rules into the nearest applicable project AGENTS.md.
-4. Keep stable rules in AGENTS.md; keep verified project state, decisions, acceptance evidence, next safe action, and open risks in canonical docs. Reuse the project's existing worklog or changelog for completed history.
-5. Do not create permanent per-session handoff files. If a temporary handoff is genuinely needed, define how its unique information will be absorbed and how the task-created file will be closed or removed.
-6. Show the workspace-only diff before writing. Apply it only after I confirm, then verify all referenced paths, confirm that no duplicate documentation system was created, and leave the workspace clean. Preserve a recoverable copy of any existing file that must be structurally rewritten.
+3. Show how existing documents map to three roles: current specs/plans -> docs/active/, stable algorithm and technical design -> docs/design/, and completed-stage records -> docs/worklog/. Reuse equivalent paths instead of copying content merely to match directory names.
+4. When a role is missing, create only the necessary active, design, or worklog directory and place the template at docs/worklog/worklog-template.md. Do not add a separate global-state file or a transfer document for every session.
+5. Merge only the required read, update, and closeout rules for the three directories into the nearest applicable project AGENTS.md. Do not require a plan or worklog for every small edit.
+6. Show the workspace-only diff before writing. Apply it only after I confirm, then verify referenced paths, the template location, and AGENTS routing, and confirm there is no duplicate documentation system or task-created scratch left behind.
 
 Do not modify the host's global AGENTS.md, other workspaces, remote hosts, or install any Skill unless I separately authorize it.
 ```
 
-Recommended combined deployment: run the host-global prompt once on each host, then run the workspace prompt only inside repositories that need durable continuity. Keep the two approvals and diffs separate.
+Recommended combined deployment: run the host-global prompt once on each host, then run the workspace prompt only inside repositories that need continuity across sessions. Keep the two approvals and diffs separate.
 
 ## Skills
 
