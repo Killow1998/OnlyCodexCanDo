@@ -78,6 +78,7 @@ Verification effort scales with impact and failure cost. A low-risk local edit m
 | Default to one agent; subagents require user approval, real independence, and minimal context. | Prevents history and image duplication from multiplying context and disk use; coordination cost is paid only for clear parallel benefit. |
 | Use `rtk` only when filtering preserves evidence; rerun natively for full output. | Saves tokens and noise without sacrificing diagnostics, error detail, or acceptance evidence. |
 | Keep changes focused and simple; avoid unrelated refactors, speculative abstractions, unused configuration, and low-signal tests. | Diffs remain reviewable and reversible, and one task does not silently redesign the codebase. |
+| For non-obvious problems, locate the broken responsibility, constraint, invariant, or data flow before choosing a fix; restore the correct model with the smallest precise change. | Root-cause analysis happens before patching, while “smallest precise change” prevents the diagnosis from expanding into an unrelated refactor. |
 | Prefer maintained dependencies when they reduce total complexity, after checking project patterns and authoritative docs. | Reduces reinvention while preventing packages added without investigating existing capability. |
 
 ## Compatibility
@@ -106,7 +107,7 @@ Verification effort scales with impact and failure cost. A low-risk local edit m
 | When applicable, verify expected behavior, a boundary or regression, and independent corroborating evidence. | Avoids testing only the happy path or declaring real functionality successful from diff inspection alone. |
 | Scale verification to risk; one fast command may cover several angles for a local low-risk edit. | Preserves agile speed without three suites or full CI after every variable change. |
 | Expand verification for core flows, shared modules, data, permissions, security, infrastructure, and UI, preferring real acceptance surfaces. | High-impact changes receive integration and user-side evidence rather than success by proxy metric. |
-| Explain unavailable angles; after three meaningful failed verification attempts, stop patch stacking and review architecture. | Unverified work stays visible, and repeated failure triggers root-cause and boundary analysis instead of a fourth guess. |
+| Explain unavailable angles; if three meaningful fix-and-verification attempts fail on the same issue, stop changing code and review architecture. | Unverified work stays visible, and repeated failure becomes a circuit breaker for root-cause and boundary analysis instead of a fourth guess. |
 
 ## Optional Windows Rules
 

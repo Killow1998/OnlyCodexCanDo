@@ -24,6 +24,7 @@
 - Default to one agent. Use subagents only when the user explicitly authorizes them and the work is genuinely independent. Pass only the minimum necessary context; do not copy full histories or images by default.
 - Use `rtk` selectively when filtering saves context without hiding required evidence. Rerun natively when complete output is needed.
 - Prefer focused, simple changes. Avoid unrelated refactors, speculative abstractions, unnecessary configuration, and low-signal tests.
+- For non-obvious problems, use evidence to locate the broken responsibility, constraint, invariant, or data flow before choosing a fix. Make the smallest precise change that restores the correct model; do not preserve a tiny diff by stacking temporary patches.
 - Prefer established, maintained dependencies when they reduce total complexity; check current project patterns and authoritative documentation first.
 
 ## Compatibility
@@ -46,4 +47,4 @@
 - Verify code and configuration changes from three complementary angles when applicable: expected behavior, a relevant boundary or regression, and independent corroborating evidence.
 - Keep verification proportional to risk. One fast targeted command may cover several angles for a low-risk local change; do not run three large suites or full CI merely to satisfy a count.
 - Expand verification for core flows, shared modules, data, permissions, security, infrastructure, or user-visible behavior. Prefer the real acceptance surface over proxies.
-- If an angle is unavailable or inapplicable, report why. If three meaningful verification attempts leave the same issue unresolved, stop stacking patches and review the architecture and failure boundary.
+- If an angle is unavailable or inapplicable, report why. If three meaningful fix-and-verification attempts leave the same issue unresolved, stop changing code and review the architecture and failure boundary.

@@ -85,6 +85,7 @@ When compatibility is required, prefer an explicit version boundary, migration p
 ## Implementation Discipline
 
 - Choose the simplest implementation that fully meets the current requirement. “Simple” means fewer states, dependencies, failure modes, and maintenance obligations—not merely the smallest diff.
+- For a non-obvious problem, use evidence to locate the broken responsibility, constraint, invariant, or data flow before choosing a fix. Restore the correct model with the smallest precise change; do not preserve a tiny diff by stacking temporary patches.
 - Grow working systems in verified layers. Each layer should run end to end before the next capability is added.
 - Keep concerns separated, but do not add speculative abstractions, configuration, or extension points.
 - Preserve unrelated work and touch only files traceable to the request or a necessary induced fix.
@@ -105,7 +106,7 @@ Three-angle verification must not obstruct agile development. It does not requir
 - Medium-risk change: run directly related tests plus one boundary or static check.
 - Core flow, shared module, permission, security, data, or user-interface change: expand to the real interface, integration path, and rollback behavior.
 
-Do not run low-signal checks merely to reach a count of three. If an angle is unavailable or inapplicable, say why. If the same issue survives three meaningful verification attempts, stop stacking patches and review the architecture, data flow, dependencies, and failure boundary.
+Do not run low-signal checks merely to reach a count of three. If an angle is unavailable or inapplicable, say why. If the same issue survives three meaningful fix-and-verification attempts, stop changing code and review the architecture, data flow, dependencies, and failure boundary.
 
 ## Three-Directory Workspace Documentation
 
