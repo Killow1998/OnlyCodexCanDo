@@ -1,15 +1,15 @@
-# Personal Agent Workflow
+# Composable Agent Workflow
 
 English | [中文](agent-workflow.zh-CN.md)
 
-This document defines public, cross-project defaults for coding agents. It is a decision framework, not a demand for hidden chain-of-thought or a ritual delay before every answer. The agent should judge before acting, then report conclusions, evidence, and unverified boundaries concisely.
+This document defines a public, composable workflow for coding agents. It separates a small broadly applicable core from user-selected host and workspace modules. It is a decision framework, not a demand for hidden chain-of-thought or a ritual delay before every answer.
 
 ## Outcomes
 
 - Preserve the user's real goal, authorization, and acceptance surface.
 - Produce the simplest complete solution with evidence, not the fastest plausible reply.
-- Keep projects resumable: current work in `active/`, long-lived design in `design/`, and completed records in `worklog/`.
-- Use tools, Skills, subagents, and compatibility layers only when their benefit exceeds their context, maintenance, and failure cost.
+- Keep the shared core small enough to remain useful across languages, hosts, tools, and development domains.
+- Add language, tool, host, experiment, documentation, or domain behavior only when the user chooses the relevant module after understanding its effect and cost.
 
 ## Reasoning Preflight
 
@@ -30,7 +30,7 @@ Ask the user only when an unresolved answer materially changes architecture, dat
 
 Use each layer for one kind of information:
 
-- Global `~/.codex/AGENTS.md`: stable personal defaults such as language, reporting style, risk tolerance, and tool preferences.
+- Global `~/.codex/AGENTS.md`: the minimal core plus only the stable language, reporting, tool, platform, and host modules selected for that machine.
 - Repository or nested `AGENTS.md`: durable team and codebase rules, commands, boundaries, and paths to `active/`, `design/`, and `worklog/`.
 - Project `docs/`: current specs and plans in `active/`, stable algorithm and technical design in `design/`, and completed-stage records in `worklog/`.
 - Skills: repeatable procedures that benefit from richer instructions, scripts, references, assets, or checks.
@@ -42,33 +42,40 @@ Keep `AGENTS.md` small. Put a rule there when it is stable and repeatedly applic
 
 | Deployment | Owns | Must not own |
 | --- | --- | --- |
-| Host-global `AGENTS.md` | Stable personal behavior across workspaces on one host | Project state, project paths, session history |
-| Workspace documentation workflow | Current plans, long-lived design, and completed records in one repository | Personal communication defaults, host-specific shell rules |
+| Host-global `AGENTS.md` | Minimal shared behavior and explicitly selected host preferences | Project state, project paths, session history, domain rules |
+| Workspace modules | Selected project workflows such as continuous docs, experiment records, or robotics evidence | Personal communication defaults and host-specific shell or tool rules |
 
 Each path must remain useful on its own and must have its own preview, approval, update, and removal process. Using both is recommended because they solve complementary problems. Do not implement the recommendation by copying rules between layers: global instructions govern behavior; project instructions tell agents where to find current plans, design, and work records.
 
-For the meaning and development impact of host rules, see [Host-Global AGENTS Rule Reference](global-agents.md). For the practical three-directory project flow, see [Workspace Continuous Documentation Workflow](workspace-continuous-documentation.md).
+For the meaning, cost, and selection boundary of host rules, see [Host-Global AGENTS Rule Reference](global-agents.md). For the optional three-directory project flow, see [Workspace Continuous Documentation Workflow](workspace-continuous-documentation.md).
 
-### Lazy-load platform rules
+### Select modules instead of inheriting them
 
-The cross-platform core does not carry Windows, Linux, or macOS details. When installing or updating global `AGENTS.md`, the agent verifies its actual runtime first and then reads the applicable `templates/platform/` overlay.
+The cross-platform core does not carry personal language, worktree, subagent, RTK, time-zone, operating-system, resource, or domain policy. During installation, the agent inspects the host and existing rules, filters out irrelevant modules, and explains the remaining choices before the user selects them.
 
-- Windows native: load the Windows shell overlay.
-- Linux and macOS: do not load the Windows overlay.
-- WSL acting as a Linux environment: treat it as Linux; read Windows rules temporarily only when the task explicitly controls the Windows host.
+- Runtime detection establishes relevance, not approval. For example, Windows native makes `templates/platform/windows-shell.md` a sensible recommendation, but the module is merged only after the user confirms the diff.
+- Do not ask the user about clearly irrelevant modules. A robotics module does not belong in a general web workspace merely because the host also contains robotics repositories.
+- Do not infer one option from another. Selecting Chinese does not select RTK; selecting continuous documentation does not select experiment or robotics rules.
+- A selected module must appear exactly once, and parameterized modules such as time zone must not retain unresolved placeholders.
 
-Do not copy every platform overlay to every host. Machine paths, version snapshots, and host names do not belong in shared templates.
+Machine paths, version snapshots, credentials, session state, and host inventories do not belong in public modules.
 
-## Execution Defaults
+## Core and Optional Defaults
 
-- Use Chinese for conversation and generated prose by default. Preserve the existing language of a project document. Keep code, APIs, errors, commands, product names, and proper nouns in English.
-- Be concise, direct, and candid. Challenge weak assumptions without turning every task into an interview.
-- Finish authorized work end to end and verify the actual user-facing result before claiming completion.
-- Prefer the current checkout. Do not create or use Git worktrees unless the user explicitly asks for them.
-- Default to one agent. Use subagents only with explicit user authorization and for genuinely independent work. Pass the minimum necessary context; do not duplicate full histories or images by default.
-- Use `rtk` selectively when its filtering saves context without hiding required evidence. Native output wins whenever filtering would reduce diagnostic confidence.
-- Use visualization only when relationships, state changes, layout, or comparisons become materially clearer than concise prose.
-- Prefer established, maintained dependencies when they reduce total complexity. Check the current project and authoritative documentation before adding or reimplementing one.
+The minimal core keeps only behavior that remains useful across most development settings: independent judgment, authorization and secret boundaries, focused implementation, evidence-driven debugging, compatibility decisions, proportional verification, and candid reporting.
+
+The following are explicit choices rather than universal defaults:
+
+- conversation language and treatment of English technical identifiers;
+- single-agent operation and subagent context limits;
+- staying in one checkout instead of using Git worktrees;
+- optional `rtk` filtering;
+- a recorded time zone;
+- detailed Git repository or persistent-data safeguards;
+- platform shell behavior and host resource limits; and
+- continuous documentation, experiment discipline, and robotics validation inside a workspace.
+
+The option catalog is in [templates/optional/](../templates/optional/), platform-specific choices are in [templates/platform/](../templates/platform/), and project choices are in [templates/workspace/](../templates/workspace/). The deployment agent should recommend a small relevant set, explain behavior and tradeoffs in plain language, and obtain approval through the proposed diff.
 
 ## Compatibility Is a Decision
 
@@ -108,9 +115,9 @@ Three-angle verification must not obstruct agile development. It does not requir
 
 Do not run low-signal checks merely to reach a count of three. If an angle is unavailable or inapplicable, say why. If the same issue survives three meaningful fix-and-verification attempts, stop changing code and review the architecture, data flow, dependencies, and failure boundary.
 
-## Three-Directory Workspace Documentation
+## Optional Three-Directory Workspace Documentation
 
-When a project needs continuity across sessions, maintain only three kinds of documents:
+When a workspace owner selects continuous documentation because a project needs continuity across sessions, maintain only three kinds of documents:
 
 ```mermaid
 flowchart LR
@@ -142,4 +149,4 @@ A meta-skill or Skill framework may help with authoring and evaluation, but its 
 
 ## Updating This Workflow
 
-Change stable rules after repeated feedback, a corrected assumption, a recurring failure, or a verified tool/platform change. Keep one-off preferences and machine state out of the public guide. Update the English and Chinese versions together when their meaning changes.
+Change stable rules after repeated feedback, a corrected assumption, a recurring failure, or a verified tool/platform change. Put broadly applicable behavior in the core; put user, tool, host, platform, and domain choices in named modules. Keep one-off preferences and machine state out of the public guide. Update the English and Chinese versions together when their meaning changes.

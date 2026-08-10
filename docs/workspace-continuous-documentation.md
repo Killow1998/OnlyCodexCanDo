@@ -2,7 +2,7 @@
 
 English | [中文](workspace-continuous-documentation.zh-CN.md)
 
-This workflow solves one problem: after a person or agent leaves a workspace for a while, they should still be able to see what is being built now, why the system is designed that way, and what was actually completed.
+This optional workflow solves one problem: after a person or agent leaves a workspace for a while, they should still be able to see what is being built now, why the system is designed that way, and what was actually completed. A workspace owner chooses it explicitly; host-global setup does not install it automatically.
 
 It is not a general knowledge-management system. The minimum structure has only three directories:
 
@@ -103,6 +103,18 @@ Do not overwrite existing documentation. Inspect the project first, then make th
 
 If existing paths already serve these roles, keep them and route to them from the project `AGENTS.md`. Do not duplicate a documentation system merely to match directory names.
 
+## Optional workspace modules
+
+Continuous documentation is one workspace module, not a prerequisite for every other module. Deployment should inspect the project, explain only relevant choices, and let the workspace owner select each one independently:
+
+| Module | What it changes | Cost or boundary |
+| --- | --- | --- |
+| [Continuous documentation rules](../templates/workspace/AGENTS.docs-workflow.md) and [worklog template](../templates/workspace/worklog-template.md) | Adds stable routing for `active/`, `design/`, and `worklog/`. | Requires keeping meaningful plans, design changes, and completed-stage records current; small edits remain exempt. |
+| [Experiment workflow](../templates/workspace/experiments.md) | Records the objective, exact configuration, acceptance or stopping conditions, result, and lessons for real experiments; prevents retuning from noisy intermediate signals alone. | Adds pre-run and post-run recording. It can reuse existing experiment paths and does not require the three-directory workflow. |
+| [Robotics validation](../templates/workspace/robotics-validation.md) | Separates algorithm, smoke-test, simulation, and live-hardware evidence and keeps frames, state sources, responsibilities, and safety boundaries explicit. | Relevant only when those evidence levels and system boundaries apply. It does not turn simulation into hardware proof and does not require experiment records. |
+
+Selecting one module does not select another. A robotics repository may choose robotics validation without continuous documentation; a machine-learning repository may choose experiment records without robotics rules; a long-lived application may choose only the three-directory workflow. Repository names and technology detection support a recommendation but never replace user approval.
+
 ## What this workflow deliberately does not require
 
 - No separate global-state file; current state belongs in the relevant active spec or plan.
@@ -112,4 +124,4 @@ If existing paths already serve these roles, keep them and route to them from th
 - No mandatory `archive/`, `backlog/`, `reviews/`, or `runbook/` directories.
 - No deletion of unreviewed user documents in the name of cleanliness.
 
-That is the entire workflow: **current work lives in `active/`, long-lived design lives in `design/`, and actual results and experience live in `worklog/`.**
+That is the entire continuous-documentation module: **current work lives in `active/`, long-lived design lives in `design/`, and actual results and experience live in `worklog/`.** Experiment and robotics modules remain separately selected additions.

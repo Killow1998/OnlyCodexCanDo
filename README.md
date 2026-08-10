@@ -8,16 +8,16 @@ This repository publishes reusable skill source files, cross-project workflow pa
 
 ## Agent Workflow
 
-The cross-project operating model is documented in [Personal Agent Workflow](docs/agent-workflow.md). The Chinese source is [个人 Agent 工作流](docs/agent-workflow.zh-CN.md).
+The cross-project operating model is documented in [Composable Agent Workflow](docs/agent-workflow.md). The Chinese source is [可组合 Agent 工作流](docs/agent-workflow.zh-CN.md).
 
-It covers independent judgment, instruction layering, compatibility decisions, optional subagents and RTK, risk-proportional three-angle verification, and the `active/design/worklog` documentation flow. The reusable cross-platform core is [templates/AGENTS.global.md](templates/AGENTS.global.md). Platform rules are separate overlays so irrelevant instructions do not occupy every host's context.
+It separates a small cross-platform core from user-selected language, tool, host, platform, and workspace modules. The reusable core is [templates/AGENTS.global.md](templates/AGENTS.global.md); optional host modules live in [templates/optional/](templates/optional/), platform modules in [templates/platform/](templates/platform/), and independently selectable workspace workflows in [templates/workspace/](templates/workspace/). This keeps unrelated preferences and domain rules out of every agent's context.
 
 There are two independent deployment paths:
 
 | Path | Scope | Source |
 | --- | --- | --- |
-| Host-global behavior | One agent host, across its workspaces | [Rule-by-rule explanation](docs/global-agents.md), [global template](templates/AGENTS.global.md), and an applicable platform overlay |
-| Workspace continuity | One repository, across agents and hosts | [Three-directory workflow](docs/workspace-continuous-documentation.md), [workspace templates](templates/workspace/), and that repository's existing `AGENTS.md` and `docs/` |
+| Host-global behavior | One agent host, across its workspaces | [Core and option explanations](docs/global-agents.md), [minimal core](templates/AGENTS.global.md), and user-selected optional or platform modules |
+| Workspace workflows | One repository, across agents and hosts | [Three-directory workflow](docs/workspace-continuous-documentation.md), independently selected [workspace modules](templates/workspace/), and that repository's existing `AGENTS.md` and `docs/` |
 
 Either path can be used alone. Using both is recommended: the host layer standardizes how the agent works, while the workspace layer preserves what the project knows. This is a recommended pairing, not a technical binding; deploy and review each diff independently, and do not duplicate the same rules in both layers.
 
@@ -28,33 +28,34 @@ Give the following prompt to the Codex agent running on that PC:
 ```text
 Configure this PC's global Codex AGENTS.md from the public repository https://github.com/Killow1998/OnlyCodexCanDo.git.
 
-1. Read templates/AGENTS.global.md as the cross-platform core.
-2. Detect the agent's actual runtime environment before choosing an overlay. If it is Windows native, also read and merge templates/platform/windows-shell.md. If it is Linux, macOS, or WSL acting as a Linux environment, do not load or copy the Windows overlay.
-3. Inspect the existing global AGENTS.md first. Preserve non-conflicting local rules, identify conflicts, and show me the proposed diff before writing. Do not overwrite the whole file blindly.
-4. Keep machine-specific paths, host names, credentials, session data, and project-only rules out of the shared core.
-5. Apply the change only after I confirm the diff. Before writing, create a recoverable local backup of the existing file. Then verify that the resulting file contains the cross-platform core exactly once and only the applicable platform overlay.
+1. Read templates/AGENTS.global.md as the only automatically recommended cross-platform core. Also read docs/global-agents.md to understand the available choices.
+2. Inspect the actual runtime environment and the existing global AGENTS.md before proposing anything. Preserve non-conflicting local rules and identify conflicts; do not overwrite the whole file blindly.
+3. Consider only modules that could matter on this host. For each relevant item under templates/optional/ or templates/platform/, explain in plain language what behavior it adds, its cost or tradeoff, and whether you recommend it. Ask me to select modules; do not silently add Chinese, single-agent mode, no-worktree mode, RTK, a time zone, repository/data policy, resource limits, or a platform module. Do not ask about clearly irrelevant modules.
+4. If a time-zone module is selected, ask for the IANA time zone and replace its placeholder. If RTK or a resource-limit module is selected, verify that the required tool or runtime actually exists. Detecting Windows makes windows-shell.md relevant, not automatically approved.
+5. Keep project workflows and domain rules out of the host-global file. Workspace documentation, experiments, and robotics validation are selected separately inside each workspace.
+6. Show the exact merged diff and selected-module list before writing. Apply only after I confirm; create a recoverable backup first, then verify the core and every selected module appear exactly once, no unselected module or unresolved placeholder remains, and preserved local rules still exist.
 
 Do not modify project repositories, remote hosts, or install any Skill unless I separately authorize it.
 ```
 
-### Configure continuous documentation in a workspace
+### Configure optional agent workflows in a workspace
 
-Run this prompt from the target workspace. It does not modify the host's global `AGENTS.md`:
+Run this prompt from the target workspace. It can configure continuous documentation, experiment records, robotics validation, or any relevant subset, and it does not modify the host's global `AGENTS.md`:
 
 ```text
-Configure a continuous project-documentation workflow in this workspace using https://github.com/Killow1998/OnlyCodexCanDo.git.
+Configure selected agent workflows in this workspace using https://github.com/Killow1998/OnlyCodexCanDo.git.
 
-1. Read docs/workspace-continuous-documentation.md, templates/workspace/AGENTS.docs-workflow.md, and templates/workspace/worklog-template.md from that public repository.
-2. Inspect this workspace's branch, working tree, AGENTS.md or equivalent agent instructions, README, and existing docs before proposing changes. Preserve unrelated work and reuse equivalent documents instead of creating duplicates.
-3. Show how existing documents map to three roles: current specs/plans -> docs/active/, stable algorithm and technical design -> docs/design/, and completed-stage records -> docs/worklog/. Reuse equivalent paths instead of copying content merely to match directory names.
-4. When a role is missing, create only the necessary active, design, or worklog directory and place the template at docs/worklog/worklog-template.md. Do not add a separate global-state file or a transfer document for every session.
-5. Merge only the required read, update, and closeout rules for the three directories into the nearest applicable project AGENTS.md. Do not require a plan or worklog for every small edit.
-6. Show the workspace-only diff before writing. Apply it only after I confirm, then verify referenced paths, the template location, and AGENTS routing, and confirm there is no duplicate documentation system or task-created scratch left behind.
+1. Read docs/workspace-continuous-documentation.md and inspect this workspace's branch, working tree, AGENTS.md or equivalent instructions, README, and existing docs before proposing changes. Preserve unrelated work and reuse equivalent documents instead of creating duplicates.
+2. Treat each workspace module as an independent choice. Explain the relevant benefit and maintenance cost of continuous documentation (templates/workspace/AGENTS.docs-workflow.md plus the worklog template), explicit experiment records (templates/workspace/experiments.md), and robotics evidence levels (templates/workspace/robotics-validation.md). Recommend only modules supported by the actual project, but do not infer approval from a repository name or technology alone.
+3. Ask me which relevant modules to add. Do not make continuous documentation, experiment discipline, or robotics validation imply one another.
+4. If continuous documentation is selected, show how existing documents map to three roles: current specs/plans -> docs/active/, stable algorithm and technical design -> docs/design/, and completed-stage records -> docs/worklog/. Reuse equivalent paths instead of copying content merely to match directory names.
+5. Create only missing structures required by selected modules. For continuous documentation, place the template at docs/worklog/worklog-template.md and merge only stable routing rules into the nearest applicable project AGENTS.md; do not require a plan or worklog for every small edit.
+6. Show the workspace-only diff and selected-module list before writing. Apply only after I confirm, then verify referenced paths, rules, and templates, and confirm there is no duplicate workflow or task-created scratch left behind.
 
 Do not modify the host's global AGENTS.md, other workspaces, remote hosts, or install any Skill unless I separately authorize it.
 ```
 
-Recommended combined deployment: run the host-global prompt once on each host, then run the workspace prompt only inside repositories that need continuity across sessions. Keep the two approvals and diffs separate.
+Recommended combined deployment: select a minimal host-global profile once on each host, then select workspace modules only inside repositories that benefit from them. Keep the approvals and diffs separate; the recommendation does not make either deployment mandatory.
 
 ## Skills
 

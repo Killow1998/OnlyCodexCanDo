@@ -2,7 +2,7 @@
 
 [English](workspace-continuous-documentation.md) | 中文
 
-这套工作流只解决一个问题：让人或 Agent 中断一段时间后，回到 workspace 仍然知道当前在做什么、设计为什么这样做、之前实际完成了什么。
+这是一套可选工作流，只解决一个问题：让人或 Agent 中断一段时间后，回到 workspace 仍然知道当前在做什么、设计为什么这样做、之前实际完成了什么。Workspace 所有者必须明确选择它；主机全局部署不会自动安装。
 
 它不是一套复杂的知识管理系统。最小结构只有三个目录：
 
@@ -103,6 +103,18 @@ docs/
 
 如果现有目录已经承担同样职责，可以继续沿用原路径，只需让项目 `AGENTS.md` 清楚指向它们。不要为了目录名一致而复制一套平行文档。
 
+## 可选 Workspace 模块
+
+持续文档只是一个 Workspace 模块，不是其他模块的前置条件。部署时应先检查项目，只解释相关选项，再让 Workspace 所有者逐项独立选择：
+
+| 模块 | 增加的行为 | 成本或边界 |
+| --- | --- | --- |
+| [持续文档规则](../templates/workspace/AGENTS.docs-workflow.md)与 [worklog 模板](../templates/workspace/worklog-template.zh-CN.md) | 增加 `active/`、`design/` 和 `worklog/` 的稳定入口。 | 需要维护有意义的计划、设计变化和完成阶段记录；小改动仍不强制写文档。 |
+| [实验工作流](../templates/workspace/experiments.md) | 为真实实验记录目标、准确配置、验收或停止条件、结果和经验，并阻止只凭噪声中间信号盲目调参。 | 增加运行前和运行后的记录；可以复用已有实验目录，不依赖三目录流程。 |
+| [Robotics 验证](../templates/workspace/robotics-validation.md) | 区分算法、smoke test、仿真和真机证据，并明确坐标系、状态来源、职责和安全边界。 | 只在这些证据层级和系统边界确实适用时加入；仿真不能替代真机证据，也不强制采用实验记录。 |
+
+选择一个模块不会自动选择另一个。Robotics 仓库可以只选 Robotics 验证，不选持续文档；机器学习仓库可以只选实验记录；长期维护的普通应用也可以只选三目录工作流。仓库名和技术检测只能支持推荐，不能代替用户批准。
+
 ## 这套工作流刻意不做什么
 
 - 不另建全局状态文件；当前状态直接写在对应的 active spec/plan 中。
@@ -112,4 +124,4 @@ docs/
 - 不强制项目采用 `archive/`、`backlog/`、`reviews/` 或 `runbook/`。
 - 不允许以“保持整洁”为理由删除未经确认的用户文档。
 
-这就是完整流程：**当前工作看 `active/`，长期设计看 `design/`，实际结果和经验看 `worklog/`。**
+这就是完整的持续文档模块：**当前工作看 `active/`，长期设计看 `design/`，实际结果和经验看 `worklog/`。** 实验和 Robotics 模块仍然是分别选择的附加项。

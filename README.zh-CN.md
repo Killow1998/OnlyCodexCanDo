@@ -8,16 +8,16 @@
 
 ## Agent 工作流
 
-跨项目工作方式见[个人 Agent 工作流](docs/agent-workflow.zh-CN.md)，English version 见 [Personal Agent Workflow](docs/agent-workflow.md)。
+跨项目工作方式见[可组合 Agent 工作流](docs/agent-workflow.zh-CN.md)，English version 见 [Composable Agent Workflow](docs/agent-workflow.md)。
 
-其中包括独立判断、指令分层、兼容性决策、可选的 subagent 与 RTK、风险成比例的三角验证，以及 `active/design/worklog` 三目录文档流。可复用的跨平台核心位于 [templates/AGENTS.global.md](templates/AGENTS.global.md)。平台规则单独作为懒加载片段，避免无关内容占用每台主机的上下文。
+这里把小而通用的跨平台核心，与语言、工具、主机、平台和 Workspace 选项分开。可复用核心位于 [templates/AGENTS.global.md](templates/AGENTS.global.md)，可选主机模块位于 [templates/optional/](templates/optional/)，平台模块位于 [templates/platform/](templates/platform/)，互相独立的 Workspace 工作流位于 [templates/workspace/](templates/workspace/)。这样，无关偏好和领域规则不会占用每个 Agent 的上下文。
 
 这里提供两条互相独立的部署路径：
 
 | 路径 | 作用范围 | 来源 |
 | --- | --- | --- |
-| 主机级全局行为 | 一台 Agent 主机上的所有 workspace | [逐条规则解读](docs/global-agents.zh-CN.md)、[全局模板](templates/AGENTS.global.md)和适用的平台 overlay |
-| Workspace 持续文档 | 一个仓库，跨 Agent、跨主机生效 | [三目录工作流说明](docs/workspace-continuous-documentation.zh-CN.md)、[workspace 模板](templates/workspace/)和该仓库已有的 `AGENTS.md` 与 `docs/` |
+| 主机级全局行为 | 一台 Agent 主机上的所有 workspace | [核心与选项解读](docs/global-agents.zh-CN.md)、[最小核心](templates/AGENTS.global.md)和用户选择的可选或平台模块 |
+| Workspace 工作流 | 一个仓库，跨 Agent、跨主机生效 | [三目录工作流说明](docs/workspace-continuous-documentation.zh-CN.md)、独立选择的 [Workspace 模块](templates/workspace/)和该仓库已有的 `AGENTS.md` 与 `docs/` |
 
 两条路径都可以单独使用，但推荐组合部署：主机层统一 Agent“怎么工作”，workspace 层保存项目“知道什么”。这是推荐绑定，不是技术强绑定；两份 diff 应分别审阅和批准，同一规则不要在两层重复维护。
 
@@ -28,33 +28,34 @@
 ```text
 请根据公开仓库 https://github.com/Killow1998/OnlyCodexCanDo.git 配置这台 PC 的全局 Codex AGENTS.md。
 
-1. 读取 templates/AGENTS.global.md，作为跨平台核心。
-2. 先检测 Agent 实际运行环境，再决定是否读取平台片段。如果是 Windows native，继续读取并合并 templates/platform/windows-shell.md；如果是 Linux、macOS，或者作为 Linux 环境工作的 WSL，不读取也不复制 Windows 片段。
-3. 先检查现有全局 AGENTS.md。保留不冲突的本机规则，指出冲突，并在写入前向我展示拟议 diff，不要直接覆盖整个文件。
-4. 主机专用路径、主机名、凭据、session 数据和项目专用规则不得进入共享核心。
-5. 只有我确认 diff 后才应用。写入前为现有文件创建可恢复的本机备份；应用后验证跨平台核心只出现一次，并且只包含当前平台适用的 overlay。
+1. 读取 templates/AGENTS.global.md，把它作为唯一自动推荐的跨平台核心；同时阅读 docs/global-agents.zh-CN.md，了解有哪些可选项。
+2. 提议修改前，先检查 Agent 的实际运行环境和现有全局 AGENTS.md。保留不冲突的本机规则并指出冲突，不要盲目覆盖整个文件。
+3. 只考虑当前主机可能需要的模块。对于 templates/optional/ 或 templates/platform/ 下每个相关选项，用通俗语言说明它会增加什么行为、代价或限制，以及是否推荐，再让我选择；不要擅自加入中文优先、单 Agent、禁用 worktree、RTK、时区、仓库/数据策略、资源限制或平台模块。明显不相关的模块不要拿来逐项提问。
+4. 选择时区模块时，询问 IANA 时区并替换占位符；选择 RTK 或资源限制模块时，先验证目标主机确实具备对应工具或运行环境。检测到 Windows 只代表 windows-shell.md 相关，不代表用户已经批准。
+5. 主机全局文件不加入项目工作流和领域规则。持续文档、实验记录和 Robotics 验证应在各个 Workspace 中另行选择。
+6. 写入前展示准确的合并 diff 和已选模块清单。只有我确认后才应用，并先创建可恢复备份；应用后验证公共核心和每个已选模块各出现一次，没有未选模块或未替换占位符，原有本机规则仍然存在。
 
 不要修改项目仓库、远端主机，也不要安装任何 Skill，除非我另行明确授权。
 ```
 
-### 在一个 Workspace 中配置持续文档工作流
+### 在一个 Workspace 中配置可选 Agent 工作流
 
-在目标 workspace 中运行下面的 Prompt；它不会修改主机全局 `AGENTS.md`：
+在目标 Workspace 中运行下面的 Prompt；它可以配置持续文档、实验记录、Robotics 验证或其中任意相关组合，并且不会修改主机全局 `AGENTS.md`：
 
 ```text
-请使用 https://github.com/Killow1998/OnlyCodexCanDo.git，在当前 workspace 中配置持续项目文档工作流。
+请使用 https://github.com/Killow1998/OnlyCodexCanDo.git，在当前 Workspace 中配置选定的 Agent 工作流。
 
-1. 读取该公开仓库的 docs/workspace-continuous-documentation.zh-CN.md、templates/workspace/AGENTS.docs-workflow.md 和 templates/workspace/worklog-template.zh-CN.md。
-2. 提议修改前，先检查当前 workspace 的分支、工作树、AGENTS.md 或其他 Agent 指令、README 和已有 docs。保护无关工作，优先复用等价文档，不要创建重复体系。
-3. 向我展示现有文档如何对应三个用途：当前 spec/plan -> docs/active/，稳定算法与技术设计 -> docs/design/，完成阶段记录 -> docs/worklog/。已有等价路径就沿用，不为统一目录名复制内容。
-4. 缺少相应结构时，只创建必要的 active、design、worklog 目录，并把 worklog 模板保存为 docs/worklog/worklog-template.md。不额外创建全局状态文件或每次会话的交接文件。
-5. 只把必要的三目录读取、更新和收尾规则合并到作用范围最近的项目 AGENTS.md。小改动不强制创建 plan 或 worklog。
-6. 写入前展示仅限当前 workspace 的 diff。只有我确认后才应用；应用后验证引用路径、模板位置和 AGENTS 入口，确认没有平行文档体系或任务临时文件。
+1. 读取 docs/workspace-continuous-documentation.zh-CN.md，并先检查当前 workspace 的分支、工作树、AGENTS.md 或其他 Agent 指令、README 和已有 docs。保护无关工作，优先复用等价文档，不要创建重复体系。
+2. 把每个 Workspace 模块当作独立选项。分别说明持续文档（templates/workspace/AGENTS.docs-workflow.md 与 worklog 模板）、显式实验记录（templates/workspace/experiments.md）和 Robotics 证据分层（templates/workspace/robotics-validation.md）的实际收益与维护成本。只推荐有项目证据支持的模块，但不要仅凭仓库名或技术栈推定用户已经同意。
+3. 询问我要加入哪些相关模块。持续文档、实验纪律和 Robotics 验证互不自动绑定。
+4. 如果选择持续文档，展示现有文档如何对应三个用途：当前 spec/plan -> docs/active/，稳定算法与技术设计 -> docs/design/，完成阶段记录 -> docs/worklog/。已有等价路径就沿用，不为统一目录名复制内容。
+5. 只创建已选模块缺少的结构。持续文档模块把模板放到 docs/worklog/worklog-template.md，并只将稳定的文档入口规则合并进作用范围最近的项目 AGENTS.md；小改动不强制创建 plan 或 worklog。
+6. 写入前展示仅限当前 workspace 的 diff 和已选模块清单。只有我确认后才应用；应用后验证引用路径、规则和模板，确认没有平行工作流或任务临时文件。
 
 不要修改主机全局 AGENTS.md、其他 workspace、远端主机，也不要安装任何 Skill，除非我另行明确授权。
 ```
 
-推荐组合部署方式：在每台主机上执行一次主机级 Prompt，只在需要跨会话持续开发的仓库中执行 workspace Prompt。两部分始终分别批准、分别验证。
+推荐组合部署方式：每台主机只选择一次最小全局配置，再只在确有收益的仓库中选择 Workspace 模块。两部分始终分别批准、分别验证；推荐组合不代表任何一部分必须部署。
 
 ## Skills
 
