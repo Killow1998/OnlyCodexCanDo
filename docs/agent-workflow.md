@@ -8,7 +8,7 @@ This document defines public, cross-project defaults for coding agents. It is a 
 
 - Preserve the user's real goal, authorization, and acceptance surface.
 - Produce the simplest complete solution with evidence, not the fastest plausible reply.
-- Keep projects resumable without accumulating stale handoff files or private session dumps.
+- Keep projects resumable: current work in `active/`, long-lived design in `design/`, and completed records in `worklog/`.
 - Use tools, Skills, subagents, and compatibility layers only when their benefit exceeds their context, maintenance, and failure cost.
 
 ## Reasoning Preflight
@@ -31,8 +31,8 @@ Ask the user only when an unresolved answer materially changes architecture, dat
 Use each layer for one kind of information:
 
 - Global `~/.codex/AGENTS.md`: stable personal defaults such as language, reporting style, risk tolerance, and tool preferences.
-- Repository or nested `AGENTS.md`: durable team and codebase rules, commands, boundaries, and routing to canonical docs.
-- Project `docs/`: architecture, decisions, verification methods, current project state, and human-readable work records.
+- Repository or nested `AGENTS.md`: durable team and codebase rules, commands, boundaries, and paths to `active/`, `design/`, and `worklog/`.
+- Project `docs/`: current specs and plans in `active/`, stable algorithm and technical design in `design/`, and completed-stage records in `worklog/`.
 - Skills: repeatable procedures that benefit from richer instructions, scripts, references, assets, or checks.
 - Memories and session indexes: private local context. Curate or index them; do not copy raw histories into public repositories.
 
@@ -43,11 +43,11 @@ Keep `AGENTS.md` small. Put a rule there when it is stable and repeatedly applic
 | Deployment | Owns | Must not own |
 | --- | --- | --- |
 | Host-global `AGENTS.md` | Stable personal behavior across workspaces on one host | Project state, project paths, session history |
-| Workspace documentation workflow | Durable context and document lifecycle for one repository across hosts | Personal communication defaults, host-specific shell rules |
+| Workspace documentation workflow | Current plans, long-lived design, and completed records in one repository | Personal communication defaults, host-specific shell rules |
 
-Each path must remain useful on its own and must have its own preview, approval, update, and removal process. Using both is recommended because they solve complementary problems. Do not implement the recommendation by copying rules between layers: global instructions govern behavior; project instructions route agents to that workspace's canonical knowledge.
+Each path must remain useful on its own and must have its own preview, approval, update, and removal process. Using both is recommended because they solve complementary problems. Do not implement the recommendation by copying rules between layers: global instructions govern behavior; project instructions tell agents where to find current plans, design, and work records.
 
-For the meaning and development impact of every rule, see [Host-Global AGENTS Rule Reference](global-agents.md) and [Workspace Continuous Documentation Rule Reference](workspace-continuous-documentation.md).
+For the meaning and development impact of host rules, see [Host-Global AGENTS Rule Reference](global-agents.md). For the practical three-directory project flow, see [Workspace Continuous Documentation Workflow](workspace-continuous-documentation.md).
 
 ### Lazy-load platform rules
 
@@ -107,27 +107,25 @@ Three-angle verification must not obstruct agile development. It does not requir
 
 Do not run low-signal checks merely to reach a count of three. If an angle is unavailable or inapplicable, say why. If the same issue survives three meaningful verification attempts, stop stacking patches and review the architecture, data flow, dependencies, and failure boundary.
 
-## Clean Documentation Lifecycle
+## Three-Directory Workspace Documentation
 
-Use durable documents for continuity without leaving stale handoffs.
+When a project needs continuity across sessions, maintain only three kinds of documents:
 
 ```mermaid
 flowchart LR
-    A["Resume: read AGENTS and canonical docs"] --> B["Work: verify and implement"]
-    B --> C["Record durable decisions and project state"]
-    C --> D["Archive meaningful progress"]
-    D --> E["Merge unique temporary notes"]
-    E --> F["Remove task-created scratch and close stale handoffs"]
-    F --> A
+    A["active: read or update the current spec/plan"] --> B["Implement and verify"]
+    B --> C["design: update only when design changes"]
+    C --> D["worklog: record a completed stage"]
+    D --> A
 ```
 
-- `AGENTS.md` stores stable rules and routes agents to canonical documents; it does not store task status.
-- `docs/` stores durable architecture, decisions, verification methods, and a human-readable record of meaningful phases.
-- Prefer one clearly named living project-state document when a project needs restart context. Update it in place instead of creating a new handoff for every session.
-- Use dated worklogs for historical progress. Record objectives, decisions, results, evidence, and open risks—not command transcripts.
-- A handoff document is temporary unless the project explicitly defines it as canonical. After the next worker absorbs it, merge unique knowledge into canonical docs and close or remove the task-created handoff.
-- Before finishing, reconcile task-created scratch notes and temporary reports. Promote durable knowledge, remove redundant temporary artifacts, and leave the workspace clean.
-- Never delete pre-existing user documents or histories without authorization. Cleanliness is not permission to destroy evidence.
+- `docs/active/` contains current specs or plans with goals, scope, acceptance criteria, progress, and next steps.
+- `docs/design/` contains long-lived algorithm, interface, architecture, and safety design, not daily progress.
+- `docs/worklog/` uses one template to record a completed stage's background, work, results, evidence, problems, and next steps rather than a command transcript.
+- Read the relevant active document before substantial work and related design documents before changing algorithms or interfaces. Small edits do not require a plan or worklog.
+- At task completion, preserve long-lived design in `design/` and actual results in `worklog/`, then move the finished plan out of `active/`. Reuse an existing archive if present; do not create one just for this workflow.
+- Project `AGENTS.md` stores only stable rules and paths to these folders, not current progress.
+- Never delete pre-existing user documents or history without authorization; clean up only task-created scratch whose useful information has already been retained.
 
 ## Packaging Gate
 

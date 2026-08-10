@@ -94,9 +94,9 @@ Verification effort scales with impact and failure cost. A low-risk local edit m
 | ID | Meaning | Development impact |
 | --- | --- | --- |
 | G22 | Apply continuous docs only when a workspace already has or explicitly adopts them; the global template does not create docs by itself. | Host setup stays decoupled from project deployment, and small projects do not receive an automatic documentation system. |
-| G23 | In adopted workflows, project `AGENTS.md` stores stable rules and routing, not runtime status. | Agents quickly find canonical sources without treating stale progress as permanent instruction. |
-| G24 | Durable architecture, decisions, verification, state, and meaningful records use the project's existing `docs/`. | Valuable knowledge survives sessions while respecting the project's established structure. |
-| G25 | Prefer one living state document; promote temporary knowledge and remove obsolete task artifacts. | Prevents `HANDOFF_v2_final` accumulation and keeps one current resume entry point. |
+| G23 | In adopted workflows, project `AGENTS.md` stores stable rules and document paths, not current progress. | Agents can find project documents without treating stale progress as permanent instruction. |
+| G24 | Put current specs and plans in `docs/active/`, stable algorithm and interface design in `docs/design/`, and completed-stage records in `docs/worklog/`; reuse equivalent existing paths. | Current work, long-lived design, and historical results each have an obvious location without an extra abstract state system. |
+| G25 | After a meaningful stage, update active when needed, update design only when design changed, and write a worklog from the template; small edits do not require reports. | Context survives sessions without letting documentation ceremony slow agile development. |
 | G26 | Never delete pre-existing user documents, history, or evidence without authorization. | Cleanliness cannot justify destroying unknown-value material; cleanup is limited to confirmed redundant task output. |
 
 ## Risk-Proportional Verification: G27-G30

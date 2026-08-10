@@ -10,14 +10,14 @@
 
 跨项目工作方式见[个人 Agent 工作流](docs/agent-workflow.zh-CN.md)，English version 见 [Personal Agent Workflow](docs/agent-workflow.md)。
 
-其中包括独立判断、指令分层、兼容性决策、可选的 subagent 与 RTK、风险成比例的三角验证，以及保持工程整洁的文档生命周期。可复用的跨平台核心位于 [templates/AGENTS.global.md](templates/AGENTS.global.md)。平台规则单独作为懒加载片段，避免无关内容占用每台主机的上下文。
+其中包括独立判断、指令分层、兼容性决策、可选的 subagent 与 RTK、风险成比例的三角验证，以及 `active/design/worklog` 三目录文档流。可复用的跨平台核心位于 [templates/AGENTS.global.md](templates/AGENTS.global.md)。平台规则单独作为懒加载片段，避免无关内容占用每台主机的上下文。
 
 这里提供两条互相独立的部署路径：
 
 | 路径 | 作用范围 | 来源 |
 | --- | --- | --- |
 | 主机级全局行为 | 一台 Agent 主机上的所有 workspace | [逐条规则解读](docs/global-agents.zh-CN.md)、[全局模板](templates/AGENTS.global.md)和适用的平台 overlay |
-| Workspace 持续文档 | 一个仓库，跨 Agent、跨主机生效 | [逐条规则解读](docs/workspace-continuous-documentation.zh-CN.md)、[workspace 模板](templates/workspace/)和该仓库已有的 `AGENTS.md` 与 `docs/` |
+| Workspace 持续文档 | 一个仓库，跨 Agent、跨主机生效 | [三目录工作流说明](docs/workspace-continuous-documentation.zh-CN.md)、[workspace 模板](templates/workspace/)和该仓库已有的 `AGENTS.md` 与 `docs/` |
 
 两条路径都可以单独使用，但推荐组合部署：主机层统一 Agent“怎么工作”，workspace 层保存项目“知道什么”。这是推荐绑定，不是技术强绑定；两份 diff 应分别审阅和批准，同一规则不要在两层重复维护。
 
@@ -44,17 +44,17 @@
 ```text
 请使用 https://github.com/Killow1998/OnlyCodexCanDo.git，在当前 workspace 中配置持续项目文档工作流。
 
-1. 读取该公开仓库的 docs/agent-workflow.zh-CN.md、templates/workspace/AGENTS.docs-workflow.md 和 templates/workspace/project-state.md。
+1. 读取该公开仓库的 docs/workspace-continuous-documentation.zh-CN.md、templates/workspace/AGENTS.docs-workflow.md 和 templates/workspace/worklog-template.zh-CN.md。
 2. 提议修改前，先检查当前 workspace 的分支、工作树、AGENTS.md 或其他 Agent 指令、README 和已有 docs。保护无关工作，优先复用等价文档，不要创建重复体系。
-3. 向我展示“现有文档 -> 拟议规范文件”的映射。如果没有等价的项目状态文档，再根据模板提议创建 docs/project-state.md；只把必要的文档路由规则合并到作用范围最近的项目 AGENTS.md。
-4. AGENTS.md 只保存稳定规则；已验证项目状态、决策、验收证据、下一安全动作和未决风险进入规范文档；已完成历史复用项目现有的 worklog 或 changelog。
-5. 不创建永久的逐会话 handoff。确实需要临时 handoff 时，必须说明其唯一信息如何被吸收，以及任务创建的文件如何关闭或移除。
-6. 写入前展示仅限当前 workspace 的 diff。只有我确认后才应用；应用后验证所有引用路径，确认没有创建重复文档体系，并保持 workspace 整洁。现有文件确需结构性重写时，先保留可恢复副本。
+3. 向我展示现有文档如何对应三个用途：当前 spec/plan -> docs/active/，稳定算法与技术设计 -> docs/design/，完成阶段记录 -> docs/worklog/。已有等价路径就沿用，不为统一目录名复制内容。
+4. 缺少相应结构时，只创建必要的 active、design、worklog 目录，并把 worklog 模板保存为 docs/worklog/worklog-template.md。不额外创建全局状态文件或每次会话的交接文件。
+5. 只把必要的三目录读取、更新和收尾规则合并到作用范围最近的项目 AGENTS.md。小改动不强制创建 plan 或 worklog。
+6. 写入前展示仅限当前 workspace 的 diff。只有我确认后才应用；应用后验证引用路径、模板位置和 AGENTS 入口，确认没有平行文档体系或任务临时文件。
 
 不要修改主机全局 AGENTS.md、其他 workspace、远端主机，也不要安装任何 Skill，除非我另行明确授权。
 ```
 
-推荐组合部署方式：在每台主机上执行一次主机级 Prompt，只在需要耐久上下文的仓库中执行 workspace Prompt。两部分始终分别批准、分别验证。
+推荐组合部署方式：在每台主机上执行一次主机级 Prompt，只在需要跨会话持续开发的仓库中执行 workspace Prompt。两部分始终分别批准、分别验证。
 
 ## Skills
 
