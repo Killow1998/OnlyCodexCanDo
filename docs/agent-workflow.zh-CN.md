@@ -38,6 +38,10 @@
 
 保持 `AGENTS.md` 小而稳定。规则应该因为长期、反复适用而进入其中，而不是因为它在某一次任务中很重要。Codex 官方定制说明也把 `AGENTS.md`、memories、Skills、MCP 和 subagents 视为互补层，而不是互相替代：<https://learn.chatgpt.com/docs/customization/overview>。
 
+### 把 session 所在位置当作线索
+
+维护私有 session 归档时，不要只凭 `cwd` 判定项目归属。应同时参考相关 Git 根目录、实际修改的路径或产物、用户明确表达的目标，以及记录属于根线程、fork 还是 subagent。一次 session 可能跨越多个项目，也可能只是个人运维；subagent 复制的上下文不能证明其中提到的每个项目都真的发生了修改。原始映射应保持私有，只公开经过提炼且能跨项目复用的经验。
+
 ## 两条独立部署路径
 
 | 部署 | 负责 | 不应负责 |
@@ -131,7 +135,7 @@ flowchart LR
 - `docs/design/` 保存长期有效的算法、接口、架构和安全设计，不记录每日进度。
 - `docs/worklog/` 使用统一模板记录一个完成阶段的背景、工作内容、结果、证据、问题与下一步，不写成命令流水账。
 - 较大任务开始前读取相关 active 文档，改算法或接口前读取相关 design 文档；小改动不强制创建计划或 worklog。
-- 任务结束后，让 design 接住长期设计、worklog 接住实际结果，再把已完成计划移出 active。项目有 archive 就沿用，没有则不额外创建一套。
+- 任务结束后，让 workspace 不依赖上一段 session 也能重新开始：design 接住长期设计，worklog 接住实际结果，尚未完成的下一步继续留在 active；计划完成后再把它移出 active。项目有 archive 就沿用，没有则不额外创建一套。
 - 项目 `AGENTS.md` 只保存稳定规则和三个目录的入口，不保存当前任务进度。
 - 未经授权不得删除用户原有文档或历史；只清理由当前任务创建且已确认不再需要的草稿。
 

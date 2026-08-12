@@ -80,6 +80,8 @@ In practice:
 4. **After a stage**: update completion state in the active plan and write a worklog with results, evidence, and remaining problems.
 5. **At task completion**: make sure `design/` and `worklog/` contain what must survive, then move the finished plan out of `active/`. Reuse an existing archive if the project has one; do not create an archive system just for this workflow.
 
+Treat these steps as one lightweight stage close, not as extra ceremony. A fresh person or agent should be able to tell from `active/`, `design/`, and `worklog/` what was completed, what was verified, and what happens next without reading the previous chat. Do not copy the chat into workspace documentation or create a permanent `handoff` as a fourth source of truth. Small edits remain exempt from this close-out.
+
 ## The project `AGENTS.md` only explains how to use the folders
 
 Do not copy specs, designs, or worklogs into the project `AGENTS.md`. It should contain only stable routing rules, for example:

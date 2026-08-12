@@ -38,6 +38,10 @@ Use each layer for one kind of information:
 
 Keep `AGENTS.md` small. Put a rule there when it is stable and repeatedly applicable, not merely because it mattered once. Codex's official customization guidance describes `AGENTS.md`, memories, Skills, MCP, and subagents as complementary layers rather than substitutes: <https://learn.chatgpt.com/docs/customization/overview>.
 
+### Treat session location as a hint
+
+When maintaining a private session archive, do not assign project ownership from `cwd` alone. Combine the working directory with the relevant Git root, touched paths or artifacts, the user's stated objective, and whether the record is a root thread, fork, or subagent. A session may span projects or belong to personal operations, and copied subagent context is not evidence that every referenced project was actually changed. Keep the raw mapping private and publish only curated lessons that remain useful across projects.
+
 ## Two Independent Deployment Paths
 
 | Deployment | Owns | Must not own |
@@ -131,7 +135,7 @@ flowchart LR
 - `docs/design/` contains long-lived algorithm, interface, architecture, and safety design, not daily progress.
 - `docs/worklog/` uses one template to record a completed stage's background, work, results, evidence, problems, and next steps rather than a command transcript.
 - Read the relevant active document before substantial work and related design documents before changing algorithms or interfaces. Small edits do not require a plan or worklog.
-- At task completion, preserve long-lived design in `design/` and actual results in `worklog/`, then move the finished plan out of `active/`. Reuse an existing archive if present; do not create one just for this workflow.
+- At task completion, leave the workspace restartable without the prior session: preserve long-lived design in `design/`, actual results in `worklog/`, and any unfinished next step in `active/`; when the plan is complete, move it out of `active/`. Reuse an existing archive if present; do not create one just for this workflow.
 - Project `AGENTS.md` stores only stable rules and paths to these folders, not current progress.
 - Never delete pre-existing user documents or history without authorization; clean up only task-created scratch whose useful information has already been retained.
 
