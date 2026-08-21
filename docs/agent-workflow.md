@@ -38,6 +38,8 @@ Use each layer for one kind of information:
 
 Keep `AGENTS.md` small. Put a rule there when it is stable and repeatedly applicable, not merely because it mattered once. Codex's official customization guidance describes `AGENTS.md`, memories, Skills, MCP, and subagents as complementary layers rather than substitutes: <https://learn.chatgpt.com/docs/customization/overview>.
 
+An always-loaded rule earns its instruction budget only when it is stable at that scope, hard or costly to rediscover, relevant to nearly every task there, and consequential when missed. Treat `/init` and other generated `AGENTS.md` output as candidate inventory, not a finished instruction file: remove or rehome repository maps, current file or service locations, implementation details, progress, one-off corrections, and language or domain procedures that code search, manifests, nested `AGENTS.md`, project documentation, or a Skill can disclose when needed. Audit existing rules with the same admission test instead of preserving every non-conflicting line. See the official [AGENTS.md discovery rules](https://learn.chatgpt.com/docs/agent-configuration/agents-md) and the practical [progressive-disclosure guide](https://www.aihero.dev/a-complete-guide-to-agents-md).
+
 ### Treat session location as a hint
 
 When maintaining a private session archive, do not assign project ownership from `cwd` alone. Combine the working directory with the relevant Git root, touched paths or artifacts, the user's stated objective, and whether the record is a root thread, fork, or subagent. A session may span projects or belong to personal operations, and copied subagent context is not evidence that every referenced project was actually changed. Keep the raw mapping private and publish only curated lessons that remain useful across projects.
@@ -96,6 +98,9 @@ When compatibility is required, prefer an explicit version boundary, migration p
 ## Implementation Discipline
 
 - Choose the simplest implementation that fully meets the current requirement. “Simple” means fewer states, dependencies, failure modes, and maintenance obligations—not merely the smallest diff.
+- Implement the requested behavior without adding adjacent features, future extension points, or explanatory scaffolding. When unrequested work is removed, remove its narrative residue too: names, comments, tests, commits, and pull-request summaries should describe the delivered behavior, not advertise unrelated omissions.
+- Use file length, cyclomatic complexity, nesting depth, and dependency count as review signals rather than universal gates. A project-owned limit may be enforced, but do not create a global threshold that merely pushes one responsibility into more files or wrappers.
+- Do not add hashes, frozen contracts, baselines, gates, shadow state, or bespoke validation by default. First name the concrete failure they prevent and why Git, versioning, primary keys, transactions, uniqueness, types, or ordinary targeted tests are insufficient. Preserve existing safeguards and use stricter controls at authentication, data-safety, irreversible-operation, release, and other demonstrated high-risk boundaries.
 - For a non-obvious problem, use evidence to locate the broken responsibility, constraint, invariant, or data flow before choosing a fix. Restore the correct model with the smallest precise change; do not preserve a tiny diff by stacking temporary patches.
 - Grow working systems in verified layers. Each layer should run end to end before the next capability is added.
 - Keep concerns separated, but do not add speculative abstractions, configuration, or extension points.

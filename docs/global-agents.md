@@ -41,6 +41,8 @@ A compatibility boundary identifies which consumers, versions, data, or behavior
 | Preserve the goal and finish authorized work through real-result verification. | The agent does not stop at “code written” or exit code zero when the user consumes another behavior. |
 | Protect unrelated work and require matching authority for destructive, production, external, remote, commit, or push actions; keep secrets and private runtime data out of shared output. | Local implementation permission does not silently expand into data loss, publication, or credential exposure. |
 | Make the simplest focused change that fully meets the requirement. | Diffs remain reviewable and avoid unrelated refactors, speculative abstractions, unused configuration, and low-signal tests. |
+| Implement the requested behavior without adjacent features or narrative residue about unrelated omissions. | Code, comments, tests, commits, and pull requests stay centered on the delivered behavior instead of preserving a history of unnecessary work. |
+| Do not add hashes, frozen contracts, baselines, gates, shadow state, or bespoke validation without a concrete failure case and proof that ordinary mechanisms are insufficient; preserve existing and high-risk safeguards. | Defensive preparation cannot become an unbounded substitute for the requested work, while authentication, data safety, irreversible operations, releases, and other real boundaries retain appropriate protection. |
 | For a non-obvious problem, locate the broken responsibility, constraint, invariant, or data flow before fixing it. | Root-cause analysis happens before patch stacking, while the fix remains bounded to the correct model. |
 | Classify a failure and change the next attempt instead of blindly repeating it. | Debugging gains new evidence and avoids repeated side effects. |
 | Decide compatibility from consumers, reproducibility, failure cost, and migration evidence; ask when the choice is material. | Prevents both permanent fallback debt and accidental breakage. |
@@ -83,11 +85,11 @@ Optional does not mean low value. It means that the rule expresses a user prefer
 
 ## How deployment should select modules
 
-1. Read the minimal core, inspect the actual host and existing global `AGENTS.md`, and identify conflicts without writing.
-2. Eliminate clearly irrelevant modules. Do not present a generic checklist merely because files exist.
+1. Read the minimal core, inspect the actual host and existing global `AGENTS.md`, and identify conflicts without writing. Classify existing rules as keep, rehome behind progressive disclosure, or propose for removal; non-conflicting does not automatically mean worth loading on every task.
+2. Eliminate clearly irrelevant modules and rules that merely restate discoverable or drift-prone implementation details. Do not present a generic checklist merely because files exist.
 3. For each remaining candidate, explain the behavior, benefit, cost, prerequisites, and recommendation in plain language.
 4. Ask the user to select modules. Detection and recommendation are not approval.
-5. Show the exact merged diff and module list, then write only after confirmation and a recoverable backup.
+5. Show the exact merged diff, module list, and every proposed rule removal or rehome, then write only after confirmation and a recoverable backup.
 6. Verify that the core and selected modules appear exactly once, unselected modules are absent, parameter placeholders are resolved, and preserved local rules remain.
 
 ## Workspace modules remain separate

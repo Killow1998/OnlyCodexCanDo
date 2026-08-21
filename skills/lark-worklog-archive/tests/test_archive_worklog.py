@@ -50,7 +50,7 @@ class FakeLark:
 
     def __call__(self, args: list[str], check: bool = True, **kwargs) -> subprocess.CompletedProcess[str]:
         self.calls.append(list(args))
-        if args == ["auth", "status"]:
+        if args == ["auth", "status", "--json", "--verify"]:
             return self.completed(
                 args,
                 {
@@ -195,6 +195,20 @@ class ArchiveWorklogTests(unittest.TestCase):
             with self.assertRaises(SystemExit) as raised:
                 self.mod.today("Mars/Base")
         self.assertIn("Install the Python tzdata package", str(raised.exception))
+
+    def test_import_falls_back_when_python_zoneinfo_is_unavailable(self) -> None:
+        real_import = __import__
+
+        def import_without_zoneinfo(name, *args, **kwargs):
+            if name in {"zoneinfo", "backports.zoneinfo"}:
+                raise ImportError(name)
+            return real_import(name, *args, **kwargs)
+
+        with mock.patch("builtins.__import__", new=import_without_zoneinfo):
+            module = load_archive_module()
+
+        self.assertIsInstance(module.today("Asia/Shanghai"), module.dt.date)
+        self.assertIsInstance(module.today("UTC"), module.dt.date)
 
     def test_redact_masks_lark_secrets_and_bearer_tokens(self) -> None:
         text = (
@@ -850,6 +864,19 @@ class ArchiveWorklogTests(unittest.TestCase):
         with mock.patch.object(self.mod.os, "name", "nt"), mock.patch.object(self.mod.shutil, "which", fake_which):
             self.assertEqual(self.mod.lark_cli_command(), r"C:\Tools\lark-cli.exe")
 
+    def test_lark_cli_argv_bypasses_npm_cmd_wrapper(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            npm_root = Path(root)
+            command = npm_root / "lark-cli.cmd"
+            run_js = npm_root / "node_modules" / "@larksuite" / "cli" / "scripts" / "run.js"
+            node = npm_root / "node.exe"
+            command.write_text("@echo off\n", encoding="utf-8")
+            run_js.parent.mkdir(parents=True)
+            run_js.write_text("// test entrypoint\n", encoding="utf-8")
+            node.write_bytes(b"")
+            with mock.patch.object(self.mod, "lark_cli_command", return_value=str(command)):
+                self.assertEqual(self.mod.lark_cli_argv(), [str(node), str(run_js)])
+
     def test_lark_cli_env_uses_codex_managed_runtime_and_migrates_legacy_dirs(self) -> None:
         with tempfile.TemporaryDirectory() as home:
             legacy_config = Path(home) / ".lark-cli"
@@ -949,16 +976,34 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertEqual(captured["env"]["LARK_CLI_NO_PROXY"], "1")
         self.assertIn("授权成功", proc.stdout)
 
+    def test_run_lark_preserves_ampersand_argument_with_node_entrypoint(self) -> None:
+        captured: dict[str, object] = {}
+        url = "https://example.invalid/device?flow_id=test&user_code=ABCD"
+
+        def fake_run(args, **kwargs):
+            captured["args"] = args
+            return subprocess.CompletedProcess(args, 0, '{"ok": true}', "")
+
+        with mock.patch.object(
+            self.mod, "lark_cli_argv", return_value=["node", "run.js"]
+        ), mock.patch.object(self.mod.subprocess, "run", fake_run):
+            self.mod.run_lark(["auth", "qrcode", url, "--output", "qr.png"])
+        self.assertEqual(
+            captured["args"],
+            ["node", "run.js", "auth", "qrcode", url, "--output", "qr.png"],
+        )
+
     def test_run_lark_suppresses_success_stderr_by_default(self) -> None:
         def fake_run(args, **kwargs):
             return subprocess.CompletedProcess(args, 0, '{"ok": true}', "debug progress\n")
 
-        with (
-            mock.patch.object(self.mod, "RUN_LARK_VERBOSE", False),
-            mock.patch.object(self.mod, "lark_cli_command", return_value="lark-cli.cmd"),
-            mock.patch.object(self.mod.subprocess, "run", fake_run),
-            contextlib.redirect_stderr(io.StringIO()) as stderr,
-        ):
+        with mock.patch.object(self.mod, "RUN_LARK_VERBOSE", False), mock.patch.object(
+            self.mod, "lark_cli_command", return_value="lark-cli.cmd"
+        ), mock.patch.object(
+            self.mod.subprocess, "run", fake_run
+        ), contextlib.redirect_stderr(
+            io.StringIO()
+        ) as stderr:
             proc = self.mod.run_lark(["auth", "status"])
         self.assertEqual(proc.returncode, 0)
         self.assertEqual(stderr.getvalue(), "")
@@ -967,12 +1012,13 @@ class ArchiveWorklogTests(unittest.TestCase):
         def fake_run(args, **kwargs):
             return subprocess.CompletedProcess(args, 0, '{"ok": true}', "debug progress\n")
 
-        with (
-            mock.patch.object(self.mod, "RUN_LARK_VERBOSE", True),
-            mock.patch.object(self.mod, "lark_cli_command", return_value="lark-cli.cmd"),
-            mock.patch.object(self.mod.subprocess, "run", fake_run),
-            contextlib.redirect_stderr(io.StringIO()) as stderr,
-        ):
+        with mock.patch.object(self.mod, "RUN_LARK_VERBOSE", True), mock.patch.object(
+            self.mod, "lark_cli_command", return_value="lark-cli.cmd"
+        ), mock.patch.object(
+            self.mod.subprocess, "run", fake_run
+        ), contextlib.redirect_stderr(
+            io.StringIO()
+        ) as stderr:
             proc = self.mod.run_lark(["auth", "status"])
         self.assertEqual(proc.returncode, 0)
         self.assertIn("debug progress", stderr.getvalue())
@@ -995,10 +1041,12 @@ class ArchiveWorklogTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory(prefix="space dir ") as tempdir:
             with self.chdir(tempdir):
-                with (
-                    mock.patch.object(self.mod, "LARK_CONTENT_INLINE_LIMIT", 4),
-                    mock.patch.object(self.mod, "lark_cli_command", return_value="lark-cli.cmd"),
-                    mock.patch.object(self.mod.subprocess, "run", fake_run),
+                with mock.patch.object(
+                    self.mod, "LARK_CONTENT_INLINE_LIMIT", 4
+                ), mock.patch.object(
+                    self.mod, "lark_cli_command", return_value="lark-cli.cmd"
+                ), mock.patch.object(
+                    self.mod.subprocess, "run", fake_run
                 ):
                     self.mod.run_lark(["docs", "+update", "--content", "<p>一</p>\r\n<p>二</p>"])
         self.assertEqual(captured["args"][0], "lark-cli.cmd")
@@ -1010,11 +1058,14 @@ class ArchiveWorklogTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tempdir:
             with self.chdir(tempdir):
-                with (
-                    mock.patch.object(self.mod, "LARK_CONTENT_INLINE_LIMIT", 4),
-                    mock.patch.object(self.mod, "lark_cli_command", return_value="lark-cli.cmd"),
-                    mock.patch.object(self.mod.subprocess, "run", fake_run),
-                    mock.patch.object(self.mod.os, "unlink", side_effect=OSError("locked")),
+                with mock.patch.object(
+                    self.mod, "LARK_CONTENT_INLINE_LIMIT", 4
+                ), mock.patch.object(
+                    self.mod, "lark_cli_command", return_value="lark-cli.cmd"
+                ), mock.patch.object(
+                    self.mod.subprocess, "run", fake_run
+                ), mock.patch.object(
+                    self.mod.os, "unlink", side_effect=OSError("locked")
                 ):
                     proc = self.mod.run_lark(["docs", "+update", "--content", "<p>long</p>"])
         self.assertEqual(proc.returncode, 0)
@@ -1029,9 +1080,16 @@ class ArchiveWorklogTests(unittest.TestCase):
     def test_agent_docs_include_windows_friendly_commands(self) -> None:
         setup = (SKILL_DIR / "references" / "setup.md").read_text(encoding="utf-8")
         skill = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+        changelog = (SKILL_DIR / "references" / "CHANGELOG.md").read_text(encoding="utf-8")
         self.assertIn('lark-cli.cmd', setup)
         self.assertIn("Windows Terminal", setup)
         self.assertIn("--lark-cli auth login", setup)
+        self.assertIn("--no-wait", setup)
+        self.assertIn("--device-code", setup)
+        self.assertIn("auth status --json --verify", setup)
+        self.assertIn("lark-cli 1.0.87", setup)
+        self.assertIn("lark-cli 1.0.87", skill)
+        self.assertIn("lark-cli 1.0.87 compatibility", changelog)
         self.assertNotIn("\nLARK_CLI_NO_PROXY=1 lark-cli auth login", setup)
         self.assertIn("release check commands", setup)
         self.assertIn("python skills/lark-worklog-archive/scripts/check.py", skill)
@@ -1047,9 +1105,10 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertLess(install.node_version_tuple("v20.8.0"), (20, 12, 0))
         self.assertGreaterEqual(install.node_version_tuple("v20.12.0"), (20, 12, 0))
 
-    def test_auth_status_accepts_lark_cli_1_0_51_user_identity(self) -> None:
+    def test_auth_status_accepts_lark_cli_1_0_87_verified_user_identity(self) -> None:
         payload = {
             "identity": "user",
+            "verified": True,
             "identities": {"user": {"status": "ready", "available": True, "tokenStatus": "valid", "openId": "ou_test"}},
         }
         self.assertEqual(self.mod.authorized_user_open_id(payload), ("ou_test", None))

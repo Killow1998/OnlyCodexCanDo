@@ -1,0 +1,4 @@
+interface:
+  display_name: "Simplify Codebase"
+  short_description: "Find and apply evidence-backed code simplifications."
+  default_prompt: "Use $simplify-codebase to find and implement high-confidence simplifications without changing intended behavior."

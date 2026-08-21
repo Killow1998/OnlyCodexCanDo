@@ -1,5 +1,15 @@
 # Lark Worklog Archive Changelog
 
+## 2026-08-15
+
+### lark-cli 1.0.87 compatibility
+
+- Updated the validated compatibility baseline to `lark-cli 1.0.87` after a live managed-store device authorization, verified user/token status, and `--doctor` check on Windows.
+- Changed auth inspection to `auth status --json --verify` so doctor verifies the live token instead of accepting local credential metadata alone.
+- Bypassed the npm `lark-cli.cmd` shim internally when its Node entrypoint is available; the shim split QR authorization URLs at `&`, producing a truncated QR argument even though the CLI process appeared to run.
+- Documented the non-blocking device flow, QR display, follow-up completion, and temporary QR cleanup sequence.
+- Restored Python 3.8 runtime compatibility: use `backports.zoneinfo` when available and retain dependency-free `Asia/Shanghai` / `UTC` date handling when neither timezone module exists; release tests also avoid Python 3.10-only parenthesized context managers.
+
 ## 2026-07-07
 
 ### Single persistent lark-cli credential store

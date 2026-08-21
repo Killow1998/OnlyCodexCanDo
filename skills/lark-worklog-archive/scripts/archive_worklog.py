@@ -18,7 +18,18 @@ import time
 from contextlib import contextmanager
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+try:
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+except ImportError:  # pragma: no cover - Python 3.8 compatibility
+    try:
+        from backports.zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    except ImportError:
+        class ZoneInfoNotFoundError(Exception):
+            """Raised when no standard-library or backport timezone loader exists."""
+
+        def ZoneInfo(key: str) -> dt.tzinfo:
+            raise ZoneInfoNotFoundError(key)
 
 try:
     import fcntl
@@ -243,6 +254,20 @@ def lark_cli_command() -> str | None:
     return None
 
 
+def lark_cli_argv() -> list[str] | None:
+    command = lark_cli_command()
+    if not command:
+        return None
+    if command.lower().endswith(".cmd"):
+        npm_root = os.path.dirname(command)
+        run_js = os.path.join(npm_root, "node_modules", "@larksuite", "cli", "scripts", "run.js")
+        bundled_node = os.path.join(npm_root, "node.exe")
+        node = bundled_node if os.path.isfile(bundled_node) else shutil.which("node")
+        if node and os.path.isfile(run_js):
+            return [node, run_js]
+    return [command]
+
+
 def codex_managed_lark_root() -> str | None:
     # Always use one persistent credential store, in and out of Codex.
     # Splitting stores per environment rots auth: Feishu refresh tokens
@@ -319,23 +344,23 @@ def legacy_store_divergence() -> str | None:
 
 
 def run_lark_passthrough(cli_args: list[str]) -> int:
-    command = lark_cli_command()
+    command = lark_cli_argv()
     if not command:
         raise SystemExit("lark-cli not found. Run: npx @larksuite/cli@latest install")
     env = lark_cli_env()
-    proc = subprocess.run([command, *cli_args], env=env, check=False)
+    proc = subprocess.run([*command, *cli_args], env=env, check=False)
     return proc.returncode
 
 
 def run_lark(args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
     env = lark_cli_env()
-    command = lark_cli_command()
+    command = lark_cli_argv()
     if not command:
         raise SystemExit("lark-cli not found. Run: npx @larksuite/cli@latest install")
     final_args, cleanup = lark_args_with_content_files(args)
     try:
         proc = subprocess.run(
-            [command, *final_args],
+            [*command, *final_args],
             env=env,
             text=True,
             encoding="utf-8",
@@ -397,7 +422,8 @@ def today(tz_name: str) -> dt.date:
             tzinfo = dt.timezone.utc
         else:
             raise SystemExit(
-                f"Timezone data not found for {tz_name!r}. Install the Python tzdata package or pass --tz UTC."
+                f"Timezone data not found for {tz_name!r}. Install the Python tzdata package "
+                "(and backports.zoneinfo on Python 3.8) or pass --tz UTC."
             )
     return dt.datetime.now(tzinfo).date()
 
@@ -1258,7 +1284,7 @@ def verify_document_sections(doc: str, expected: str) -> int:
 
 
 def auth_status_payload() -> tuple[dict | None, str | None]:
-    proc = run_lark(["auth", "status"], check=False)
+    proc = run_lark(["auth", "status", "--json", "--verify"], check=False)
     if proc.returncode != 0:
         return None, compact_error(proc.stderr or proc.stdout or "auth status failed")
     try:

@@ -16,6 +16,8 @@ Codex should perform the setup and only ask the user to confirm the Feishu/Lark 
 
 On Windows, use Windows Terminal with a PowerShell profile. Use `python` there, and call `lark-cli.cmd` if PowerShell blocks `lark-cli.ps1`. On Unix systems where `python` is not Python 3, use `python3` for the same commands.
 
+The helper supports Python 3.8 and newer. Python 3.9+ provides `zoneinfo`; on Python 3.8 the optional `backports.zoneinfo` package enables arbitrary IANA zones, while the default `Asia/Shanghai` and explicit `UTC` modes work without that dependency.
+
 Install the repo and local skill:
 
 ```bash
@@ -31,7 +33,7 @@ npx @larksuite/cli@latest install
 lark-cli --version
 ```
 
-Compatibility baseline: the helper is tested with `lark-cli 1.0.53` and expects its current `auth status` identity/token shape. Update older installations with `lark-cli update` before debugging authorization; re-run the skill checks when adopting a newer CLI shape.
+Validated compatibility baseline: `lark-cli 1.0.87` on Windows. The helper expects its `auth status --json --verify` identity/token shape and bypasses the npm `.cmd` shim internally so URL arguments containing `&` remain intact. Update older installations with `lark-cli update` before debugging authorization; re-run live auth verification, doctor, and the skill release checks before recording a newer CLI version.
 
 If `npx @larksuite/cli@latest install` fails with an `ERR_REQUIRE_ESM` or dependency engine warning, check Node.js. The current installer may require Node.js `20.12.0` or newer.
 
@@ -68,10 +70,25 @@ Start one-time user authorization (same command on Linux, macOS, and Windows Pow
 python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli auth login \
   --recommend \
   --domain docs,drive,markdown \
-  --scope "search:docs:read"
+  --scope "search:docs:read" \
+  --no-wait \
+  --json
 ```
 
-After the user finishes browser authorization, run doctor before writing anything:
+Generate and display a QR code from the returned `verification_url`, then stop and let the user finish browser authorization. After the user confirms, complete the same device flow yourself and verify the live token before writing anything:
+
+```bash
+python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli auth qrcode \
+  "<verification_url>" \
+  --output "lark-auth.png"
+python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli auth login \
+  --device-code "<device_code>"
+python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli auth status \
+  --json \
+  --verify
+```
+
+Remove the task-created QR image after authorization. Then run doctor before writing anything:
 
 ```bash
 python skills/lark-worklog-archive/scripts/archive_worklog.py --doctor

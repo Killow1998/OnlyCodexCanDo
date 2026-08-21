@@ -29,11 +29,11 @@
 请根据公开仓库 https://github.com/Killow1998/OnlyCodexCanDo.git 配置这台 PC 的全局 Codex AGENTS.md。
 
 1. 读取 templates/AGENTS.global.md，把它作为唯一自动推荐的跨平台核心；同时阅读 docs/global-agents.zh-CN.md，了解有哪些可选项。
-2. 提议修改前，先检查 Agent 的实际运行环境和现有全局 AGENTS.md。保留不冲突的本机规则并指出冲突，不要盲目覆盖整个文件。
+2. 提议修改前，先检查 Agent 的实际运行环境和现有全局 AGENTS.md。把现有规则分成保留、移到渐进加载层、建议删除三类并指出冲突；可发现、易漂移或一次性的细节不能仅因为“不冲突”就永久保留。不要盲目覆盖整个文件。
 3. 只考虑当前主机可能需要的模块。对于 templates/optional/ 或 templates/platform/ 下每个相关选项，用通俗语言说明它会增加什么行为、代价或限制，以及是否推荐，再让我选择；不要擅自加入中文优先、单 Agent、禁用 worktree、RTK、时区、仓库/数据策略、资源限制或平台模块。明显不相关的模块不要拿来逐项提问。
 4. 选择时区模块时，询问 IANA 时区并替换占位符；选择 RTK 或资源限制模块时，先验证目标主机确实具备对应工具或运行环境。检测到 Windows 只代表 windows-shell.md 相关，不代表用户已经批准。
 5. 主机全局文件不加入项目工作流和领域规则。持续文档、实验记录和 Robotics 验证应在各个 Workspace 中另行选择。
-6. 写入前展示准确的合并 diff 和已选模块清单。只有我确认后才应用，并先创建可恢复备份；应用后验证公共核心和每个已选模块各出现一次，没有未选模块或未替换占位符，原有本机规则仍然存在。
+6. 写入前展示准确的合并 diff、已选模块清单，以及每条拟删除或迁移规则。只有我确认后才应用，并先创建可恢复备份；应用后验证公共核心和每个已选模块各出现一次，没有未选模块或未替换占位符，经批准保留的本机规则仍然存在。
 
 不要修改项目仓库、远端主机，也不要安装任何 Skill，除非我另行明确授权。
 ```
@@ -72,6 +72,49 @@
 - setup 后必须完全重启 Codex，`verify` 才会做静态检查并请求一次真实 routed spawn；
 - 配置冲突、agent 归属冲突、依赖来源异常或 managed state drift 时全部 fail closed。
 
+### `simplify-codebase`
+
+在不把代码行数当作目标的前提下，为现有代码库寻找并在获得授权时实施有证据支撑的简化。
+
+适合这些触发方式：
+
+- 找出这个仓库里最过度设计的部分。
+- 不改变预期行为，删除死代码和多余的防御性脚手架。
+- 评审这个重构是否真的降低了系统复杂度。
+
+主要行为：
+
+- 区分只读审计、实施和评审三种模式；
+- 删除前证明生产、生成、动态、测试和文档消费者；
+- 检查重复状态、推测性抽象、过期兼容、防御性机制、包层级和自制基础设施；
+- 新增 hash、冻结 contract、baseline、gate、影子状态或自制校验前，必须先给出具体失败场景；
+- 没有证据和授权时保留已有与高风险安全措施；
+- 完成约定范围的调查、简化和验证后停止，不把清理变成无限追求“完美代码”的循环。
+
+首次公开评测使用了明确自称“有意过度工程化”的 [`devxsameer/blog-api`](https://github.com/devxsameer/blog-api)，固定在 `72f22d3ee2be`。该样本包含 5,154 行维护文本（其中 TypeScript 3,814 行）；一轮有边界的高置信度精简净删 46 行 TypeScript、1 个文件、1 个分支关键词、重复 token 工具和纯转发 service 调用，且没有新增依赖。方法、保留的安全 hash、验证证据与限制见[评测报告](docs/simplify-codebase-evaluation.zh-CN.md)。
+
+其证据模型改编自 DeepSeek Harness 的 [`dsh-find-simplifications`](https://github.com/deepseek-ai/deepseek-harness/tree/master/.agents/skills/dsh-find-simplifications)，并移除了 DSH 专属的 Agent Notes、Cordis 架构和仓库例外。
+
+### `codex-home-audit`
+
+只读诊断 Codex 或 ChatGPT 桌面版启动慢、风扇或 CPU 占用高，以及 `CODEX_HOME` 状态目录过大的问题。
+
+适合这些触发方式：
+
+- 为什么 Codex CLI 启动很快，但桌面版很慢？
+- 统计 ~/.codex 下是谁占用了体积和文件数。
+- 审计旧 Codex worktree，并给出安全清理方案。
+
+主要行为：
+
+- 只扫描文件元数据，按顶层目录汇总体积和数量，不读取 transcript 或数据库内容；
+- 隐去类似唯一标识符的顶层名称，并跳过 link 或 junction；
+- 把 worktree、数据库、多客户端和杀毒软件活动分成已确认事实、相关性和假设；
+- 在证明前，把 session 数据、数据库、ignored 文件、凭据和 worktree 都视为可能有价值；
+- 清理、卸载客户端、终止进程、移除 worktree 或设置杀毒排除都需要另行批准准确目标。
+
+其清理边界遵循当前 [Codex 官方 troubleshooting](https://learn.chatgpt.com/docs/reference/troubleshooting) 与 [worktree](https://learn.chatgpt.com/docs/environments/git-worktrees) 文档。对于“某个 SQLite 只是日志且一定会重建”等官方未说明的说法，必须由目标安装环境实际证明后才能执行。
+
 ### `lark-worklog-archive`
 
 把每天通过 Codex/Agent 完成的工作归档到飞书/Lark 月度工作记录文档。
@@ -90,7 +133,7 @@
 - 通过 helper 脚本安全追加同一天内容，避免直接 overwrite；
 - 工作条目可以带 Markdown 链接，用于跳转到相关文档或 commit；
 - 真实文档映射只保存在本机忽略配置中。
-- 当前匹配 `lark-cli 1.0.51`；本机 CLI 过旧时先更新，不保留旧版授权输出兼容逻辑。
+- 已针对 `lark-cli 1.0.87` 验证；本机 CLI 过旧时先更新，不保留旧版授权输出兼容逻辑。
 
 ### `TaskWatch`
 
@@ -146,6 +189,16 @@ setup 返回 `RESTART_REQUIRED` 后，完全退出并重开 Codex，创建新任
 ```text
 $codex-lfe:codex-lfe verify
 ```
+
+### `simplify-codebase` 与 `codex-home-audit`
+
+让 Codex 只安装这两个 standalone Skill，并验证安装副本：
+
+```text
+请从 https://github.com/Killow1998/OnlyCodexCanDo.git 把 simplify-codebase 和 codex-home-audit 安装到这台机器的 Codex Skills 目录。只复制 skills/simplify-codebase 和 skills/codex-home-audit，保留其他已安装 Skill；然后分别运行 scripts/check.py，直到仓库源码与安装副本一致。现在不要审计或清理真实 CODEX_HOME。告诉我需要重启 Codex 才能发现新 Skill，并给出 $simplify-codebase 与 $codex-home-audit 的调用示例。
+```
+
+重启后，在目标仓库显式调用 `$simplify-codebase`。`$codex-home-audit` 先只读运行；清理仍需单独批准。
 
 ### `lark-worklog-archive`
 

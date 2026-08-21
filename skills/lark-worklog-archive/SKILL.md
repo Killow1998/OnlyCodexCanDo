@@ -55,6 +55,8 @@ For a shared team worklog, `--team` mode with explicit author attribution is doc
 
 ## Checks
 
+Validated compatibility baseline: `lark-cli 1.0.87`. Re-run the live auth verification, doctor, and release checks before changing this version; see [references/setup.md](references/setup.md).
+
 Run doctor when setup, auth, registry, or document access may be stale:
 
 ```bash

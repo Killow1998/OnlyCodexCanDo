@@ -29,11 +29,11 @@ Give the following prompt to the Codex agent running on that PC:
 Configure this PC's global Codex AGENTS.md from the public repository https://github.com/Killow1998/OnlyCodexCanDo.git.
 
 1. Read templates/AGENTS.global.md as the only automatically recommended cross-platform core. Also read docs/global-agents.md to understand the available choices.
-2. Inspect the actual runtime environment and the existing global AGENTS.md before proposing anything. Preserve non-conflicting local rules and identify conflicts; do not overwrite the whole file blindly.
+2. Inspect the actual runtime environment and the existing global AGENTS.md before proposing anything. Classify existing rules as keep, rehome behind progressive disclosure, or propose for removal; identify conflicts and do not preserve discoverable, drift-prone, or one-off details merely because they do not conflict. Do not overwrite the whole file blindly.
 3. Consider only modules that could matter on this host. For each relevant item under templates/optional/ or templates/platform/, explain in plain language what behavior it adds, its cost or tradeoff, and whether you recommend it. Ask me to select modules; do not silently add Chinese, single-agent mode, no-worktree mode, RTK, a time zone, repository/data policy, resource limits, or a platform module. Do not ask about clearly irrelevant modules.
 4. If a time-zone module is selected, ask for the IANA time zone and replace its placeholder. If RTK or a resource-limit module is selected, verify that the required tool or runtime actually exists. Detecting Windows makes windows-shell.md relevant, not automatically approved.
 5. Keep project workflows and domain rules out of the host-global file. Workspace documentation, experiments, and robotics validation are selected separately inside each workspace.
-6. Show the exact merged diff and selected-module list before writing. Apply only after I confirm; create a recoverable backup first, then verify the core and every selected module appear exactly once, no unselected module or unresolved placeholder remains, and preserved local rules still exist.
+6. Show the exact merged diff, selected-module list, and every proposed rule removal or rehome before writing. Apply only after I confirm; create a recoverable backup first, then verify the core and every selected module appear exactly once, no unselected module or unresolved placeholder remains, and approved retained local rules still exist.
 
 Do not modify project repositories, remote hosts, or install any Skill unless I separately authorize it.
 ```
@@ -72,6 +72,49 @@ Main behavior:
 - requires a full Codex restart before `verify` performs static checks and requests one real routed spawn;
 - fails closed on conflicting config, agent ownership, dependency provenance, or managed-state drift.
 
+### `simplify-codebase`
+
+Finds and, when authorized, implements evidence-backed reductions in an existing codebase without treating line count as the goal.
+
+It is designed for prompts such as:
+
+- "Find the most over-engineered parts of this repository."
+- "Remove dead code and redundant defensive scaffolding without changing intended behavior."
+- "Review this refactor and tell me whether it truly simplifies the system."
+
+Main behavior:
+
+- separates read-only audit, implementation, and review modes;
+- proves production, generated, dynamic, test, and documentation consumers before deletion;
+- evaluates duplicate state, speculative abstractions, obsolete compatibility, defensive machinery, package indirection, and hand-rolled infrastructure;
+- requires a concrete failure case before adding hashes, frozen contracts, baselines, gates, shadow state, or bespoke validation;
+- preserves existing and high-risk safeguards unless evidence and authority support a change; and
+- stops after the requested survey and selected simplifications are verified instead of turning cleanup into an endless perfection loop.
+
+The first published evaluation used the intentionally over-engineered [`devxsameer/blog-api`](https://github.com/devxsameer/blog-api) snapshot at `72f22d3ee2be`. On 5,154 maintained text lines (3,814 TypeScript lines), one bounded high-confidence pass removed 46 TypeScript lines, one file, one branch keyword, duplicate token utilities, and pass-through service calls without adding dependencies. See the [evaluation report](docs/simplify-codebase-evaluation.md) for method, preserved security hashes, verification, and limitations.
+
+The evidence model is adapted from DeepSeek Harness's [`dsh-find-simplifications`](https://github.com/deepseek-ai/deepseek-harness/tree/master/.agents/skills/dsh-find-simplifications), with DSH-specific Agent Notes, Cordis architecture, and repository exceptions removed.
+
+### `codex-home-audit`
+
+Diagnoses slow Codex or ChatGPT desktop startup, high fan or CPU activity, and oversized `CODEX_HOME` state without deleting anything by default.
+
+It is designed for prompts such as:
+
+- "Why is Codex desktop slow while the CLI starts quickly?"
+- "Measure what is taking space and file count under ~/.codex."
+- "Audit old Codex worktrees and make a safe cleanup plan."
+
+Main behavior:
+
+- scans file metadata only and reports aggregate top-level bytes and counts without opening transcripts or databases;
+- redacts identifier-like top-level names and skips links or junctions;
+- separates confirmed facts, correlations, and hypotheses about worktrees, databases, multiple clients, and antivirus activity;
+- treats session data, databases, ignored files, credentials, and worktrees as valuable until proven otherwise; and
+- requires separate exact approval for cleanup, client removal, process termination, worktree removal, or antivirus exclusions.
+
+Its cleanup boundary follows current [official Codex troubleshooting](https://learn.chatgpt.com/docs/reference/troubleshooting) and [worktree](https://learn.chatgpt.com/docs/environments/git-worktrees) documentation. Undocumented claims such as "this SQLite file is only a log and will always regenerate" remain unverified until the target installation proves them.
+
 ### `lark-worklog-archive`
 
 Archives daily Codex/Agent work into a monthly Feishu/Lark worklog document.
@@ -90,7 +133,7 @@ Main behavior:
 - safe same-day appends through the helper script instead of direct document overwrite;
 - optional Markdown links in worklog items for related docs or commits;
 - private document mappings kept in local ignored config.
-- matched to `lark-cli 1.0.51`; update older CLI installs instead of relying on legacy auth-output compatibility.
+- validated against `lark-cli 1.0.87`; update older CLI installs instead of relying on legacy auth-output compatibility.
 
 ### `TaskWatch`
 
@@ -146,6 +189,16 @@ After setup reports `RESTART_REQUIRED`, fully quit and reopen Codex, start a new
 ```text
 $codex-lfe:codex-lfe verify
 ```
+
+### `simplify-codebase` and `codex-home-audit`
+
+Ask Codex to install only these two standalone Skills and validate their installed copies:
+
+```text
+Please install the simplify-codebase and codex-home-audit Skills from https://github.com/Killow1998/OnlyCodexCanDo.git into this machine's Codex Skills directory. Copy only skills/simplify-codebase and skills/codex-home-audit, preserve any unrelated installed Skills, then run each scripts/check.py until the repository and installed copies match. Do not audit or clean the actual CODEX_HOME yet. Tell me to restart Codex so the new Skills are discovered, and show example invocations for $simplify-codebase and $codex-home-audit.
+```
+
+After restart, explicitly invoke `$simplify-codebase` in a target repository. Invoke `$codex-home-audit` first in read-only mode; cleanup remains a separate approval.
 
 ### `lark-worklog-archive`
 
