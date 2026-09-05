@@ -1,8 +1,35 @@
 # Lark Worklog Archive Changelog
 
+## Unreleased
+
+### Current stable CLI checks
+
+- Checked `lark-cli 1.0.93` on Windows through the helper: version, local auth-metadata parsing, and auth/document command availability. The offline release checks pass; authenticated cloud acceptance remains unverified on this version.
+- Keep version-specific evidence in setup guidance, rather than pinning the Skill entry point to an older CLI release. An upgrade does not renew expired user consent.
+
+### On-demand auth diagnosis
+
+- Keep project docs as the daily record and cloud archiving explicitly requested; no implicit uploads or token keepalive.
+- Distinguish expired refresh windows, pending renewal, credential access, network failures, and scope/ACL problems before suggesting browser consent.
+- Reject explicitly failed token verification even when local metadata reports a ready user; init failures now route to doctor rather than an unconditional bare login.
+- Replace cache/log modification-time heuristics with config-content comparison, without changing existing runtime selection or migrating credentials.
+- Correct the historical split-store explanation for Windows: the validated CLI uses DPAPI and the registry, not separate encrypted files under each runtime directory.
+
+## 2026-08-15
+
+### lark-cli 1.0.87 compatibility
+
+- Updated the validated compatibility baseline to `lark-cli 1.0.87` after a live managed-store device authorization, verified user/token status, and `--doctor` check on Windows.
+- Changed auth inspection to `auth status --json --verify` so doctor verifies the live token instead of accepting local credential metadata alone.
+- Bypassed the npm `lark-cli.cmd` shim internally when its Node entrypoint is available; the shim split QR authorization URLs at `&`, producing a truncated QR argument even though the CLI process appeared to run.
+- Documented the non-blocking device flow, QR display, follow-up completion, and temporary QR cleanup sequence.
+- Restored Python 3.8 runtime compatibility: use `backports.zoneinfo` when available and retain dependency-free `Asia/Shanghai` / `UTC` date handling when neither timezone module exists; release tests also avoid Python 3.10-only parenthesized context managers.
+
 ## 2026-07-07
 
 ### Single persistent lark-cli credential store
+
+Historical note: the explanation below was the rationale at the time, not a verified cross-platform cause. The Unreleased correction supersedes its Windows credential-storage and automatic-reauthorization advice.
 
 - The helper now always points `lark-cli` at the managed store `~/.codex/memories/runtime/lark-cli/`, inside and outside Codex, instead of only when `CODEX_THREAD_ID` is set. Diverging legacy/managed stores rotated Feishu refresh tokens independently and kept invalidating each other, which looked like auth randomly dropping.
 - Added the `--lark-cli` passthrough so `auth login`, `auth status`, and `config` commands run inside the managed environment; setup docs now route all raw CLI calls through it.

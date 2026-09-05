@@ -59,6 +59,8 @@ Organize each worklog by objective with four sections:
 
 Commands, files, commits, tests, and log paths may appear as evidence, but they should not define the document structure. Mark unverified claims explicitly. See [worklog-template.md](../templates/workspace/worklog-template.md). When deployed, place it at `docs/worklog/worklog-template.md`.
 
+Evidence needed for a later evaluation or restart must live in an approved durable project location, not only in system temp or chat. Reference large results rather than copying them into Markdown or publishing private artifacts. A past worklog remains a dated record; update the current design without rewriting historical results.
+
 ## The complete development loop
 
 ```text
@@ -114,8 +116,13 @@ Continuous documentation is one workspace module, not a prerequisite for every o
 | [Continuous documentation rules](../templates/workspace/AGENTS.docs-workflow.md) and [worklog template](../templates/workspace/worklog-template.md) | Adds stable routing for `active/`, `design/`, and `worklog/`. | Requires keeping meaningful plans, design changes, and completed-stage records current; small edits remain exempt. |
 | [Experiment workflow](../templates/workspace/experiments.md) | Records the objective, exact configuration, acceptance or stopping conditions, result, and lessons for real experiments; prevents retuning from noisy intermediate signals alone. | Adds pre-run and post-run recording. It can reuse existing experiment paths and does not require the three-directory workflow. |
 | [Robotics validation](../templates/workspace/robotics-validation.md) | Separates algorithm, smoke-test, simulation, and live-hardware evidence and keeps frames, state sources, responsibilities, and safety boundaries explicit. | Relevant only when those evidence levels and system boundaries apply. It does not turn simulation into hardware proof and does not require experiment records. |
+| [UI conventions](../templates/workspace/ui-conventions.md) | Uses familiar controls, task-appropriate density, restrained visual hierarchy, and review of the implemented interface. | Select for interface work; respect the product brief and accessibility. It does not impose one visual style on every product or require continuous documentation. |
 
 Selecting one module does not select another. A robotics repository may choose robotics validation without continuous documentation; a machine-learning repository may choose experiment records without robotics rules; a long-lived application may choose only the three-directory workflow. Repository names and technology detection support a recommendation but never replace user approval.
+
+The experiment option also distinguishes the formal evaluation protocol from diagnostic variants: an extra metric, harder candidate pool, or new exclusion rule must not silently change reported results. Recheck transient resource/network conditions before preserving an old blocker, and separate independent cleanup from an authorized run where feasible.
+
+For an on-demand documentation close-out, [organizedProj](../skills/organized-proj/SKILL.md) reconciles only affected documents and useful lessons. Installing this Skill and selecting continuous documentation remain independent choices; neither requires automatic cloud archiving.
 
 ## What this workflow deliberately does not require
 

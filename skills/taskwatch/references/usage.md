@@ -1,24 +1,26 @@
 # TaskWatch 使用说明
 
+新部署先看 [Agent Mail 配置与验收](agent-mail.zh-CN.md)。TaskWatch 支持 Agent Mail 和 SMTP。`run_with_alert.py` 为选定命令发送退出通知；全局 Hook 处理 goal 终态，Linux 巡检保留按小时报告。
+
 TaskWatch 有两种部署方式，二者解决的问题不同：
 
-- 全局 goal 终态邮件 hook：在 Codex goal 进入 `complete`、`blocked` 或 `usageLimited` 时发送邮件。Windows 和 Linux 都可用。
+- 全局 goal 终态邮件 hook：在实际客户端触发 Hook、且能识别 Codex goal 的 `complete`、`blocked` 或 `usageLimited` 状态时发送邮件。须在目标客户端验证，不能仅凭操作系统推断可用。
 - workspace-local monitor：为 Linux 长任务生成 `.codex_monitor`、按小时巡检报告、最终总结邮件和可选 `systemd --user` timer。只支持 Linux。
 
 Windows 下只使用全局 goal 终态邮件 hook，不部署 workspace-local training 或长任务 monitor。
 
 ## 全局 Goal 邮件 Hook
 
-### Codex Desktop App 当前限制
+### Codex Desktop App 历史验证记录
 
 截至 2026-06-12，Windows 上已验证：
 
 - 手动调用 `~/.codex/skills/taskwatch/scripts/taskwatch_stop_hook.py` 可以识别 `update_goal` 终态，并通过 `~/.codex/taskwatch.env` 成功发送邮件；
 - `~/.codex/config.toml` 中的 `hooks = true` 和 `[[hooks.Stop]]` 配置已存在；
 - 在 Codex CLI 中 trust 新 hook 后，Codex Desktop app 内 goal 完成仍没有在 `~/.codex/taskwatch-state/taskwatch-hook-audit.log` 产生新的 `hook_started` 记录；
-- 因此，当前不能把 Codex Desktop app 的 goal 完成邮件依赖在 `[[hooks.Stop]]` 自动触发上。
+- 因此，这次测试没有证明 Codex Desktop app 的 `[[hooks.Stop]]` 自动触发可用；它不是对后续版本的结论。
 
-Desktop app 下需要 goal 完成邮件时，优先继续验证或改接 Desktop 实际会触发的机制，例如 `notify = [..., "turn-ended"]` 或外部 transcript/state watcher。`Stop` hook 仍可保留给 CLI 或手动 smoke test。
+重新部署时先核对[当前官方 Hooks 文档](https://learn.chatgpt.com/docs/hooks)、实际客户端版本和 Hook 信任状态，再验证一次真实终态。普通 `Stop` 只说明一轮结束，不说明 goal 完成。若该客户端没有可靠触发，再评估绑定特定任务的外部监控；不直接编辑内部数据库，不把旧配置示例当作当前能力证明。
 
 安装或刷新全局 hook：
 
@@ -189,5 +191,5 @@ python -B ~/.codex/skills/taskwatch/scripts/taskwatch_stop_hook.py
 ## 维护规则
 
 - 不要把 `taskwatch.env`、SMTP 密码、运行报告、state 文件提交到 Git。
-- 修改 repo 内 `skills/taskwatch` 后，要同步全局安装副本 `~/.codex/skills/taskwatch`。
+- 修改源码后运行 `check.py --skip-global`；同步全局副本、部署 Hook/服务和修改邮件配置分别获得对应授权，保留本机修改。
 - 修改邮件模板或 hook 触发逻辑时，必须补充 `tests/test_taskwatch_hook.py` 或 `tests/test_install.py`。

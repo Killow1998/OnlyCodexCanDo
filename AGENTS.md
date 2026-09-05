@@ -6,7 +6,7 @@ This is a public repository of reusable agent skills and workflow guidance. Keep
 
 - Never commit secrets, tokens, SMTP passwords, Feishu/Lark document URLs, OpenID values, app IDs, or local registry values.
 - After changing a skill, run its release checks: `python -B skills/<skill>/scripts/check.py`.
-- After changing a skill, sync the installed global copy under `~/.codex/skills/<skill>` so `check.py` global consistency passes.
+- Treat skill source changes and host deployment separately. Sync only explicitly authorized installations; use a checker's `--skip-global` option for source-only validation when available, and report deployment drift rather than overwriting installed copies to make a check pass.
 - When changing installer flags, email templates, or hook trigger logic, extend the skill's tests in the same change.
 
 ## Workflow Documentation
@@ -20,11 +20,11 @@ This is a public repository of reusable agent skills and workflow guidance. Keep
 - Keep stable cross-project policy in the workflow guide. Never copy chat transcripts, session indexes, host names, private paths, or machine-specific state into this public repository.
 - Do not package a workflow as a Skill merely because it can be packaged. First confirm that its trigger and output are stable and that scripts, references, assets, or automated checks provide real value.
 
-## Worklog Archiving
+## Work Records
 
 - Treat `skills/lark-worklog-archive/references/worklog-writing-guide.md` as the canonical worklog style guide.
-- After each meaningful project phase is completed, archive the worklog before context is likely to be compacted or lost. Do not wait until the user asks at the end of a long session.
-- Use `skills/lark-worklog-archive/scripts/archive_worklog.py` for Feishu/Lark worklog writes, and run `--preview` first for non-trivial entries.
+- After a meaningful phase, preserve reusable conclusions and remaining work in the relevant project documentation. Keep private host and session evidence out of this public repository; small edits do not need a separate worklog.
+- Feishu/Lark archiving is a separately selected integration, not a prerequisite for completing repository work. When that write is authorized, use `skills/lark-worklog-archive/scripts/archive_worklog.py` and run `--preview` first for non-trivial entries.
 - Keep the record as project progress, not a command log. Group by objective and explain why the work mattered.
 - Choose first-level domains from the actual work context; the four default second-level sections are `背景与目标`, `工作内容`, `结果`, and `问题与下一步`.
 - Preserve exact dates. Do not attribute work to a day unless the source worklog, conversation, or command evidence supports that date.

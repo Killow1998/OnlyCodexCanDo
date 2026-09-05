@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Home Audit"
+  short_description: "Diagnose large or slow Codex state safely."
+  default_prompt: "Use $codex-home-audit to measure Codex state and propose a safe cleanup plan without deleting anything."

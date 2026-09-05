@@ -15,6 +15,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "install.py"
+sys.path.insert(0, str(SCRIPT_PATH.parent))
 SPEC = importlib.util.spec_from_file_location("keep_an_eye_install", SCRIPT_PATH)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
@@ -299,7 +300,7 @@ class InstallScriptTests(unittest.TestCase):
                 self.assertEqual([], list(workspace.iterdir()))
 
     def run_generated_goal_check(self, transcripts: list[str], session_id: str = "") -> tuple[Path, list[Path]]:
-        if not shutil.which("bash"):
+        if os.name == "nt" or not shutil.which("bash"):
             self.skipTest("generated workspace monitor requires bash")
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
@@ -424,7 +425,7 @@ class InstallScriptTests(unittest.TestCase):
         self.assertFalse((state / "goal_final_status_source.txt").exists())
 
     def test_generated_run_wrapper_clears_stale_goal_state(self) -> None:
-        if not shutil.which("bash"):
+        if os.name == "nt" or not shutil.which("bash"):
             self.skipTest("generated workspace monitor requires bash")
         with tempfile.TemporaryDirectory() as tmpdir:
             workspace = Path(tmpdir) / "workspace"

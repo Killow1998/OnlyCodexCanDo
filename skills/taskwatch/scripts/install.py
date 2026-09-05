@@ -34,6 +34,7 @@ MANAGED_FILES = (
     ".codex_monitor/scripts/install_systemd_timer.sh",
     ".codex_monitor/scripts/uninstall_systemd_timer.sh",
     ".codex_monitor/scripts/send_mail.py",
+    ".codex_monitor/scripts/agent_mail.py",
     ".codex_monitor/reports/.gitkeep",
     ".codex_monitor/snapshots/.gitkeep",
     ".codex_monitor/state/.gitkeep",
@@ -795,6 +796,10 @@ def _load_env_file(path: Path) -> dict[str, str]:
 
 def _merged_config(path: Path) -> dict[str, str]:
     config = _load_env_file(path)
+    if config.get("MAIL_TRANSPORT") == "agent-mail":
+        import agent_mail
+        agent_mail.validate(config)
+        return config
     for key in REQUIRED_KEYS:
         if key in os.environ and os.environ[key]:
             config[key] = os.environ[key]
@@ -959,7 +964,7 @@ def humanize_archive_detail(detail: str) -> str:
     lowered = cleaned.lower()
     if "updated worklog " in lowered or "monthly document:" in lowered or "已记录到飞书" in cleaned:
         monthly_doc = ""
-        match = re.search(r"Monthly document:\s*([^\n]+)", cleaned)
+        match = re.search(r"Monthly document:\s*([^\\n]+)", cleaned)
         if match:
             monthly_doc = match.group(1).strip()
         if monthly_doc:
@@ -1006,7 +1011,7 @@ def build_result_summary(status: str, task_name: str, archive_status: str, archi
     if archive_detail:
         lines.append(f"- 归档说明：{archive_detail}")
     lines.append(f"- 后续处理：{next_step}")
-    return "\n".join(lines)
+    return "\\n".join(lines)
 
 
 def extract_text_fragments(value: Any) -> list[str]:
@@ -1272,11 +1277,24 @@ def main() -> int:
         raise SystemExit(f"body file missing: {body_file}")
 
     config = _merged_config(env_file)
-    smtp_port = int(config["SMTP_PORT"])
-    security = config["SMTP_SECURITY"].strip().lower()
     context = collect_context()
     email_subject = build_email_subject(context)
     body_text = build_email_body(email_subject, body_file.read_text(encoding="utf-8"), context)
+
+    if config.get("MAIL_TRANSPORT") == "agent-mail":
+        import agent_mail
+        if config.get("MAIL_CONTENT") == "brief":
+            body_text = f"TaskWatch: {context['status']}\\nTask: {context['task_name']}\\nExit: {context['exit_code']}\\nWorkspace: {resolve_workspace()}\\n"
+        import hashlib
+        key = str(context.get('started_at', '')) + str(context['status'])
+        receipt = STATE_DIR / (hashlib.sha256(key.encode()).hexdigest() + '.delivery.json')
+        if not agent_mail.send_once(config, email_subject, body_text, receipt):
+            raise SystemExit('Agent Mail delivery already attempted; inspect the receipt before retrying')
+        print("Agent Mail accepted notification")
+        return 0
+
+    smtp_port = int(config["SMTP_PORT"])
+    security = config["SMTP_SECURITY"].strip().lower()
 
     message = EmailMessage()
     message["Subject"] = email_subject
@@ -1417,6 +1435,7 @@ def build_file_map(config: InstallConfig) -> dict[str, str]:
         ".codex_monitor/scripts/install_systemd_timer.sh": render(INSTALL_TIMER_TEMPLATE, replacements),
         ".codex_monitor/scripts/uninstall_systemd_timer.sh": render(UNINSTALL_TIMER_TEMPLATE, replacements),
         ".codex_monitor/scripts/send_mail.py": SEND_MAIL_TEMPLATE,
+        ".codex_monitor/scripts/agent_mail.py": (Path(__file__).parent / "agent_mail.py").read_text(encoding="utf-8"),
         ".codex_monitor/reports/.gitkeep": "",
         ".codex_monitor/snapshots/.gitkeep": "",
         ".codex_monitor/state/.gitkeep": "",

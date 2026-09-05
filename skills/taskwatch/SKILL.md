@@ -5,16 +5,24 @@ description: Scaffold or update a reusable read-only Codex monitor for long-runn
 
 # TaskWatch
 
-Turn an existing long-running Linux workflow into a reusable Codex monitor skill and workspace scaffold.
+Send failure and completion alerts for selected commands and Codex goals; optionally generate Linux progress reports.
 
 This skill is for long-running jobs that already have a real entrypoint, log path or artifact trail, and a meaningful completion condition. Typical targets include training, evaluation, batch goal-mode runs, and offline processing. It does not design the job logic itself.
 
-## Choose A Mode First
+Use Python 3.9 or newer (`zoneinfo` is required). On hosts with multiple runtimes, locate a compatible interpreter and use its absolute path for background commands; do not assume the default `python3` is suitable.
+
+## Choose The Notification Outcome First
+
+For proactive alerts, use [Agent Mail setup](references/agent-mail.md). TaskWatch supports Tencent Agent Mail (`agently-cli`) and existing SMTP configurations. `run_with_alert.py` supervises one explicitly selected command and sends a brief exit notification without periodic LLM calls. The global Stop hook handles goal terminal events; generated Linux monitors support either mail transport.
+
+Bind the actual job or goal and confirm sender, recipient, event types, and allowed content before enabling delivery. Quiet unchanged progress; periodic progress summaries are a separate opt-in. A notification integration must not require a fresh chat confirmation for each event already covered by an explicit standing authorization, or broaden that authorization to arbitrary messages.
+
+## Notification Modes
 
 - Workspace-local monitor: hourly read-only reports, final summary email, optional `systemd --user` timer for one long-running Linux job. Linux only.
 - Global Codex Stop hook: goal-terminal email on `complete`, `blocked`, and `usageLimited`. Cross-platform when Codex hooks and the current Python runtime are available.
 
-On Windows, install only the global hook. On Linux, the two modes are complementary: the hook covers goal terminal alerts, the local monitor covers hourly log and artifact summaries; goal-mode runs usually want both.
+Choose the existing modes independently. A goal-completion alert does not imply hourly reports, and a training-failure alert needs a real process/supervisor exit signal rather than relying on the agent to finish a reply. Verify hooks on the actual client before deploying them; a dated compatibility test is not a claim about every current version.
 
 Command examples assume a repo checkout. When running from the installed copy, replace `skills/taskwatch` with `~/.codex/skills/taskwatch`.
 
@@ -126,7 +134,7 @@ With `--central`, the same scaffold lives under `~/.codex/taskwatch/jobs/<system
 
 ## Maintenance
 
-- After updating this skill in the repo, sync the installed copy under `~/.codex/skills/taskwatch` and re-run `check.py` (it compares the two).
+- After source changes, run `check.py --skip-global`. Deploying to `~/.codex/skills/taskwatch` or changing hooks, services, and mail configuration is a separate authorized operation; compare and preserve local edits first.
 - When changing email templates, installer flags, or hook trigger logic, extend `tests/test_taskwatch_hook.py` or `tests/test_install.py`.
 - Never commit `taskwatch.env`, SMTP secrets, reports, or state files.
 

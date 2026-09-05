@@ -38,6 +38,20 @@ Use each layer for one kind of information:
 
 Keep `AGENTS.md` small. Put a rule there when it is stable and repeatedly applicable, not merely because it mattered once. Codex's official customization guidance describes `AGENTS.md`, memories, Skills, MCP, and subagents as complementary layers rather than substitutes: <https://learn.chatgpt.com/docs/customization/overview>.
 
+An always-loaded rule earns its instruction budget only when it is stable at that scope, hard or costly to rediscover, relevant to nearly every task there, and consequential when missed. Treat `/init` and other generated `AGENTS.md` output as candidate inventory, not a finished instruction file: remove or rehome repository maps, current file or service locations, implementation details, progress, one-off corrections, and language or domain procedures that code search, manifests, nested `AGENTS.md`, project documentation, or a Skill can disclose when needed. Audit existing rules with the same admission test instead of preserving every non-conflicting line. See the official [AGENTS.md discovery rules](https://learn.chatgpt.com/docs/agent-configuration/agents-md) and the practical [progressive-disclosure guide](https://www.aihero.dev/a-complete-guide-to-agents-md).
+
+### Resolve conflicts at their source
+
+When a Skill demands a planning interview, new files, subagents, or external writes, check whether that behavior belongs to this task and is authorized. A workflow guideline does not override explicit user intent or grant permissions. Name the exact conflicting rule instead of silently stopping, expanding the task, or treating an earlier unchanged approval as expired. System and developer instructions and host permissions still apply.
+
+Fix the source of recurring conflict. For example, an optional output-filtering rule should not coexist with an imported instruction that makes filtering mandatory. Narrow an overbroad Skill trigger or make it explicit-only; do not keep adding compensating paragraphs to the global core. See [Skill selection and multi-host use](skill-management.md).
+
+OpenAI's [Astra guidance](https://developers.openai.com/api/docs/guides/latest-model#instruction-following) specifically recommends reviewing Skills and `AGENTS.md` for conflicting instructions. Our response is to clarify scope and remove contradictions, not to disable useful capabilities or prescribe one reasoning level for every task. Compare model settings on representative work before changing defaults.
+
+### Bounded delegation
+
+When the user selects the [focused-delegation module](../templates/optional/subagent-context.md), independent subtasks may run in parallel within the current authorization. The default is a fresh, task-specific context packet, not a copy of the main conversation. Include the objective, necessary facts/file pointers, allowed actions, write ownership, and expected result. The main agent remains responsible for synthesis, integration, and stopping finished or obsolete work. This preference does not override a client's higher-priority delegation restrictions.
+
 ### Treat session location as a hint
 
 When maintaining a private session archive, do not assign project ownership from `cwd` alone. Combine the working directory with the relevant Git root, touched paths or artifacts, the user's stated objective, and whether the record is a root thread, fork, or subagent. A session may span projects or belong to personal operations, and copied subagent context is not evidence that every referenced project was actually changed. Keep the raw mapping private and publish only curated lessons that remain useful across projects.
@@ -71,7 +85,7 @@ The minimal core keeps only behavior that remains useful across most development
 The following are explicit choices rather than universal defaults:
 
 - conversation language and treatment of English technical identifiers;
-- single-agent operation and subagent context limits;
+- bounded delegation, fresh subagent context, and coordination cost;
 - staying in one checkout instead of using Git worktrees;
 - optional `rtk` filtering;
 - a recorded time zone;
@@ -79,7 +93,7 @@ The following are explicit choices rather than universal defaults:
 - platform shell behavior and host resource limits; and
 - continuous documentation, experiment discipline, and robotics validation inside a workspace.
 
-The option catalog is in [templates/optional/](../templates/optional/), platform-specific choices are in [templates/platform/](../templates/platform/), and project choices are in [templates/workspace/](../templates/workspace/). The deployment agent should recommend a small relevant set, explain behavior and tradeoffs in plain language, and obtain approval through the proposed diff.
+The option catalog is in [templates/optional/](../templates/optional/), platform-specific choices are in [templates/platform/](../templates/platform/), and project choices are in [templates/workspace/](../templates/workspace/). Module files contain only the instructions that should run after selection; selection criteria, prerequisites, and tradeoffs stay in this guide and the deployment reference. The deployment agent should recommend a small relevant set, explain it in plain language, and obtain approval through the proposed diff.
 
 ## Compatibility Is a Decision
 
@@ -96,12 +110,18 @@ When compatibility is required, prefer an explicit version boundary, migration p
 ## Implementation Discipline
 
 - Choose the simplest implementation that fully meets the current requirement. “Simple” means fewer states, dependencies, failure modes, and maintenance obligations—not merely the smallest diff.
+- Implement the requested behavior without adding adjacent features, future extension points, or explanatory scaffolding. When unrequested work is removed, remove its narrative residue too: names, comments, tests, commits, and pull-request summaries should describe the delivered behavior, not advertise unrelated omissions.
+- This applies to every delivered surface, including UI, help, and documentation—not just pull requests. User-facing text should explain the product, not repeat the development prompt or display the agent's internal constraints.
+- Use file length, cyclomatic complexity, nesting depth, and dependency count as review signals rather than universal gates. A project-owned limit may be enforced, but do not create a global threshold that merely pushes one responsibility into more files or wrappers.
+- Do not add hashes, frozen contracts, baselines, gates, shadow state, or bespoke validation by default. First name the concrete failure they prevent and why Git, versioning, primary keys, transactions, uniqueness, types, or ordinary targeted tests are insufficient. Preserve existing safeguards and use stricter controls at authentication, data-safety, irreversible-operation, release, and other demonstrated high-risk boundaries.
 - For a non-obvious problem, use evidence to locate the broken responsibility, constraint, invariant, or data flow before choosing a fix. Restore the correct model with the smallest precise change; do not preserve a tiny diff by stacking temporary patches.
 - Grow working systems in verified layers. Each layer should run end to end before the next capability is added.
 - Keep concerns separated, but do not add speculative abstractions, configuration, or extension points.
 - Preserve unrelated work and touch only files traceable to the request or a necessary induced fix.
 - Keep production code free of debug artifacts, dead code, stale branches, and temporary files created by the task.
 - Prefer long-lived architectural choices, but do not build an imagined future before the present acceptance criteria are met.
+
+When work spans several hosts, projects, or requested outputs, check each target before reporting completion; one successful target does not close the others. Keep this list in the task or existing plan, not as a new global registry. If a prerequisite fails, distinguish authorization, a persistent failure, and a transient condition. Recheck time-sensitive facts when they determine whether authorized work can continue; do not turn an old resource snapshot or one network failure into an indefinite blocker.
 
 ## Risk-Proportional Three-Angle Verification
 
@@ -118,6 +138,8 @@ Three-angle verification must not obstruct agile development. It does not requir
 - Core flow, shared module, permission, security, data, or user-interface change: expand to the real interface, integration path, and rollback behavior.
 
 Do not run low-signal checks merely to reach a count of three. If an angle is unavailable or inapplicable, say why. If the same issue survives three meaningful fix-and-verification attempts, stop changing code and review the architecture, data flow, dependencies, and failure boundary.
+
+After relevant checks pass, stop verification unless a new change, failure, or unresolved concern warrants more. Unit tests remain useful for local logic; mocks alone do not establish that an external integration works. A passing build alone does not establish runtime behavior. Preserve useful rationale in comments and review behavioral changes in the diff; neither one architecture diagram nor a lower line count substitutes for that evidence.
 
 ## Optional Three-Directory Workspace Documentation
 

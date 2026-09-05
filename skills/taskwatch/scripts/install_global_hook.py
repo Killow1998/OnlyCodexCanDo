@@ -71,14 +71,22 @@ def ensure_feature_hooks_enabled(text: str) -> str:
 def upsert_managed_block(text: str, block: str) -> str:
     pattern = re.compile(rf"{re.escape(BLOCK_BEGIN)}\n.*?{re.escape(BLOCK_END)}\n?", re.DOTALL)
     if pattern.search(text):
-        return pattern.sub(lambda _: block, text, count=1)
+        return pattern.sub(lambda match: block + unmanaged_tail(match.group()), text, count=1)
     suffix = "" if not text or text.endswith("\n") else "\n"
     return text + suffix + block
 
 
 def remove_managed_block(text: str) -> str:
     pattern = re.compile(rf"{re.escape(BLOCK_BEGIN)}\n.*?{re.escape(BLOCK_END)}\n?", re.DOTALL)
-    return pattern.sub("", text, count=1)
+    return pattern.sub(lambda match: unmanaged_tail(match.group()), text, count=1)
+
+
+def unmanaged_tail(marked_text: str) -> str:
+    """Codex can append trust/plugin tables before an old trailing end marker."""
+    for match in re.finditer(r"^\[.*\]\s*$", marked_text, re.MULTILINE):
+        if match.group().strip() not in ("[[hooks.Stop]]", "[[hooks.Stop.hooks]]"):
+            return marked_text[match.start():].replace(BLOCK_END, "").strip() + "\n"
+    return ""
 
 
 def write_email_env(args: argparse.Namespace) -> str:

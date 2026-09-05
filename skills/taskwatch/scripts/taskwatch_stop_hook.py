@@ -125,6 +125,10 @@ def _load_env_file(path: Path) -> dict[str, str]:
 
 def load_email_config(path: Path = ENV_PATH) -> dict[str, str]:
     config = _load_env_file(path)
+    if config.get("MAIL_TRANSPORT") == "agent-mail":
+        import agent_mail
+        agent_mail.validate(config)
+        return config
     missing = [key for key in REQUIRED_KEYS if not config.get(key)]
     if missing:
         raise ValueError("missing email config keys: " + ", ".join(missing))
@@ -132,6 +136,10 @@ def load_email_config(path: Path = ENV_PATH) -> dict[str, str]:
 
 
 def send_email(config: dict[str, str], subject: str, body: str) -> None:
+    if config.get("MAIL_TRANSPORT") == "agent-mail":
+        import agent_mail
+        agent_mail.send(config, subject, body)
+        return
     smtp_port = int(config["SMTP_PORT"])
     security = config["SMTP_SECURITY"].strip().lower()
     smtp_timeout = float(config.get("SMTP_TIMEOUT_SECONDS") or DEFAULT_SMTP_TIMEOUT_SECONDS)
@@ -940,7 +948,19 @@ def main() -> int:
             smtp_host=config.get("SMTP_HOST", ""),
             email_to=config.get("EMAIL_TO", ""),
         )
-        send_email(config, subject, build_body(payload, transcript_path, event, context, facts))
+        if config.get("MAIL_CONTENT") == "brief":
+            body = f"TaskWatch goal: {event.get('status', 'unknown')}\nTask: {session_id}\nWorkspace: {payload.get('cwd', '')}\nEvidence: {transcript_path}\n"
+        else:
+            body = build_body(payload, transcript_path, event, context, facts)
+        if config.get("MAIL_TRANSPORT") == "agent-mail":
+            import agent_mail
+            receipt = STATE_DIR / (hashlib.sha256(state_key.encode()).hexdigest() + '.delivery.json')
+            if not agent_mail.send_once(config, subject, body, receipt):
+                audit_event("delivery_already_claimed", session_id=session_id, receipt=receipt)
+                print(json.dumps({"continue": True}))
+                return 0
+        else:
+            send_email(config, subject, body)
         store_sent_key(STATE_DIR, session_id, state_key)
         audit_event(
             "send_success",

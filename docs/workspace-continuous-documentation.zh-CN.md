@@ -59,6 +59,8 @@ docs/
 
 命令、文件、commit、测试和日志路径可以作为证据，但不要成为正文结构。没有验证的事情必须明确写成“未验证”。模板见 [worklog-template.zh-CN.md](../templates/workspace/worklog-template.zh-CN.md)。部署到项目时，建议保存为 `docs/worklog/worklog-template.md`。
 
+后续评测或恢复工作需要的证据，应放在经批准的稳定项目位置，不能只留在系统 Temp 或对话里。大文件用路径引用，不复制进 Markdown，也不把私有产物发布到 Git。历史 worklog 保留当时的真实结果；更新当前设计不等于重写过去。
+
 ## 一次开发任务怎样走完
 
 ```text
@@ -114,8 +116,13 @@ docs/
 | [持续文档规则](../templates/workspace/AGENTS.docs-workflow.md)与 [worklog 模板](../templates/workspace/worklog-template.zh-CN.md) | 增加 `active/`、`design/` 和 `worklog/` 的稳定入口。 | 需要维护有意义的计划、设计变化和完成阶段记录；小改动仍不强制写文档。 |
 | [实验工作流](../templates/workspace/experiments.md) | 为真实实验记录目标、准确配置、验收或停止条件、结果和经验，并阻止只凭噪声中间信号盲目调参。 | 增加运行前和运行后的记录；可以复用已有实验目录，不依赖三目录流程。 |
 | [Robotics 验证](../templates/workspace/robotics-validation.md) | 区分算法、smoke test、仿真和真机证据，并明确坐标系、状态来源、职责和安全边界。 | 只在这些证据层级和系统边界确实适用时加入；仿真不能替代真机证据，也不强制采用实验记录。 |
+| [界面约定](../templates/workspace/ui-conventions.md) | 使用熟悉的控件、适合任务的信息密度、克制的视觉层级，并检查实际界面。 | 界面开发时选择，尊重产品要求和无障碍需求；不强迫所有产品采用同一种外观，也不要求持续文档。 |
 
 选择一个模块不会自动选择另一个。Robotics 仓库可以只选 Robotics 验证，不选持续文档；机器学习仓库可以只选实验记录；长期维护的普通应用也可以只选三目录工作流。仓库名和技术检测只能支持推荐，不能代替用户批准。
+
+实验选项还区分正式评测协议和诊断变体：新增指标、更难的候选集合或排除规则，不能默默改变正式结果。保留旧阻塞结论前，应复查临时的资源与网络状态；能独立进行的清理，不应无故挡住已授权的实验。
+
+需要按需整理阶段文档时，可以选择 [organizedProj](../skills/organized-proj/SKILL.md)，只更新相关文档并保留有用经验。安装这个 Skill 与选择持续文档仍是独立决定，都不要求自动云端归档。
 
 ## 这套工作流刻意不做什么
 
