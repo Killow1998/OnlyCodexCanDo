@@ -40,6 +40,8 @@ python3 /path/to/taskwatch/scripts/run_with_alert.py \
 
 ## 验收与恢复
 
+Goal 检测支持结构化事件和工具结果，包括 code-mode 文本块中的 `goal` 或 `update_goal.goal`。部署 goal 通知时，在选定主机的 Agent 指引中加入规则：原样输出 code-mode 更新 goal 的完整返回值，例如 `text(await tools.update_goal({status: "complete"}))`。自定义摘要可能丢弃 Stop Hook 唯一可用的终态证据。完成描述本身不构成证据，当前 goal 记录也可能在完成时被清除。检查 `taskwatch-state/taskwatch-hook-audit.log`，区分终态未识别与投递失败。
+
 先验证一次可控成功、失败及重复事件。真实客户端 Hook 触发与直接调用脚本分别验证；邮件服务接受请求与收件箱实际收到也分别确认。
 
 投递前独占创建 `*.delivery.json`，抑制重复或并发发送。CLI 确认后记录 `accepted`，不等于收件箱已收到。发送失败、超时或响应不确定时保留 `pending`，停止自动重试。先核对发件箱，只有确认尚未发送时，才删除该事件的回执并重试，避免服务端已发出但响应丢失时重复告警。

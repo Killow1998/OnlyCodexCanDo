@@ -242,17 +242,23 @@ def parse_update_goal_state_item(item: dict[str, Any]) -> dict[str, Any] | None:
     if item.get("type") != "response_item":
         return None
     payload = item.get("payload") or {}
-    if payload.get("type") != "function_call_output":
+    if payload.get("type") not in {"function_call_output", "custom_tool_call_output"}:
         return None
-    output = payload.get("output")
-    if not isinstance(output, str):
-        return None
-    try:
-        result = json.loads(output)
-    except json.JSONDecodeError:
-        return None
-    goal = result.get("goal") if isinstance(result, dict) else None
-    if not isinstance(goal, dict):
+    # Code-mode results use text blocks and may label the returned tool result.
+    # Inspect only structured goal results, never prose or arbitrary nested data.
+    goal = None
+    for fragment in extract_text_fragments(payload.get("output")):
+        try:
+            result = json.loads(fragment)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(result, dict):
+            continue
+        result = result.get("update_goal", result)
+        candidate = result.get("goal") if isinstance(result, dict) else None
+        if isinstance(candidate, dict) and isinstance(candidate.get("status"), str):
+            goal = candidate
+    if goal is None:
         return None
     status = goal.get("status")
     if not isinstance(status, str):

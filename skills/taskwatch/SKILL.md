@@ -73,6 +73,8 @@ Command examples assume a repo checkout. When running from the installed copy, r
 
 ## Global Goal-Terminal Hook
 
+When updating a goal through code-mode, forward the complete structured result to the transcript, for example `text(await tools.update_goal({status: "complete"}))`. Do not replace that result with a hand-written summary. The Stop hook needs the returned goal status and timestamps; a completion sentence is insufficient. Include this instruction in the selected host's goal-notification guidance when deploying the hook.
+
 Install or refresh the Codex `Stop` hook:
 
 ```bash

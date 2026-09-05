@@ -40,6 +40,8 @@ The observer must remain alive: killing the supervisor itself, shutting down the
 
 ## Verification and recovery
 
+Goal detection accepts structured events and tool results, including code-mode text blocks with a `goal` or `update_goal.goal` result. When deploying goal notifications, add the following rule to the selected host's agent guidance: forward the full result of code-mode goal updates, for example `text(await tools.update_goal({status: "complete"}))`. A custom summary can discard the only terminal evidence available to the Stop hook. Completion prose alone is not evidence, and current goal records may be cleared on completion. Inspect `taskwatch-state/taskwatch-hook-audit.log` to distinguish a missing terminal event from a delivery failure.
+
 Validate a controlled success, failure, and duplicate event before relying on notifications. Verify the real client hook separately from direct script invocation. Check actual receipt separately from the mail service accepting a request.
 
 A `*.delivery.json` receipt is created exclusively before sending to suppress duplicate/concurrent attempts. An accepted CLI response records `accepted`; this does not prove inbox delivery. Failure, timeout, or an uncertain response leaves `pending` and prevents automatic retries. Inspect the sender's sent folder; remove only that event's receipt and retry after confirming that no mail was sent. This avoids duplicate alerts when a server accepted mail but its response was lost.
