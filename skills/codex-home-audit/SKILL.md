@@ -30,7 +30,23 @@ Use an explicit path only when auditing a non-default or test directory:
 python -B scripts/audit_codex_home.py --codex-home <absolute-path> --format json
 ```
 
-The scanner reads directory entries and file sizes without opening file contents. It reports aggregate top-level counts, database-like file totals, skipped links or junctions, scan errors, and immediate worktree directory count. It redacts identifier-like top-level names and stops after one million entries by default; use `--max-entries 0` only when an uncapped scan is necessary.
+By default, the scanner reads directory entries and file metadata without opening file contents. It reports apparent bytes, inode-deduplicated unique bytes, allocated bytes when the platform exposes them, duplicate hardlink references, top-level counts, database-like totals, skipped links or junctions, error kinds, and immediate worktree directory count. Identifier-like top-level names are redacted. The scan stops after one million entries by default; use `--max-entries 0` only when an uncapped scan is necessary.
+
+Use a UTC growth window when the question is what changed recently:
+
+```text
+python -B scripts/audit_codex_home.py --since 2026-08-01
+```
+
+`--since` means 00:00 UTC on the supplied `YYYY-MM-DD` date and reports aggregate recent files and bytes by top-level category. It does not reconstruct historical size; it uses current files whose modification times fall within the window.
+
+Only when category totals show that sessions dominate and the user approves reading transcript envelopes, opt into a bounded session-overhead sample:
+
+```text
+python -B scripts/audit_codex_home.py --session-overhead --session-top 3 --format json
+```
+
+This option opens only the largest selected JSONL files under `sessions` and `archived_sessions`, parses their JSON envelopes transiently, and reports aggregate record and byte counts for compaction, tool output, images, and other controlled categories. It emits only rank, size, modification time, and aggregates—never paths, session IDs, transcript text, tool arguments, or content values. Do not claim it is metadata-only when this option is used.
 
 If the state directory is large, identify which top-level category dominates bytes and which dominates file count. A large byte total and a large file count create different startup and antivirus costs.
 
@@ -45,7 +61,9 @@ If the state directory is large, identify which top-level category dominates byt
 
 Use these conclusions carefully:
 
-- **State-heavy correlation:** desktop startup is slow while the CLI control is fast and one state category has unusually high file count or size. This narrows the cause but is not process-level proof.
+- **State-heavy correlation:** desktop startup is slow while the CLI control is fast and one state category has unusually high file count or size. This narrows the cause but is not process-level proof. Distinguish apparent bytes from inode-deduplicated unique bytes; allocated bytes may be unavailable on some platforms.
+- **Recent growth:** a `--since` window identifies current files modified recently. It is a lead for investigation, not proof that all reported bytes were newly allocated during the window.
+- **Session overhead concentration:** the opt-in sample shows whether the largest transcripts are dominated by compaction records, tool outputs, or image-bearing envelopes without exposing their contents. It samples the largest files rather than proving the distribution of every session.
 - **Worktree accumulation:** the audit and Git metadata show many Codex worktrees. Inspect each candidate's branch, tracked, untracked, and ignored state before removal.
 - **Database or log growth:** database-like files dominate. Do not call them disposable logs until current documentation, schema inspection, or a reversible closed-client experiment establishes ownership and regeneration.
 - **Multiple-client contention:** two running or installed clients are observed using the same state. Concurrent writes or scanning are a hypothesis until locks, logs, or repeatable startup behavior support it.
@@ -63,6 +81,7 @@ Report:
 
 - the resolved state path without exposing private identifiers unnecessarily;
 - total bytes, files, directories, and the dominant top-level categories;
+- apparent, unique, and allocated size where available, plus duplicate hardlink references and requested growth windows;
 - CLI and desktop versions or timing controls actually observed;
 - confirmed facts, likely correlations, and unverified hypotheses separately;
 - exact cleanup candidates and the evidence still required before each mutation; and

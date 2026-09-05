@@ -2,15 +2,22 @@
 
 [English](README.md) | 中文
 
-这是一个公开的 Codex Skills 与 Agent 工作流说明仓库。
+这是我的 Agent 工作流记录库：记录实际开发中采用的协作原则、项目流程、可复用 Skills，以及改进这些工作方式的经验。
 
-这里发布可复用的 skill 源码、跨项目工作流、配置模板、公开示例、脚本和说明文档，并作为多个 Agent 终端共享稳定规则与提炼知识的公开来源。
+可复用的规则、模板和工具在这里维护，按需部署到不同主机与项目。项目自己的进度和工作记录留在项目里；有跨项目价值的经验，再提炼回来。
 
-## Agent 工作流
+## 从哪里开始
 
-跨项目工作方式见[可组合 Agent 工作流](docs/agent-workflow.zh-CN.md)，English version 见 [Composable Agent Workflow](docs/agent-workflow.md)。
+| 你想做什么 | 看这里 |
+| --- | --- |
+| 了解判断、执行、验证与协作原则 | [Agent 工作流](docs/agent-workflow.zh-CN.md) |
+| 配置一台主机的全局 `AGENTS.md` | [规则解读与可选项](docs/global-agents.zh-CN.md)、[最小核心模板](templates/AGENTS.global.md) |
+| 让项目中断后仍能继续开发 | [Workspace 持续文档](docs/workspace-continuous-documentation.zh-CN.md)、[项目规则片段](templates/workspace/AGENTS.docs-workflow.md) |
+| 选择需要的 Skill，控制触发范围 | [Skill 选择与多主机使用](docs/skill-management.zh-CN.md)、下方的 Skills 清单 |
 
-这里把小而通用的跨平台核心，与语言、工具、主机、平台和 Workspace 选项分开。可复用核心位于 [templates/AGENTS.global.md](templates/AGENTS.global.md)，可选主机模块位于 [templates/optional/](templates/optional/)，平台模块位于 [templates/platform/](templates/platform/)，互相独立的 Workspace 工作流位于 [templates/workspace/](templates/workspace/)。这样，无关偏好和领域规则不会占用每个 Agent 的上下文。
+本地文档随开发及时更新：`active/` 记录当前计划，`design/` 保存稳定设计，`worklog/` 记录阶段结果、证据和经验。只在内容有实质变化时更新，不要求每次小修改都新建文档。飞书等云端归档是独立的按需操作，不影响本地开发。
+
+## 部署工作流
 
 这里提供两条互相独立的部署路径：
 
@@ -19,7 +26,7 @@
 | 主机级全局行为 | 一台 Agent 主机上的所有 workspace | [核心与选项解读](docs/global-agents.zh-CN.md)、[最小核心](templates/AGENTS.global.md)和用户选择的可选或平台模块 |
 | Workspace 工作流 | 一个仓库，跨 Agent、跨主机生效 | [三目录工作流说明](docs/workspace-continuous-documentation.zh-CN.md)、独立选择的 [Workspace 模块](templates/workspace/)和该仓库已有的 `AGENTS.md` 与 `docs/` |
 
-两条路径都可以单独使用，但推荐组合部署：主机层统一 Agent“怎么工作”，workspace 层保存项目“知道什么”。这是推荐绑定，不是技术强绑定；两份 diff 应分别审阅和批准，同一规则不要在两层重复维护。
+全局配置统一 Agent 的工作方式，Workspace 配置维护项目的计划、设计和工作记录。推荐搭配使用，也可以按需单独部署。
 
 ### 配置一台 PC 的全局 AGENTS.md
 
@@ -30,10 +37,10 @@
 
 1. 读取 templates/AGENTS.global.md，把它作为唯一自动推荐的跨平台核心；同时阅读 docs/global-agents.zh-CN.md，了解有哪些可选项。
 2. 提议修改前，先检查 Agent 的实际运行环境和现有全局 AGENTS.md。把现有规则分成保留、移到渐进加载层、建议删除三类并指出冲突；可发现、易漂移或一次性的细节不能仅因为“不冲突”就永久保留。不要盲目覆盖整个文件。
-3. 只考虑当前主机可能需要的模块。对于 templates/optional/ 或 templates/platform/ 下每个相关选项，用通俗语言说明它会增加什么行为、代价或限制，以及是否推荐，再让我选择；不要擅自加入中文优先、单 Agent、禁用 worktree、RTK、时区、仓库/数据策略、资源限制或平台模块。明显不相关的模块不要拿来逐项提问。
-4. 选择时区模块时，询问 IANA 时区并替换占位符；选择 RTK 或资源限制模块时，先验证目标主机确实具备对应工具或运行环境。检测到 Windows 只代表 windows-shell.md 相关，不代表用户已经批准。
+3. 只考虑当前主机相关模块，解释行为、收益和代价。复用我已经明确的偏好，其余用当前可用的交互选项工具集中询问，允许自由填写；不要每个模块问一轮，也不要把推荐或预选当作同意。没有选项工具时用一次简短询问。语言、称呼、会话标题、委派与上下文策略、worktree、RTK、时区及其他主机策略均为独立选择。
+4. 选称呼时询问用户称呼和 Agent 昵称，仅保存在私有主机配置；选记录或标题时区时确认 IANA 时区并替换相应占位符。选会话标题时先验证元数据和改名能力，不把指令模板宣传为已安装 Hook。RTK、资源限制和平台模块也先核对实际环境；检测到工具或平台不等于批准。
 5. 主机全局文件不加入项目工作流和领域规则。持续文档、实验记录和 Robotics 验证应在各个 Workspace 中另行选择。
-6. 写入前展示准确的合并 diff、已选模块清单，以及每条拟删除或迁移规则。只有我确认后才应用，并先创建可恢复备份；应用后验证公共核心和每个已选模块各出现一次，没有未选模块或未替换占位符，经批准保留的本机规则仍然存在。
+6. 写入前展示准确的合并 diff、已选模块及参数，以及每条拟删除或迁移规则；说明是否改变授权范围。通过支持的批准方式获得确认后，先备份再应用，不重复询问已批准且未改变的决定。验证核心和已选模块各出现一次、参数已填写、经批准保留的本机规则仍在；功能模块还要验证实际行为。偏好选项不是文件权限提权。
 
 不要修改项目仓库、远端主机，也不要安装任何 Skill，除非我另行明确授权。
 ```
@@ -47,7 +54,7 @@
 
 1. 读取 docs/workspace-continuous-documentation.zh-CN.md，并先检查当前 workspace 的分支、工作树、AGENTS.md 或其他 Agent 指令、README 和已有 docs。保护无关工作，优先复用等价文档，不要创建重复体系。
 2. 把每个 Workspace 模块当作独立选项。分别说明持续文档（templates/workspace/AGENTS.docs-workflow.md 与 worklog 模板）、显式实验记录（templates/workspace/experiments.md）和 Robotics 证据分层（templates/workspace/robotics-validation.md）的实际收益与维护成本。只推荐有项目证据支持的模块，但不要仅凭仓库名或技术栈推定用户已经同意。
-3. 询问我要加入哪些相关模块。持续文档、实验纪律和 Robotics 验证互不自动绑定。
+3. 复用已明确的选择，其余相关模块通过可用的交互选项集中询问；持续文档、实验纪律、Robotics 验证和界面约定（templates/workspace/ui-conventions.md）互不自动绑定。
 4. 如果选择持续文档，展示现有文档如何对应三个用途：当前 spec/plan -> docs/active/，稳定算法与技术设计 -> docs/design/，完成阶段记录 -> docs/worklog/。已有等价路径就沿用，不为统一目录名复制内容。
 5. 只创建已选模块缺少的结构。持续文档模块把模板放到 docs/worklog/worklog-template.md，并只将稳定的文档入口规则合并进作用范围最近的项目 AGENTS.md；小改动不强制创建 plan 或 worklog。
 6. 写入前展示仅限当前 workspace 的 diff 和已选模块清单。只有我确认后才应用；应用后验证引用路径、规则和模板，确认没有平行工作流或任务临时文件。
@@ -55,178 +62,57 @@
 不要修改主机全局 AGENTS.md、其他 workspace、远端主机，也不要安装任何 Skill，除非我另行明确授权。
 ```
 
-推荐组合部署方式：每台主机只选择一次最小全局配置，再只在确有收益的仓库中选择 Workspace 模块。两部分始终分别批准、分别验证；推荐组合不代表任何一部分必须部署。
-
 ## Skills
 
-### `CodexLFE`
+按任务选择，不需要全部安装。详细流程和限制放在各自入口中。
 
-让 Codex Orchestration 使用受约束的 GPT-5.6 Luna Max Fast 自定义 Executor。
-
-主要行为：
-
-- 只安装或验证 canonical Codex Orchestration marketplace 来源；
-- 创建本机 `codex_lfe_executor` custom agent，不复制或 vendor Orchestration；
-- 必要的 Luna v2 兼容 catalog 只从目标机器自己的模型缓存生成；
-- 只有显式、preview-first 的 `setup` 和 `disable` 才会修改全局状态；
-- setup 后必须完全重启 Codex，`verify` 才会做静态检查并请求一次真实 routed spawn；
-- 配置冲突、agent 归属冲突、依赖来源异常或 managed state drift 时全部 fail closed。
-
-### `simplify-codebase`
-
-在不把代码行数当作目标的前提下，为现有代码库寻找并在获得授权时实施有证据支撑的简化。
-
-适合这些触发方式：
-
-- 找出这个仓库里最过度设计的部分。
-- 不改变预期行为，删除死代码和多余的防御性脚手架。
-- 评审这个重构是否真的降低了系统复杂度。
-
-主要行为：
-
-- 区分只读审计、实施和评审三种模式；
-- 删除前证明生产、生成、动态、测试和文档消费者；
-- 检查重复状态、推测性抽象、过期兼容、防御性机制、包层级和自制基础设施；
-- 新增 hash、冻结 contract、baseline、gate、影子状态或自制校验前，必须先给出具体失败场景；
-- 没有证据和授权时保留已有与高风险安全措施；
-- 完成约定范围的调查、简化和验证后停止，不把清理变成无限追求“完美代码”的循环。
-
-首次公开评测使用了明确自称“有意过度工程化”的 [`devxsameer/blog-api`](https://github.com/devxsameer/blog-api)，固定在 `72f22d3ee2be`。该样本包含 5,154 行维护文本（其中 TypeScript 3,814 行）；一轮有边界的高置信度精简净删 46 行 TypeScript、1 个文件、1 个分支关键词、重复 token 工具和纯转发 service 调用，且没有新增依赖。方法、保留的安全 hash、验证证据与限制见[评测报告](docs/simplify-codebase-evaluation.zh-CN.md)。
-
-其证据模型改编自 DeepSeek Harness 的 [`dsh-find-simplifications`](https://github.com/deepseek-ai/deepseek-harness/tree/master/.agents/skills/dsh-find-simplifications)，并移除了 DSH 专属的 Agent Notes、Cordis 架构和仓库例外。
-
-### `codex-home-audit`
-
-只读诊断 Codex 或 ChatGPT 桌面版启动慢、风扇或 CPU 占用高，以及 `CODEX_HOME` 状态目录过大的问题。
-
-适合这些触发方式：
-
-- 为什么 Codex CLI 启动很快，但桌面版很慢？
-- 统计 ~/.codex 下是谁占用了体积和文件数。
-- 审计旧 Codex worktree，并给出安全清理方案。
-
-主要行为：
-
-- 只扫描文件元数据，按顶层目录汇总体积和数量，不读取 transcript 或数据库内容；
-- 隐去类似唯一标识符的顶层名称，并跳过 link 或 junction；
-- 把 worktree、数据库、多客户端和杀毒软件活动分成已确认事实、相关性和假设；
-- 在证明前，把 session 数据、数据库、ignored 文件、凭据和 worktree 都视为可能有价值；
-- 清理、卸载客户端、终止进程、移除 worktree 或设置杀毒排除都需要另行批准准确目标。
-
-其清理边界遵循当前 [Codex 官方 troubleshooting](https://learn.chatgpt.com/docs/reference/troubleshooting) 与 [worktree](https://learn.chatgpt.com/docs/environments/git-worktrees) 文档。对于“某个 SQLite 只是日志且一定会重建”等官方未说明的说法，必须由目标安装环境实际证明后才能执行。
-
-### `lark-worklog-archive`
-
-把每天通过 Codex/Agent 完成的工作归档到飞书/Lark 月度工作记录文档。
-
-适合这些触发方式：
-
-- 今日归档。
-- 记录今天工作。
-- 把这次完成的内容同步到飞书工作记录。
-
-主要行为：
-
-- 每月一个飞书/Lark 工作记录文档；
-- 每天一个 `MM-DD-YYYY` 标题；
-- 工作内容按工作域和子类归档；
-- 通过 helper 脚本安全追加同一天内容，避免直接 overwrite；
-- 工作条目可以带 Markdown 链接，用于跳转到相关文档或 commit；
-- 真实文档映射只保存在本机忽略配置中。
-- 已针对 `lark-cli 1.0.87` 验证；本机 CLI 过旧时先更新，不保留旧版授权输出兼容逻辑。
-
-### `TaskWatch`
-
-为任何长时间运行的 Linux 任务生成可复用的只读 Codex monitor。
-
-适合这些触发方式：
-
-- 给这个长时间运行任务加一个 Codex monitor。
-- 生成按小时巡检的只读任务报告。
-- 给当前 workspace 增加 systemd 用户定时器和任务完成邮件通知。
-
-主要行为：
-
-- 生成 `.codex_monitor` 脚手架：默认在 workspace 内，加 `--central` 时整体放到 `~/.codex/taskwatch/jobs/<name>/`，工程目录不新增任何文件；
-- 写入可配置的 `run_command.sh` 和 `monitor.env`；
-- 安装小时报告和最终总结脚本；
-- 支持 Codex goal-mode 在最终邮件里区分 `complete`、`blocked` 和 `usageLimited`；
-- 也可以只安装全局 Codex `Stop` hook，用于 goal 终态邮件告警，不依赖 workspace 本地 monitor；
-- 支持无 sudo 的 systemd user timer；
-- SMTP secret 和运行期报告保持不入 Git；
-- 对常见邮箱域名自动推断 SMTP host、port 和安全模式，所以通常只需要用户提供发件邮箱、收件邮箱和发件邮箱密钥；
-- 支持干净卸载：脚手架用 `install.py --uninstall`，全局 hook 用 `install_global_hook.py --remove`。
-
-当前局限性：
-
-- workspace-local monitor 只支持 Linux，timer 默认走 `systemd --user`。
-- Windows 下只安装全局 goal 终态 `Stop` hook，不部署 workspace 本地 training 或长任务 monitor。
-- 全局 goal 终态邮件依赖 Codex `Stop` hook。如果是断电、宿主机崩溃、或者外部直接 kill 导致 Codex 没有正常收尾，这条链路不会触发。
-- goal 归档状态属于 best-effort 检测。它依赖 Codex transcript 和本地 state 推断，特殊流程下可能显示为“未检测到”。
-- workspace-local monitor 假设任务本身已经有真实可运行的命令、日志或 artifact 目录；它不会替你发明任务逻辑。
-- SMTP 仍然依赖邮箱服务商的有效 app password / 授权码。
-- 全局 hook 和 workspace-local monitor 是互补关系：前者负责 goal 终态告警，后者负责按小时的日志和产物巡检。
+| Skill / 插件 | 用途 | 使用建议与说明 |
+| --- | --- | --- |
+| `codex-home-audit` | 诊断 Codex 状态目录占用与启动问题 | 按需只读检查；清理另行批准。[入口](skills/codex-home-audit/SKILL.md) |
+| `lark-worklog-archive` | 把选定的开发成果归档到飞书 | 主动要求时使用；日常以项目 docs 为主。[入口](skills/lark-worklog-archive/SKILL.md) · [安装、授权与验证状态](skills/lark-worklog-archive/references/setup.md) |
+| `organizedProj` | 整理本次影响的项目文档，保留已验证经验 | 有范围的阶段收尾，复用现有文档。[入口](skills/organized-proj/SKILL.md) |
+| `TaskWatch` | 长任务失败与完成通知 | 支持 Agent Mail 和 SMTP。[Agent Mail 配置](skills/taskwatch/references/agent-mail.zh-CN.md) · [使用说明](skills/taskwatch/references/usage.md) |
 
 ## 安装 Skill
 
-### `CodexLFE`
+### `organizedProj`
 
-把本仓库添加为 Codex plugin marketplace，并安装 CodexLFE：
-
-```text
-codex plugin marketplace add https://github.com/Killow1998/OnlyCodexCanDo.git --json
-codex plugin add codex-lfe@only-codex-can-do --json
-```
-
-然后在 Codex 中显式运行 setup：
+把下面的 Prompt 交给目标主机或 workspace 中的 Agent：
 
 ```text
-$codex-lfe:codex-lfe setup
+请从 https://github.com/Killow1998/OnlyCodexCanDo.git 安装 organizedProj，来源为 skills/organized-proj（显示名 organizedProj，调用名 $organized-proj）。先比较已有副本、保留本地修改；询问是全局可用还是仅当前 workspace 可用，只部署选定范围，然后运行 scripts/check.py。本次安装不扫描或重写项目文档。分别报告实际发现检查和行为验证状态。
 ```
 
-setup 返回 `RESTART_REQUIRED` 后，完全退出并重开 Codex，创建新任务，再运行：
+### `codex-home-audit`
+
+把下面的 Prompt 交给目标主机上的 Codex：
 
 ```text
-$codex-lfe:codex-lfe verify
+请从 https://github.com/Killow1998/OnlyCodexCanDo.git 安装 codex-home-audit，只部署 skills/codex-home-audit，保留其他 Skills。先比较已有副本与源码，保留本地修改并展示冲突；安装后运行该 Skill 的 scripts/check.py，报告检查结果，不为消除差异而盲目覆盖。现在不要扫描或清理真实 CODEX_HOME。告诉我是否需要重开任务才能发现更新后的 Skill。
 ```
-
-### `simplify-codebase` 与 `codex-home-audit`
-
-让 Codex 只安装这两个 standalone Skill，并验证安装副本：
-
-```text
-请从 https://github.com/Killow1998/OnlyCodexCanDo.git 把 simplify-codebase 和 codex-home-audit 安装到这台机器的 Codex Skills 目录。只复制 skills/simplify-codebase 和 skills/codex-home-audit，保留其他已安装 Skill；然后分别运行 scripts/check.py，直到仓库源码与安装副本一致。现在不要审计或清理真实 CODEX_HOME。告诉我需要重启 Codex 才能发现新 Skill，并给出 $simplify-codebase 与 $codex-home-audit 的调用示例。
-```
-
-重启后，在目标仓库显式调用 `$simplify-codebase`。`$codex-home-audit` 先只读运行；清理仍需单独批准。
 
 ### `lark-worklog-archive`
 
-普通用户不需要自己逐条执行安装命令。把下面这段 prompt 交给 Codex 即可：
+先配置本地能力，云端授权和归档留到实际需要时：
 
 ```text
-请帮我安装并配置 lark-worklog-archive Skill，用于把每天通过 Codex/Agent 完成的开发工作归档到飞书工作记录。请使用公开仓库 https://github.com/Killow1998/OnlyCodexCanDo.git 通过 HTTPS 安装；安装或检查 lark-cli；如果已有 lark-cli app/config 就复用，不要重新创建飞书 app；否则发起一次性飞书用户授权，权限需要覆盖 docs、drive、markdown 和 search:docs:read；我只在网页上完成授权确认。授权后先运行 doctor 检查，优先搜索/注册已有的当前月工作记录文档；只有找不到已有文档且我明确同意时，才创建新的月度文档。最后告诉我以后可以直接说“今日归档”。不要把任何飞书文档 URL、OpenID、App ID、token、secret 或 registry 提交到 Git。
+请从 https://github.com/Killow1998/OnlyCodexCanDo.git 安装 lark-worklog-archive Skill，并使用官方最新稳定版 lark-cli。先检查本机已有安装、app/config 和自定义文件；升级 CLI 时使用官方 update，保留现有配置与凭据。不要覆盖未审阅的本地 Skill 修改。本次只安装和验证本地能力，不发起登录、不创建飞书应用或月度文档、不上传工作记录，也不设置定时上传或授权保活。日常记录以项目 docs 为主，等我明确要求归档到飞书时，再检查授权与目标文档，只在确有需要时让我完成浏览器授权。最后分别报告本地检查和云端验证状态；私有配置与凭据不得进入 Git。
 ```
 
-给 Codex/Agent 看的安装细节在 [skills/lark-worklog-archive/references/setup.md](skills/lark-worklog-archive/references/setup.md)。
+具体命令、授权排查和已验证版本见[安装说明](skills/lark-worklog-archive/references/setup.md)。
 
 ### `TaskWatch`
 
-对于 workspace 本地 monitor，Codex 应该先检查目标 workspace，尽量自己推断真实任务命令、日志路径、artifact 目录、进程匹配规则和已有 service 名称，再运行 installer：
+按 [Agent Mail 配置](skills/taskwatch/references/agent-mail.zh-CN.md)启用命令退出或 goal 终态通知；SMTP 和 Linux 进度报告见[使用说明](skills/taskwatch/references/usage.md)。启用前确定收件人和通知内容。
 
-```text
-请从 https://github.com/Killow1998/OnlyCodexCanDo.git 安装并配置 TaskWatch skill。先检查目标 workspace，尽量自己推断真实的长任务启动命令、主日志、artifact 目录、进程匹配规则，以及是否已有 user systemd service，而不是让我手动把每个 flag 都填一遍。只在 Linux 下部署。对于 workspace 本地 monitor，请生成 .codex_monitor、run_with_monitor.sh、按小时的只读巡检报告、最终完成邮件，以及可选的 systemd --user timer。对于 goal-mode 任务，还要确保最终邮件能区分 complete、blocked 和 usageLimited。只有在确实需要邮件配置时，才向我索取三项信息：发件邮箱、收件邮箱、发件邮箱的 SMTP 密码或授权码。所有 secret、报告和本地运行期状态都不要提交到 Git。安装完成后运行 skill 检查；如果本机已经安装了全局 skill，也要验证全局副本一致性；最后把启动监控任务的准确命令告诉我。
-```
+部署后验证实际事件触发和邮件送达，凭据保存在本机私有配置中。
 
-如果只是要全局 goal 终态邮件，不需要 workspace 本地 monitor：
+## 怎样持续改进
 
-```text
-请从 https://github.com/Killow1998/OnlyCodexCanDo.git 只安装 TaskWatch 的全局 goal 终态邮件 hook。在 ~/.codex 下配置 Codex Stop hook，让 goal 任务在 complete、blocked 和 usageLimited 时发送终态邮件。如果本机已经有现成配置就复用。只有在尚未配置邮件时，才向我索取发件邮箱、收件邮箱和发件邮箱的 SMTP 密码或授权码。所有 secret 只能保存在本机忽略文件里，并在安装后做一次安全的 smoke test。
-```
-
-Windows 下使用这条“只安装全局 hook”的路径。Linux 主机才使用 workspace 本地 monitor 来监控 training、evaluation 或其他长时间任务，并通过 `systemd --user` 定时巡检。
-
-技能入口说明在 [skills/taskwatch/SKILL.md](skills/taskwatch/SKILL.md)。使用说明在 [skills/taskwatch/references/usage.md](skills/taskwatch/references/usage.md)。
+1. 在实际项目中尝试，用项目 worklog 记录结果、问题和证据。
+2. 有复用价值后，再更新 OCCD 中对应的规则、模板、Skill 或已有说明，保留必要的适用场景和选择理由。
+3. 一项事实只维护一个主要出处，README 提供入口；经验也可以促成删除或合并旧规则。
+4. 改好源码与说明后，按授权更新选定主机或项目，并验证实际行为。仓库更新不等于所有安装副本都已更新。
 
 ## 仓库规则
 

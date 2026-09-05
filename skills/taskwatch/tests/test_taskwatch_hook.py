@@ -14,6 +14,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SKILL_DIR / "scripts"))
 
 
 def load_module(name: str, path: Path):
@@ -200,7 +201,8 @@ class TaskWatchHookTests(unittest.TestCase):
             path.write_text(transcript, encoding="utf-8")
             event = HOOK_MODULE.detect_terminal_event(path)
             assert event is not None
-            body = HOOK_MODULE.build_body({"session_id": "session-1", "cwd": tmpdir}, path, event)
+            with mock.patch.dict(os.environ, {"GIT_CEILING_DIRECTORIES": str(Path(tmpdir).parent)}):
+                body = HOOK_MODULE.build_body({"session_id": "session-1", "cwd": tmpdir}, path, event)
 
         self.assertIn("- 代码变更：未检测到 git 仓库", body)
 

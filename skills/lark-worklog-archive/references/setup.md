@@ -4,13 +4,9 @@ This file is for Codex/Agent. Normal users should not need to run these commands
 
 ## User-Facing Install Prompt
 
-Give this prompt to Codex when installing the skill on a new machine:
+Use the install prompt in the [English README](../../../README.md#lark-worklog-archive) or [中文 README](../../../README.zh-CN.md#lark-worklog-archive). Keep the user-facing prompt there; this guide owns the detailed commands and troubleshooting.
 
-```text
-请帮我安装并配置 lark-worklog-archive Skill，用于把每天通过 Codex/Agent 完成的开发工作归档到飞书工作记录。请使用公开仓库 https://github.com/Killow1998/OnlyCodexCanDo.git 通过 HTTPS 安装；安装或检查 lark-cli；如果已有 lark-cli app/config 就复用，不要重新创建飞书 app；否则发起一次性飞书用户授权，权限需要覆盖 docs、drive、markdown 和 search:docs:read；我只在网页上完成授权确认。授权后先运行 doctor 检查，优先搜索/注册已有的当前月工作记录文档；只有找不到已有文档且我明确同意时，才创建新的月度文档。最后告诉我以后可以直接说“今日归档”。不要把任何飞书文档 URL、OpenID、App ID、token、secret 或 registry 提交到 Git。
-```
-
-Codex should perform the setup and only ask the user to confirm the Feishu/Lark authorization in the browser.
+Local installation does not require browser consent or a cloud write. Check authorization when a cloud archive is explicitly requested, and ask for browser consent only when the diagnosed state requires it.
 
 ## What Codex Should Do
 
@@ -33,7 +29,9 @@ npx @larksuite/cli@latest install
 lark-cli --version
 ```
 
-Validated compatibility baseline: `lark-cli 1.0.87` on Windows. The helper expects its `auth status --json --verify` identity/token shape and bypasses the npm `.cmd` shim internally so URL arguments containing `&` remain intact. Update older installations with `lark-cli update` before debugging authorization; re-run live auth verification, doctor, and the skill release checks before recording a newer CLI version.
+Use the current stable CLI and record the version actually checked. `lark-cli 1.0.93` passed Windows version/passthrough checks, local auth-metadata parsing, the auth and document command-help checks, and the helper's offline release checks. Its official Skills were also confirmed in sync. Authenticated cloud read/write acceptance has not been rerun on this version; the last live auth/doctor baseline remains `lark-cli 1.0.87`. Do not treat an upgrade as restored authorization or prompt for consent merely to complete an offline check.
+
+The helper expects the `auth status --json --verify` identity/token shape and bypasses the npm `.cmd` shim internally so URL arguments containing `&` remain intact. Record the installed version before diagnosing auth; do not use an upgrade or reinstall as the first repair. For a requested upgrade, use `lark-cli update`; it also syncs official Skills. Preserve customized files before updating and keep existing app/config and credentials. Recheck the helper's commands and release checks, and verify authenticated document access when a cloud archive is next requested.
 
 If `npx @larksuite/cli@latest install` fails with an `ERR_REQUIRE_ESM` or dependency engine warning, check Node.js. The current installer may require Node.js `20.12.0` or newer.
 
@@ -50,13 +48,36 @@ python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli auth st
 python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli config show
 ```
 
-The helper always points `lark-cli` at one persistent managed credential store: `~/.codex/memories/runtime/lark-cli/` (config under `config/`, encrypted credentials under `data/lark-cli/`), both inside and outside Codex. On first use it migrates existing legacy state from `~/.lark-cli` and `~/.local/share/lark-cli`. Do not run bare `lark-cli auth login` afterwards: that writes credentials to the legacy location, the two stores then rotate refresh tokens independently and invalidate each other, and auth appears to "randomly drop". Run every `lark-cli` command through the helper's `--lark-cli` passthrough instead, which injects the managed environment:
+The helper retains its existing configuration under `~/.codex/memories/runtime/lark-cli/config/`. On first use it may copy pre-existing config and Linux-style data directories into that runtime root. This is a compatibility behavior, not a purely read-only probe. Use its `--lark-cli` passthrough to keep app/profile selection consistent while troubleshooting:
 
 ```bash
 python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli auth status
 ```
 
-`--doctor` warns when the legacy store is newer than the managed store (the usual sign that a bare `lark-cli auth login` happened). Override the store location with `LARK_WORKLOG_LARK_RUNTIME_ROOT`, `LARKSUITE_CLI_CONFIG_DIR`, or `LARKSUITE_CLI_DATA_DIR` only when you need a different persistent location.
+Configuration location is not necessarily credential location. In `lark-cli 1.0.87`, [Windows uses DPAPI-encrypted HKCU registry values](https://github.com/larksuite/cli/blob/v1.0.87/internal/keychain/keychain_windows.go); [macOS uses Keychain and Linux encrypted files](https://github.com/larksuite/cli/blob/v1.0.87/internal/keychain/keychain.go). The old claim that native and managed Windows commands necessarily rotate two separate file-token copies was incorrect. Verify the actual account and backend before attributing failure to split stores.
+
+`--doctor` compares config content, not modification times of unrelated caches/logs. A difference is a prompt to inspect app/user/profile selection, not an instruction to log in again. Overrides remain available through `LARK_WORKLOG_LARK_RUNTIME_ROOT`, `LARKSUITE_CLI_CONFIG_DIR`, and `LARKSUITE_CLI_DATA_DIR`. Do not silently migrate existing installations or copy encrypted credentials across machines.
+
+## Authorization troubleshooting
+
+Start with `--lark-cli auth status --json` to inspect local metadata; redact identifiers and never print token values. Use `auth status --json --verify` only when a network verification is relevant. It may refresh credentials as part of CLI operation; neither a local status check nor a successful browser page alone proves document access.
+
+| Evidence | Interpretation and next action |
+| --- | --- |
+| `tokenStatus: needs_refresh` | The access token needs renewal but the stored refresh deadline has not passed. The CLI can attempt refresh on a user API call; do not immediately request browser login. |
+| `tokenStatus: expired`, past `refreshExpiresAt` | The refresh window has ended. Browser authorization is needed; reinstalling or copying files cannot extend it. |
+| `no_token` or keychain access failure | Check selected app/user/config and OS-store access, including an approved outside-sandbox comparison, before concluding credentials are lost. |
+| Timeout, DNS, proxy, TLS, or connection failure | Repair connectivity and retry the same identity. Do not reset authorization. |
+| Missing scope or resource access | Distinguish incremental user consent, bot app permissions, and a specific document ACL. Do not switch to bot to bypass an error. |
+| Verification explicitly failed | Keep the failure visible even if local metadata says `ready` or `available`. Preserve the original error; do not guess that login will fix it. |
+
+These expiry states and automatic-renewal behavior are defined in the CLI's [token status implementation](https://github.com/larksuite/cli/blob/v1.0.87/internal/auth/token_store.go) and [auth status command](https://github.com/larksuite/cli/blob/v1.0.87/cmd/auth/status.go). Use the returned timestamps rather than assuming a universal permanent login or fixed lifetime.
+
+### Occasional cloud archiving
+
+Keep frequently updated work in project docs; authenticate only when the user requests a cloud archive. Long inactivity can outlast the refresh window and require consent again. Do not add a background keepalive, change account identity, or broaden scopes merely to hide this tradeoff. A future always-on or bot-based workflow needs its own permission and maintenance decision. This helper's user-owned registry and document access cannot be made bot-compatible merely by appending `--as bot`.
+
+## Initial authorization and recovery
 
 Only initialize a new CLI app/config when no existing config is present. Reinstalling this skill should not create a new Feishu app. If the user already has a Feishu CLI app, tell them to choose or reuse it instead of creating a parallel app.
 
@@ -64,7 +85,7 @@ Only initialize a new CLI app/config when no existing config is present. Reinsta
 python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli config init --new
 ```
 
-Start one-time user authorization (same command on Linux, macOS, and Windows PowerShell):
+When initial consent or confirmed expiry/revocation requires it, start user authorization (same command on Linux, macOS, and Windows PowerShell). This grants a renewable but not permanent session:
 
 ```bash
 python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli auth login \

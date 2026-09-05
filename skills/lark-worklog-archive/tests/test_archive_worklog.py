@@ -908,23 +908,24 @@ class ArchiveWorklogTests(unittest.TestCase):
                 Path(home) / ".codex" / "memories" / "runtime" / "lark-cli" / "data",
             )
 
-    def test_legacy_store_divergence_warns_when_legacy_is_newer(self) -> None:
+    def test_config_divergence_reports_difference_without_login_advice(self) -> None:
         with tempfile.TemporaryDirectory() as home:
             managed = Path(home) / ".codex" / "memories" / "runtime" / "lark-cli" / "config"
             legacy = Path(home) / ".lark-cli"
             managed.mkdir(parents=True)
             legacy.mkdir(parents=True)
             (managed / "config.json").write_text("{}", encoding="utf-8")
-            (legacy / "config.json").write_text("{}", encoding="utf-8")
+            (legacy / "config.json").write_text('{"profile":"different"}', encoding="utf-8")
             old = 1_600_000_000
             os.utime(managed / "config.json", (old, old))
             os.utime(legacy / "config.json", (old + 100, old + 100))
             with mock.patch.dict(os.environ, {"HOME": home, "USERPROFILE": home}, clear=True):
                 warning = self.mod.legacy_store_divergence()
             self.assertIsNotNone(warning)
-            self.assertIn("--lark-cli auth login", warning)
+            self.assertIn("configs differ", warning)
+            self.assertNotIn("auth login", warning)
 
-    def test_legacy_store_divergence_silent_when_managed_is_current(self) -> None:
+    def test_config_divergence_ignores_timestamps_and_newer_logs(self) -> None:
         with tempfile.TemporaryDirectory() as home:
             managed = Path(home) / ".codex" / "memories" / "runtime" / "lark-cli" / "config"
             legacy = Path(home) / ".lark-cli"
@@ -935,6 +936,7 @@ class ArchiveWorklogTests(unittest.TestCase):
             old = 1_600_000_000
             os.utime(legacy / "config.json", (old, old))
             os.utime(managed / "config.json", (old + 100, old + 100))
+            (legacy / "recent.log").write_text("new log, same config", encoding="utf-8")
             with mock.patch.dict(os.environ, {"HOME": home, "USERPROFILE": home}, clear=True):
                 self.assertIsNone(self.mod.legacy_store_divergence())
 
@@ -1088,7 +1090,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("--device-code", setup)
         self.assertIn("auth status --json --verify", setup)
         self.assertIn("lark-cli 1.0.87", setup)
-        self.assertIn("lark-cli 1.0.87", skill)
+        self.assertIn("current stable CLI", skill)
         self.assertIn("lark-cli 1.0.87 compatibility", changelog)
         self.assertNotIn("\nLARK_CLI_NO_PROXY=1 lark-cli auth login", setup)
         self.assertIn("release check commands", setup)
@@ -1150,6 +1152,44 @@ class ArchiveWorklogTests(unittest.TestCase):
             hint = self.mod.auth_fix_hint("User identity: missing (no token in keychain)")
         self.assertIn("Windows Codex sandbox", hint)
         self.assertIn("non-sandbox", hint)
+
+    def test_auth_status_rejects_explicit_verification_failure(self) -> None:
+        for user_verified, effective_verified in ((False, None), (None, False)):
+            with self.subTest(user_verified=user_verified, effective_verified=effective_verified):
+                payload = {
+                    "identity": "user", "verified": effective_verified, "verifyError": "network timeout",
+                    "identities": {"user": {"status": "ready", "available": True, "tokenStatus": "valid",
+                                             "openId": "ou_test", "verified": user_verified, "message": "network timeout"}},
+                }
+                self.assertEqual(self.mod.authorized_user_open_id(payload), (None, "network timeout"))
+
+    def test_auth_fix_hints_do_not_request_login_for_unproven_expiry(self) -> None:
+        cases = [
+            ("network timeout", {}, "network/proxy"),
+            ("missing_scope", {}, "reported missing user scopes"),
+            ("forbidden", {}, "target resource"),
+            ("unexpected response", {}, "Cause not established"),
+            ("missing", {"tokenStatus": "no_token"}, "same app/user/config"),
+            ("needs refresh", {"tokenStatus": "needs_refresh"}, "attempt renewal"),
+        ]
+        for error, user, expected in cases:
+            with self.subTest(error=error):
+                hint = self.mod.auth_fix_hint(error, {"identities": {"user": user}})
+                self.assertIn(expected, hint)
+                self.assertNotIn("auth login", hint)
+
+    def test_expired_or_revoked_refresh_hint_preserves_cli_configuration(self) -> None:
+        cases = [
+            ("expired", {"tokenStatus": "expired", "refreshExpiresAt": "2000-01-01T00:00:00Z"}, "2000-01-01"),
+            ("invalid_grant: revoked", {"tokenStatus": "needs_refresh"}, "rejected or revoked"),
+        ]
+        for error, user, expected in cases:
+            with self.subTest(error=error):
+                hint = self.mod.auth_fix_hint(error, {"identities": {"user": user}})
+                self.assertIn(expected, hint)
+                self.assertIn('--lark-cli auth login', hint)
+                self.assertIn('--no-wait --json', hint)
+                self.assertNotIn('auth logout', hint)
 
     def test_doctor_checks_registry_without_printing_doc_locator(self) -> None:
         fake = FakeLark("# 05-20-2026\n\n- 工作记录 / 知识管理\n  - 工作内容\n    - existing")
@@ -1614,9 +1654,20 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("Registry owner does not match", str(raised.exception))
         self.assertEqual(fake.commands(), [])
 
+    def test_private_url_scan_checks_host_not_public_source_path(self) -> None:
+        spec = importlib.util.spec_from_file_location("check_under_test", CHECK_PATH)
+        checker = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(checker)
+        pattern = checker.FORBIDDEN_PATTERNS[0]
+        for host in ("example.feishu.cn", "example.larksuite.com", "EXAMPLE.FEISHU.CN:443"):
+            with self.subTest(host=host):
+                self.assertIsNotNone(pattern.search("https://" + host + "/docx/synthetic"))
+        self.assertIsNone(pattern.search("https://github.com/larksuite/cli/blob/v1.0.87/internal/auth/token_store.go"))
+
     def test_public_files_do_not_contain_private_lark_values(self) -> None:
         forbidden = [
-            re.compile(r"https?://\S*(?:feishu|larksuite)\S*"),
+            re.compile(r"https?://(?:[a-z0-9-]+\.)*(?:feishu\.cn|larksuite\.com)(?=[:/]|$)\S*", re.IGNORECASE),
             re.compile(r"\bou_[0-9a-f]{16,}\b"),
             re.compile(r"\bcli_[a-f0-9]{12,}\b"),
         ]

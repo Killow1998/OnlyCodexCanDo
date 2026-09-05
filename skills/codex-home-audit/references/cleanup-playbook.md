@@ -6,11 +6,16 @@ Read this file only after the user asks for cleanup, not for a read-only audit.
 
 Current official documentation confirms that Codex uses `$CODEX_HOME/sessions` and `$CODEX_HOME/archived_sessions`, that desktop and CLI builds can differ, and that frequent scheduled tasks can create many worktrees. It does not establish that every SQLite file is disposable, that a particular database will be rebuilt safely, or that antivirus exclusion is recommended.
 
+Codex issue reports also document cases where a subagent rollout has reached `task_complete` or has no live handle while the desktop still displays it as `Active / Working` because a stored spawn edge remains open. Treat the live registry and terminal rollout event as execution evidence; do not infer that a stale badge is consuming a worker.
+
 Refresh these sources before acting:
 
 - [Codex troubleshooting](https://learn.chatgpt.com/docs/reference/troubleshooting)
 - [Codex Git worktrees](https://learn.chatgpt.com/docs/environments/git-worktrees)
 - [Codex config basics](https://learn.chatgpt.com/docs/config-file/config-basic)
+- [Completed subagent remains Active / Working on Windows](https://github.com/openai/codex/issues/38364)
+- [Terminal rollout with an open spawn edge](https://github.com/openai/codex/issues/35209)
+- [Stale multi-agent watched status](https://github.com/openai/codex/issues/37916)
 
 Treat community cleanup reports as hypotheses until the target installation supplies matching evidence.
 
@@ -60,6 +65,13 @@ Only after exact approval, use the owning repository's normal `git worktree remo
 - For undocumented databases, prefer a closed-client backup or quarantine experiment: move one approved file to a recoverable location, start the retained client, verify startup and important history, then decide whether the backup can be removed later.
 - Treat transcripts and archived sessions as user data. Use the app's archive controls or an approved export/backup path when available.
 - Remove only a cache or log whose regeneration and loss impact have been established for the current version.
+
+## Stale subagent or task status
+
+- Compare the live agent registry, the rollout's last meaningful terminal event, and the stored UI relation read-only. A stale `open` relation alone does not prove that a worker is alive.
+- Use supported task archive or close controls first, then refresh or restart the desktop client. Archiving is preferable because it is visible and reversible.
+- Do not edit spawn-edge rows or other Codex SQLite state while the app is running. A direct database rewrite is unsupported cleanup and can race with the owning process.
+- If the supported archive succeeds but the Subagents panel still says `Working`, report it as a UI/state-reconciliation defect rather than repeatedly interrupting a nonexistent worker.
 
 ## Antivirus exclusions
 

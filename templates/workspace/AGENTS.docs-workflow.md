@@ -5,6 +5,7 @@ Merge this section into the nearest applicable project `AGENTS.md` only after th
 - Before substantial work, read the relevant current spec or plan under `docs/active/`, then read related algorithm or interface documents under `docs/design/` as needed.
 - Keep current goals, scope, acceptance criteria, progress, and next steps in `docs/active/`. Do not use `AGENTS.md` as a progress log.
 - Keep stable algorithm, interface, architecture, responsibility, and safety design in `docs/design/`. Do not put daily progress there.
+- Keep evidence needed to reproduce or continue this task in an approved durable project location, not only in a system temp directory or chat. Reference large artifacts instead of copying them into documentation or public Git.
 - After a meaningful stage is complete, leave the workspace restartable without chat history: update completion state and the next step in `docs/active/`, update `docs/design/` only when long-lived design changed, and write one dated entry under `docs/worklog/` using `docs/worklog/worklog-template.md`. Organize it by objective, approach, verified result, and remaining problems rather than by command history.
 - Update documents only when the plan, design, verified result, or next step materially changes. Small edits do not require ceremonial documentation.
 - When a task finishes, preserve long-lived design in `docs/design/` and results in `docs/worklog/`, then move the completed plan out of `docs/active/` using the project's existing archive or cleanup convention.

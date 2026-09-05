@@ -18,7 +18,7 @@ DEFAULT_GLOBAL_SKILL = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")
 QUICK_VALIDATE = Path.home() / ".codex" / "skills" / ".system" / "skill-creator" / "scripts" / "quick_validate.py"
 EXCLUDED_NAMES = {"__pycache__", "monthly-docs.local.json"}
 FORBIDDEN_PATTERNS = [
-    re.compile(r"https?://\S*(?:feishu|larksuite)\S*"),
+    re.compile(r"https?://(?:[a-z0-9-]+\.)*(?:feishu\.cn|larksuite\.com)(?=[:/]|$)\S*", re.IGNORECASE),
     re.compile(r"\bou_[0-9a-zA-Z_-]{16,}\b"),
     re.compile(r"\bcli_[a-zA-Z0-9_-]{12,}\b"),
 ]

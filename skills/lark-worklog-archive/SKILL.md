@@ -5,7 +5,7 @@ description: Archive daily Codex or agent work into the user's Feishu/Lark workl
 
 # Lark Worklog Archive
 
-Archive verified daily Codex/Agent work into the user's monthly Feishu/Lark worklog.
+Archive only on request. Project docs remain the daily record; cloud auth must not block local work. No scheduled uploads or token keepalive without separate authorization.
 
 Real Feishu document URLs, OpenID values, app IDs, tokens, secrets, and local registry values are runtime/private data only. Do not commit them to Git.
 
@@ -46,7 +46,7 @@ Command examples assume a repo checkout. When running from the installed copy, r
      --item "工作记录 / 知识管理::结果::运行 Y 通过。"
    ```
 
-4. If archiving fails, run `--doctor`, fix what it reports, then re-run the archive command. Queued failed items for the same date replay automatically on the next successful run.
+4. On failure, run `--doctor` before retrying or requesting login. Preserve local records; queued same-date items replay on success. Network, scope, or credential-access errors do not prove expired authorization.
 5. To backfill another day, add `--date MM-DD-YYYY` and keep that day's heading position (newest date first).
 
 The helper uses a per-month lock, latest Feishu revision, retry, dedupe, and post-write verification. Same-day writes first try guarded section replace. Automatic full-document fallback is allowed only for supported list-only worklogs; unsupported blocks require explicit `--force-overwrite` after review.
@@ -55,7 +55,7 @@ For a shared team worklog, `--team` mode with explicit author attribution is doc
 
 ## Checks
 
-Validated compatibility baseline: `lark-cli 1.0.87`. Re-run the live auth verification, doctor, and release checks before changing this version; see [references/setup.md](references/setup.md).
+Use the current stable CLI. See [references/setup.md](references/setup.md) for validation status; CLI smoke checks do not prove authenticated cloud writes.
 
 Run doctor when setup, auth, registry, or document access may be stale:
 
@@ -63,7 +63,7 @@ Run doctor when setup, auth, registry, or document access may be stale:
 python skills/lark-worklog-archive/scripts/archive_worklog.py --doctor
 ```
 
-Never run bare `lark-cli` commands; use the `--lark-cli` passthrough so auth stays in the single managed credential store (bare calls write to a diverging legacy store and drop authorization):
+Use the passthrough for this helper's selected configuration. Credential storage is platform-specific; a different config directory does not prove a separate token store:
 
 ```bash
 python skills/lark-worklog-archive/scripts/archive_worklog.py --lark-cli auth status

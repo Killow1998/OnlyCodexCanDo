@@ -1,0 +1,4 @@
+{"type":"session_meta","payload":{"id":"fixture-session-id"}}
+{"type":"response_item","payload":{"type":"function_call_output","output":"fixture-output"}}
+{"type":"compacted","payload":{"summary":"fixture-summary"}}
+{"type":"response_item","payload":{"type":"input_image","image_url":"fixture-image"}}

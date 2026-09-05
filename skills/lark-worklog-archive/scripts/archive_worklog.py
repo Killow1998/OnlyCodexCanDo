@@ -269,9 +269,8 @@ def lark_cli_argv() -> list[str] | None:
 
 
 def codex_managed_lark_root() -> str | None:
-    # Always use one persistent credential store, in and out of Codex.
-    # Splitting stores per environment rots auth: Feishu refresh tokens
-    # rotate, so two diverging copies invalidate each other's sessions.
+    # Retain this helper's existing config selection. Credential storage is
+    # platform-specific: Windows uses DPAPI/registry, not this data directory.
     configured = os.environ.get("LARK_WORKLOG_LARK_RUNTIME_ROOT")
     if configured:
         return os.path.abspath(os.path.expanduser(configured))
@@ -312,33 +311,25 @@ def lark_cli_env() -> dict[str, str]:
     return env
 
 
-def newest_mtime(root: str) -> float:
-    latest = 0.0
-    for dirpath, _dirnames, filenames in os.walk(root):
-        for name in filenames:
-            try:
-                latest = max(latest, os.path.getmtime(os.path.join(dirpath, name)))
-            except OSError:
-                continue
-    return latest
-
-
 def legacy_store_divergence() -> str | None:
-    """Return a warning when the legacy lark-cli store is newer than the managed one."""
+    """Compare config contents; cache/log timestamps do not prove auth failure."""
     runtime_root = codex_managed_lark_root()
     if not runtime_root or os.environ.get("LARKSUITE_CLI_CONFIG_DIR") or os.environ.get("LARKSUITE_CLI_DATA_DIR"):
         return None
-    managed_latest = newest_mtime(runtime_root) if os.path.isdir(runtime_root) else 0.0
-    legacy_latest = max(
-        newest_mtime(legacy_lark_config_dir()) if os.path.isdir(legacy_lark_config_dir()) else 0.0,
-        newest_mtime(legacy_lark_data_dir()) if os.path.isdir(legacy_lark_data_dir()) else 0.0,
-    )
-    if legacy_latest > managed_latest > 0.0:
+    paths = [os.path.join(legacy_lark_config_dir(), "config.json"), os.path.join(runtime_root, "config", "config.json")]
+    if not all(os.path.isfile(path) for path in paths):
+        return None
+    try:
+        configs = []
+        for path in paths:
+            with open(path, encoding="utf-8-sig") as handle:
+                configs.append(json.load(handle))
+    except (OSError, ValueError):
+        return "Cannot compare native and managed CLI config; inspect readability and JSON before changing authorization."
+    if configs[0] != configs[1]:
         return (
-            "legacy lark-cli store is newer than the managed store; "
-            "a raw `lark-cli auth login` probably wrote credentials to the old location. "
-            "Re-run authorization through `archive_worklog.py --lark-cli auth login ...` "
-            "so every environment shares the managed store."
+            "Native and managed CLI configs differ. Compare the selected app, user, and profile; "
+            "this is not proof of token expiry. Do not copy credentials or reauthorize merely to resolve this warning."
         )
     return None
 
@@ -1302,6 +1293,8 @@ def authorized_user_open_id(payload: dict) -> tuple[str | None, str | None]:
         token_status = str(user.get("tokenStatus") or "")
         status = str(user.get("status") or "")
         available = user.get("available")
+        if user.get("verified") is False or (payload.get("identity") == "user" and payload.get("verified") is False):
+            return None, str(user.get("message") or payload.get("verifyError") or "User token verification failed; cause is not yet classified")
         if token_status in {"no_token", "missing", "expired", "invalid"} or available is False:
             detail = str(user.get("message") or "")
             if detail:
@@ -1319,16 +1312,35 @@ def authorized_user_open_id(payload: dict) -> tuple[str | None, str | None]:
     return None, detail or "no authorized user identity"
 
 
-def auth_fix_hint(error: str | None = None) -> str:
-    base = 'lark-cli auth login --recommend --domain docs,drive,markdown --scope "search:docs:read"'
+def auth_fix_hint(error: str | None = None, payload: dict | None = None) -> str:
+    prefix = f'python "{os.path.abspath(__file__)}" --lark-cli'
+    status_command = f"{prefix} auth status --json"
+    login = f'{prefix} auth login --recommend --domain docs,drive,markdown --scope "search:docs:read" --no-wait --json'
+    identities = (payload or {}).get("identities")
+    user = identities.get("user") if isinstance(identities, dict) else None
+    user = user if isinstance(user, dict) else {}
+    token_status = user.get("tokenStatus")
     lowered = (error or "").lower()
-    if os.name == "nt" and ("keychain" in lowered or "no token" in lowered):
+    if token_status == "expired":
+        expiry = user.get("refreshExpiresAt") or "unknown"
+        return f"Stored refresh token expired (refreshExpiresAt={expiry}); silent renewal is unavailable. Browser authorization is required: {login}"
+    if any(word in lowered for word in ("timeout", "timed out", "network", "proxy", "dns", "connection", "tls")):
+        return f"Check network/proxy access and retry verification in the same configuration. Do not reauthorize for a transport failure. Inspect: {status_command}"
+    if any(word in lowered for word in ("missing_scope", "missing scope", "insufficient_scope")):
+        return "Grant only the reported missing user scopes through the helper passthrough; do not reset login or switch identity. Bot scopes require app configuration instead."
+    if any(word in lowered for word in ("forbidden", "permission denied", "access denied", "resource acl")):
+        return "Check OS-store permissions or the target resource's access for the same identity; this does not establish that browser authorization is needed."
+    if "invalid_grant" in lowered or "revoked" in lowered:
+        return f"The grant was rejected or revoked; confirm the selected account before browser authorization: {login}"
+    if token_status == "needs_refresh":
+        return "The stored refresh token has not reached its local expiry; the CLI can attempt renewal on a user API call. Retry the intended read/verification with the same user identity, not browser login."
+    if token_status in {"no_token", "missing"} or "keychain" in lowered or "no token" in lowered:
+        environment = "Windows Codex sandbox" if os.name == "nt" else "current process"
         return (
-            "Windows Codex sandbox may not be able to read the supported lark-cli credential store. "
-            f"First verify outside the sandbox with `{base}` or `lark-cli auth status`; "
-            "if that succeeds but this doctor still fails, run real Feishu operations with approved non-sandbox execution."
+            f"The {environment} may not see the selected account's credential store. Compare {status_command} "
+            "with approved non-sandbox execution using the same app/user/config. Authorize only if credentials are genuinely absent."
         )
-    return base
+    return f"Cause not established. Inspect {status_command} and the original error before deciding whether authorization is needed."
 
 
 def current_user_open_id() -> str | None:
@@ -1634,7 +1646,6 @@ def run_doctor(args: argparse.Namespace, archive_day: dt.date) -> int:
             "warn",
             "credential store",
             divergence,
-            f"{sys.argv[0]} --lark-cli auth login --recommend --domain docs,drive,markdown --scope search:docs:read",
         )
 
     payload: dict | None = None
@@ -1650,7 +1661,7 @@ def run_doctor(args: argparse.Namespace, archive_day: dt.date) -> int:
                     "fail",
                     "auth",
                     user_error or "not authorized",
-                    auth_fix_hint(user_error),
+                    auth_fix_hint(user_error, payload),
                 )
         else:
             add(
@@ -1891,7 +1902,7 @@ def run_init(args: argparse.Namespace, archive_day: dt.date, archive_date: str) 
     if not user_open_id:
         raise SystemExit(
             "lark-cli user auth is not ready. "
-            'Run: lark-cli auth login --recommend --domain docs,drive,markdown --scope "search:docs:read"'
+            "Run this helper with --doctor to distinguish expiry, credential access, permissions, and network failure before authorizing again."
         )
     key = month_key(archive_day)
     action = "Registered"
