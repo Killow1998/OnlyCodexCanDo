@@ -32,6 +32,26 @@ INSTALL_HOOK_MODULE = load_module("install_global_hook", SKILL_DIR / "scripts" /
 
 
 class TaskWatchHookTests(unittest.TestCase):
+    def test_code_mode_goal_result_blocks(self) -> None:
+        goal = {"status": "complete", "objective": "Wait for deadline", "updatedAt": 1788599717}
+        item = {"type": "response_item", "payload": {
+            "type": "custom_tool_call_output", "output": [
+                {"type": "input_text", "text": "Script completed\nOutput:\n"},
+                {"type": "input_text", "text": json.dumps({"update_goal": {"goal": goal}})},
+            ]}}
+        state = HOOK_MODULE.parse_update_goal_state_item(item)
+        self.assertIsNotNone(state)
+        self.assertEqual("complete", state["status"])
+        self.assertEqual(1788599717, state["updated_at"])
+        item["payload"]["output"].append({"type": "input_text", "text": json.dumps({"goal": {"status": "active"}})})
+        self.assertEqual("active", HOOK_MODULE.parse_update_goal_state_item(item)["status"])
+
+    def test_code_mode_completion_text_is_not_goal_evidence(self) -> None:
+        for value in ("Goal complete", {"completed": True}, {"example": {"goal": {"status": "complete"}}}):
+            item = {"type": "response_item", "payload": {"type": "custom_tool_call_output",
+                    "output": [{"type": "input_text", "text": json.dumps(value)}]}}
+            self.assertIsNone(HOOK_MODULE.parse_update_goal_state_item(item))
+
     def test_audit_event_writes_jsonl(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             original_state_dir = HOOK_MODULE.STATE_DIR
