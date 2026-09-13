@@ -141,6 +141,8 @@ Do not run low-signal checks merely to reach a count of three. If an angle is un
 
 After relevant checks pass, stop verification unless a new change, failure, or unresolved concern warrants more. Unit tests remain useful for local logic; mocks alone do not establish that an external integration works. A passing build alone does not establish runtime behavior. Preserve useful rationale in comments and review behavioral changes in the diff; neither one architecture diagram nor a lower line count substitutes for that evidence.
 
+UI verification is an independently selected preference: the [UI-verification module](../templates/optional/ui-verification.md) excludes unit tests for UI components, markup, styles, layouts, and interactions. Use the rendered interface and relevant user flows for acceptance, with browser or end-to-end checks when useful. This does not exclude unit tests for independent business logic or authorize deleting existing tests.
+
 ## Optional Three-Directory Workspace Documentation
 
 When a workspace owner selects continuous documentation because a project needs continuity across sessions, maintain only three kinds of documents:

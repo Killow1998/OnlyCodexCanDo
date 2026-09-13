@@ -84,6 +84,10 @@ In practice:
 
 Treat these steps as one lightweight stage close, not as extra ceremony. A fresh person or agent should be able to tell from `active/`, `design/`, and `worklog/` what was completed, what was verified, and what happens next without reading the previous chat. Do not copy the chat into workspace documentation or create a permanent `handoff` as a fourth source of truth. Small edits remain exempt from this close-out.
 
+Before closing a stage, identify the authoritative editable source and the artifact or running version the user will consume. Verify that changes reached that output; source edits, successful builds, publication, deployment, and consumer acceptance are distinct states. Keep any unfinished step in the existing active document rather than reporting the entire task complete.
+
+If the project uses a coordination board, publish a concise result when a task or independently verifiable stage completes, fails, or needs a decision. Link to the relevant evidence and progress document. Keep percentages, routine logs, and intermediate attempts in that progress document; do not create recurring model polling merely to keep the board populated. A hook firing or a reply ending is not by itself a task-result event.
+
 ## The project `AGENTS.md` only explains how to use the folders
 
 Do not copy specs, designs, or worklogs into the project `AGENTS.md`. It should contain only stable routing rules, for example:
@@ -116,7 +120,7 @@ Continuous documentation is one workspace module, not a prerequisite for every o
 | [Continuous documentation rules](../templates/workspace/AGENTS.docs-workflow.md) and [worklog template](../templates/workspace/worklog-template.md) | Adds stable routing for `active/`, `design/`, and `worklog/`. | Requires keeping meaningful plans, design changes, and completed-stage records current; small edits remain exempt. |
 | [Experiment workflow](../templates/workspace/experiments.md) | Records the objective, exact configuration, acceptance or stopping conditions, result, and lessons for real experiments; prevents retuning from noisy intermediate signals alone. | Adds pre-run and post-run recording. It can reuse existing experiment paths and does not require the three-directory workflow. |
 | [Robotics validation](../templates/workspace/robotics-validation.md) | Separates algorithm, smoke-test, simulation, and live-hardware evidence and keeps frames, state sources, responsibilities, and safety boundaries explicit. | Relevant only when those evidence levels and system boundaries apply. It does not turn simulation into hardware proof and does not require experiment records. |
-| [UI conventions](../templates/workspace/ui-conventions.md) | Uses familiar controls, task-appropriate density, restrained visual hierarchy, and review of the implemented interface. | Select for interface work; respect the product brief and accessibility. It does not impose one visual style on every product or require continuous documentation. |
+| [UI conventions](../templates/workspace/ui-conventions.md) | Uses familiar controls, task-appropriate density, restrained visual hierarchy, operation-level readiness states, and review of the implemented interface. | Select for interface work; respect the product brief and accessibility. It does not impose one visual style on every product or require continuous documentation. |
 
 Selecting one module does not select another. A robotics repository may choose robotics validation without continuous documentation; a machine-learning repository may choose experiment records without robotics rules; a long-lived application may choose only the three-directory workflow. Repository names and technology detection support a recommendation but never replace user approval.
 

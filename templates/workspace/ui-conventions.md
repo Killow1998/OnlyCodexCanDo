@@ -4,3 +4,4 @@
 - Keep secondary actions visually secondary. Prefer familiar icons from the project's established library; preserve recognizable meaning, shape, and accessible labels.
 - Use grouping, position, restrained color, and clear state feedback for hierarchy. Add prominent decoration only when the product brief calls for it; preserve accessibility and visible keyboard focus.
 - Review the implemented interface alongside neighboring elements at relevant screen sizes. Check task completion, visual weight, density, and interaction states rather than judging an isolated component screenshot alone.
+- Describe readiness in terms of the user's operation. A running process is not necessarily ready to perform the requested action; show waiting or blocked states consistently with the controls that depend on them.

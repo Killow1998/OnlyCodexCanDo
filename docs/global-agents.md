@@ -57,6 +57,8 @@ A compatibility boundary identifies which consumers, versions, data, or behavior
 
 ## Optional host modules
 
+The [UI-verification preference](../templates/optional/ui-verification.md) replaces new UI unit tests with real-interface and user-flow verification. Select it when the user requests this testing policy. Independent business logic remains eligible for unit tests, and existing tests are preserved.
+
 Optional does not mean low value. It means that the rule expresses a user preference, assumes a tool or runtime, or carries a cost that is not universal.
 
 | Module | What it adds | Selection question and tradeoff |
@@ -111,5 +113,7 @@ A [SessionStart hook](https://learn.chatgpt.com/docs/hooks) can also fire on res
 The host acceptance check is a new task with a clear topic and a known creation timestamp: verify its displayed date/type/topic, then resume it and confirm its title does not churn. Verify a manually renamed task stays unchanged. Until these checks pass, report naming as configured or unavailable, not operational.
 
 ## Maintenance
+
+For a multi-host audit, compare the normalized minimal core and each selected module separately. Platform rules, resolved personal parameters, and independently selected options are expected differences; an obsolete core or contradictory rules are drift. Report unavailable hosts as unverified. Apply only authorized updates with backups and read-back checks, and keep host paths and comparison evidence in private records rather than the public templates. Audit results alone do not authorize replacing a host's selected options.
 
 The template and module files contain executable runtime instructions; this guide owns selection criteria, prerequisites, tradeoffs, and their effects. When a core or module rule changes, update this reference and its Chinese counterpart in the same change. Do not promote a personal preference into the core merely because one user selects it on every host.
