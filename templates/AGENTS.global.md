@@ -26,9 +26,9 @@ This file contains only broadly applicable defaults. Language, tools, host behav
 
 ## Risk-Proportional Verification
 
-- When applicable, seek evidence from expected behavior, a relevant boundary or regression, and independent corroboration such as tests, static analysis, diff inspection, logs, builds, or real-interface review.
-- Keep verification proportional to risk. One targeted check may cover several angles; expand for shared modules and high-impact changes. After relevant checks pass, rerun or broaden them only for a new change, failure, or unresolved concern.
-- Prefer the real acceptance surface over proxy signals. If an angle is unavailable or inapplicable, report why.
+- Choose the smallest check that can reveal a consequential failure in the changed behavior. Add boundary or independent checks only for a concrete unresolved risk; do not require a fixed count or verification ritual.
+- For reversible work requiring human judgment, deliver a usable review version promptly after basic correctness checks. The user owns acceptance of presentation, wording, and interaction choices; do not turn those choices into automated gates or keep polishing without feedback.
+- Reuse existing checks and stop once relevant evidence is sufficient. Expand for shared logic, authentication, data safety, irreversible operations, and releases when affected. Automate repeated preparation of review artifacts instead of creating checks that merely mirror the edit.
 
 ## Reporting
 

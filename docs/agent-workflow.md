@@ -123,23 +123,17 @@ When compatibility is required, prefer an explicit version boundary, migration p
 
 When work spans several hosts, projects, or requested outputs, check each target before reporting completion; one successful target does not close the others. Keep this list in the task or existing plan, not as a new global registry. If a prerequisite fails, distinguish authorization, a persistent failure, and a transient condition. Recheck time-sensitive facts when they determine whether authorized work can continue; do not turn an old resource snapshot or one network failure into an indefinite blocker.
 
-## Risk-Proportional Three-Angle Verification
+## Verification That Serves Delivery
 
-Seek evidence from three complementary angles after code or configuration changes:
+Select the smallest check that can reveal a consequential failure in the changed behavior. Expected behavior, boundary cases, and independent corroboration are available evidence, not a mandatory checklist. Explain missing evidence only when it limits the result, rather than accounting for unused verification categories.
 
-1. Expected behavior: the intended path works on the real acceptance surface.
-2. Boundary behavior: a relevant edge, failure, or regression path is covered.
-3. Independent evidence: tests, static analysis, diff/config inspection, logs, build output, or real-interface review corroborates the result.
+For reversible presentation or wording changes, build or open the actual output, correct obvious technical breakage, and deliver a usable version for human review. The user decides whether the expression, layout, or interaction meets their intent. Do not delay that decision with speculative polishing, new assertion scripts, or full regression suites unrelated to the change. Interface work is not automatically high risk; authentication, data loss, and irreversible actions remain high risk wherever they appear.
 
-Three-angle verification must not obstruct agile development. It does not require three test suites or full CI after every one-variable edit:
+Keep compilation, review-artifact generation, factual validation, and release checks independently callable. A preview must not depend on assertions about temporary wording, figure selection, or layout. Ordinary missing dependencies should fail through the compiler or existing runtime mechanism. Validate changed research claims against their actual sources; do not substitute a literal-text assertion for factual accuracy. Never write successful validation or human acceptance into generated reports without observing it.
 
-- Low-risk local change: one fast targeted check may cover several angles; add a diff/config review.
-- Medium-risk change: run directly related tests plus one boundary or static check.
-- Core flow, shared module, permission, security, data, or user-interface change: expand to the real interface, integration path, and rollback behavior.
+Reuse existing checks. Repeat or broaden them only after a relevant change, failure, or unresolved concern. If a small edit repeatedly forces updates to a checker, examine whether the checker freezes an implementation or editorial choice rather than protecting a real invariant. Preserve existing safeguards until their scope is understood and their replacement or removal is authorized.
 
-Do not run low-signal checks merely to reach a count of three. If an angle is unavailable or inapplicable, say why. If the same issue survives three meaningful fix-and-verification attempts, stop changing code and review the architecture, data flow, dependencies, and failure boundary.
-
-After relevant checks pass, stop verification unless a new change, failure, or unresolved concern warrants more. Unit tests remain useful for local logic; mocks alone do not establish that an external integration works. A passing build alone does not establish runtime behavior. Preserve useful rationale in comments and review behavioral changes in the diff; neither one architecture diagram nor a lower line count substitutes for that evidence.
+Automation should remove repeated work from the review loop: export the current artifact, reuse the user's selected comparison format, and make the correct running version easy to open. Distinguish ready for review, user-accepted, and released. When investigating slowness, sample representative turns and separate tool execution, repeated agent work, retries, and external waits; do not infer token cost or wasted time from test counts alone.
 
 UI verification is an independently selected preference: the [UI-verification module](../templates/optional/ui-verification.md) excludes unit tests for UI components, markup, styles, layouts, and interactions. Use the rendered interface and relevant user flows for acceptance, with browser or end-to-end checks when useful. This does not exclude unit tests for independent business logic or authorize deleting existing tests.
 

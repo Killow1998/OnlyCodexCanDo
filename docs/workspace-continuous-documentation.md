@@ -88,6 +88,8 @@ Before closing a stage, identify the authoritative editable source and the artif
 
 If the project uses a coordination board, publish a concise result when a task or independently verifiable stage completes, fails, or needs a decision. Link to the relevant evidence and progress document. Keep percentages, routine logs, and intermediate attempts in that progress document; do not create recurring model polling merely to keep the board populated. A hook firing or a reply ending is not by itself a task-result event.
 
+For review-driven work, make the current artifact available before administrative close-out. Reuse the selected review format and automate repeated exports or comparisons instead of maintaining one-off acceptance scripts. A prepared preview means ready for user review, not accepted by the user. For runtime delivery, identify the actual instance and version the user should open.
+
 ## The project `AGENTS.md` only explains how to use the folders
 
 Do not copy specs, designs, or worklogs into the project `AGENTS.md`. It should contain only stable routing rules, for example:

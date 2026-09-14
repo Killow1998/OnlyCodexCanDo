@@ -112,6 +112,8 @@ A [SessionStart hook](https://learn.chatgpt.com/docs/hooks) can also fire on res
 
 The host acceptance check is a new task with a clear topic and a known creation timestamp: verify its displayed date/type/topic, then resume it and confirm its title does not churn. Verify a manually renamed task stays unchanged. Until these checks pass, report naming as configured or unavailable, not operational.
 
+The core verification policy prioritizes a usable review version and checks tied to concrete failure risks. It assigns presentation acceptance to the user and removes fixed verification counts. When deploying this revision, replace the obsolete verification section rather than appending another competing policy.
+
 ## Maintenance
 
 For a multi-host audit, compare the normalized minimal core and each selected module separately. Platform rules, resolved personal parameters, and independently selected options are expected differences; an obsolete core or contradictory rules are drift. Report unavailable hosts as unverified. Apply only authorized updates with backups and read-back checks, and keep host paths and comparison evidence in private records rather than the public templates. Audit results alone do not authorize replacing a host's selected options.
