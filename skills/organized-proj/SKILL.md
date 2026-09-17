@@ -1,17 +1,17 @@
 ---
 name: organized-proj
-description: Reconcile a project's affected documentation after a development stage, correct stale or duplicated guidance, and preserve useful results and lessons. Use when the user asks for organizedProj, project-doc cleanup, or a documentation close-out. A generic request to organize files, summarize a chat, or finish a small code edit is not enough to trigger this workflow.
+description: Reconcile affected project documentation after a meaningful development stage, preserving verified results, design changes, and the next action in existing project records. Use when the user asks for organizedProj or project-doc cleanup, or when global instructions route a completed stage here. Small edits do not trigger it.
 ---
 
 # organizedProj
 
-Make the project easy to resume: a reader should find the current task, understand relevant design, and see what was actually verified without reconstructing a conversation.
+Make the project easy to resume without requiring a project-specific workflow installation. A reader should find the current task, understand relevant design, and see what was actually verified without reconstructing a conversation.
 
 ## Establish the scope
 
-1. Identify the owning workspace, requested stage, and whether the request is review-only or authorizes edits. Inspect applicable instructions and the current branch/diff; protect unrelated work.
+1. Confirm that a meaningful stage completed or that the user requested document reconciliation. A small edit with no durable result, design change, or next action stops here. Identify the owning workspace and whether the request is review-only or authorizes edits. Inspect applicable instructions and the current branch/diff; protect unrelated work.
 2. Start from the affected code, user-facing behavior, and existing document entry points. Read the relevant plan, design, worklog, and usage guidance—not every document or every project mentioned in chat.
-3. Reuse existing equivalent paths. Do not install a new documentation layout, edit global instructions/memories, or deploy this Skill as a side effect of a project close-out.
+3. Reuse existing equivalent paths. Do not install a documentation layout or project `AGENTS.md` workflow merely because this Skill ran. Do not edit global instructions or deploy this Skill as a side effect of a project close-out.
 
 For unclear document placement or conflicting records, read [the editing guide](references/editing-guide.md). It explains how to keep one maintained source for each fact.
 

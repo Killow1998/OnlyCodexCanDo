@@ -13,14 +13,11 @@ This document defines a public, composable workflow for coding agents. It separa
 
 ## Reasoning Preflight
 
-Before a non-trivial action, answer these questions internally:
+Before a non-trivial action, answer three questions internally:
 
-1. What outcome is the user actually trying to obtain, and how will it be observed?
-2. Which facts are verified, which conclusions are reasonable inferences, and which assumptions remain unverified?
-3. Does the request contain a weak premise, missing decision, hidden risk, or a cheaper equivalent path?
-4. From first principles, which constraints and invariants are truly necessary?
-5. By Occam's razor, what solution meets them with the fewest states, dependencies, and maintenance obligations?
-6. Through Socratic challenge, what counterexample, failure mode, or alternative would change the decision?
+1. **First principles:** What result does the user need, what is fact or inference, what authority applies, and how will success be observed? If one example reveals a broader pattern, what relevant scope should be checked for the same cause?
+2. **Occam's razor:** Which mature maintained solutions already address the need, and would direct adoption, composition, or a narrow custom MVP produce the lowest total lifecycle complexity?
+3. **Socratic questions:** What weak premise, counterexample, failure mode, or alternative would change the proposed path?
 
 Ask the user only when an unresolved answer materially changes architecture, data, permissions, security, compatibility, user-visible behavior, or authorization. Otherwise inspect the available evidence, state a low-risk assumption when useful, and continue.
 
@@ -31,8 +28,8 @@ Ask the user only when an unresolved answer materially changes architecture, dat
 Use each layer for one kind of information:
 
 - Global `~/.codex/AGENTS.md`: the minimal core plus only the stable language, reporting, tool, platform, and host modules selected for that machine.
-- Repository or nested `AGENTS.md`: durable team and codebase rules, commands, boundaries, and paths to `active/`, `design/`, and `worklog/`.
-- Project `docs/`: current specs and plans in `active/`, stable algorithm and technical design in `design/`, and completed-stage records in `worklog/`.
+- Repository or nested `AGENTS.md`: durable team and codebase rules, commands, and boundaries that cannot be discovered reliably from the project itself.
+- Project documentation: the project's existing plans, design records, progress notes, and worklogs; no fixed directory layout is required.
 - Skills: repeatable procedures that benefit from richer instructions, scripts, references, assets, or checks.
 - Memories and session indexes: private local context. Curate or index them; do not copy raw histories into public repositories.
 
@@ -44,36 +41,32 @@ An always-loaded rule earns its instruction budget only when it is stable at tha
 
 When a Skill demands a planning interview, new files, subagents, or external writes, check whether that behavior belongs to this task and is authorized. A workflow guideline does not override explicit user intent or grant permissions. Name the exact conflicting rule instead of silently stopping, expanding the task, or treating an earlier unchanged approval as expired. System and developer instructions and host permissions still apply.
 
-Fix the source of recurring conflict. For example, an optional output-filtering rule should not coexist with an imported instruction that makes filtering mandatory. Narrow an overbroad Skill trigger or make it explicit-only; do not keep adding compensating paragraphs to the global core. See [Skill selection and multi-host use](skill-management.md).
+Fix the source of recurring conflict. For example, an optional tool rule should not coexist with an imported instruction that makes the same tool mandatory. Narrow an overbroad Skill trigger or make it explicit-only; do not keep adding compensating paragraphs to the global core. See [Skill selection and multi-host use](skill-management.md).
 
 OpenAI's [Astra guidance](https://developers.openai.com/api/docs/guides/latest-model#instruction-following) specifically recommends reviewing Skills and `AGENTS.md` for conflicting instructions. Our response is to clarify scope and remove contradictions, not to disable useful capabilities or prescribe one reasoning level for every task. Compare model settings on representative work before changing defaults.
 
-### Bounded delegation
+### Subagents only by explicit request
 
-When the user selects the [focused-delegation module](../templates/optional/subagent-context.md), independent subtasks may run in parallel within the current authorization. The default is a fresh, task-specific context packet, not a copy of the main conversation. Include the objective, necessary facts/file pointers, allowed actions, write ownership, and expected result. The main agent remains responsible for synthesis, integration, and stopping finished or obsolete work. This preference does not override a client's higher-priority delegation restrictions.
+The [subagent-collaboration module](../templates/optional/subagent-context.md) requires the user to explicitly authorize subagents for the current task or a clearly stated scope. Ordinary task requests do not count. Within the authorized scope, pass a fresh task-specific context packet with the objective, necessary facts or file pointers, allowed actions, write ownership, and expected result. The main agent remains responsible for synthesis, integration, and completion.
 
 ### Treat session location as a hint
 
 When maintaining a private session archive, do not assign project ownership from `cwd` alone. Combine the working directory with the relevant Git root, touched paths or artifacts, the user's stated objective, and whether the record is a root thread, fork, or subagent. A session may span projects or belong to personal operations, and copied subagent context is not evidence that every referenced project was actually changed. Keep the raw mapping private and publish only curated lessons that remain useful across projects.
 
-## Two Independent Deployment Paths
+## One Global Entry, Progressive Project Records
 
-| Deployment | Owns | Must not own |
-| --- | --- | --- |
-| Host-global `AGENTS.md` | Minimal shared behavior and explicitly selected host preferences | Project state, project paths, session history, domain rules |
-| Workspace modules | Selected project workflows such as continuous docs, experiment records, or robotics evidence | Personal communication defaults and host-specific shell or tool rules |
+Use the host-global `AGENTS.md` as the normal workflow entry. It contains the minimal shared behavior and explicitly selected host preferences, never project state, session history, or private host inventory.
 
-Each path must remain useful on its own and must have its own preview, approval, update, and removal process. Using both is recommended because they solve complementary problems. Do not implement the recommendation by copying rules between layers: global instructions govern behavior; project instructions tell agents where to find current plans, design, and work records.
+After a meaningful stage, the global rule may load `organized-proj`. The Skill inspects the owning project and updates only its existing relevant records; it does not install a project workflow or impose a directory layout. Small edits need no record. Experiment, robotics, UI, and worklog references under `templates/workspace/` are loaded only when the current task needs them.
 
-For the meaning, cost, and selection boundary of host rules, see [Host-Global AGENTS Rule Reference](global-agents.md). For the optional three-directory project flow, see [Workspace Continuous Documentation Workflow](workspace-continuous-documentation.md).
+See [Host-Global AGENTS Rule Reference](global-agents.md) for installation choices and [Progressive Project Records](workspace-continuous-documentation.md) for stage close-out behavior.
 
 ### Select modules instead of inheriting them
 
-The cross-platform core does not carry personal language, worktree, subagent, RTK, time-zone, operating-system, resource, or domain policy. During installation, the agent inspects the host and existing rules, filters out irrelevant modules, and explains the remaining choices before the user selects them.
+The cross-platform core does not carry personal language, worktree, subagent, time-zone, or domain policy. During installation, the agent inspects the host and existing rules, filters out irrelevant modules, and explains the remaining choices before the user selects them.
 
-- Runtime detection establishes relevance, not approval. For example, Windows native makes `templates/platform/windows-shell.md` a sensible recommendation, but the module is merged only after the user confirms the diff.
 - Do not ask the user about clearly irrelevant modules. A robotics module does not belong in a general web workspace merely because the host also contains robotics repositories.
-- Do not infer one option from another. Selecting Chinese does not select RTK; selecting continuous documentation does not select experiment or robotics rules.
+- Do not infer one option from another. Selecting Chinese does not select a recorded time zone; selecting continuous documentation does not select experiment or robotics rules.
 - A selected module must appear exactly once, and parameterized modules such as time zone must not retain unresolved placeholders.
 
 Machine paths, version snapshots, credentials, session state, and host inventories do not belong in public modules.
@@ -85,15 +78,13 @@ The minimal core keeps only behavior that remains useful across most development
 The following are explicit choices rather than universal defaults:
 
 - conversation language and treatment of English technical identifiers;
-- bounded delegation, fresh subagent context, and coordination cost;
-- staying in one checkout instead of using Git worktrees;
-- optional `rtk` filtering;
+- subagent use only after explicit authorization, with fresh context and clear ownership;
+- not using Git worktrees unless explicitly requested;
 - a recorded time zone;
-- detailed Git repository or persistent-data safeguards;
-- platform shell behavior and host resource limits; and
-- continuous documentation, experiment discipline, and robotics validation inside a workspace.
+- detailed Git repository safeguards; and
+- experiment discipline, robotics validation, and other domain procedures loaded on demand.
 
-The option catalog is in [templates/optional/](../templates/optional/), platform-specific choices are in [templates/platform/](../templates/platform/), and project choices are in [templates/workspace/](../templates/workspace/). Module files contain only the instructions that should run after selection; selection criteria, prerequisites, and tradeoffs stay in this guide and the deployment reference. The deployment agent should recommend a small relevant set, explain it in plain language, and obtain approval through the proposed diff.
+The option catalog is in [templates/optional/](../templates/optional/), and project choices are in [templates/workspace/](../templates/workspace/). Module files contain only the instructions that should run after selection; selection criteria, prerequisites, and tradeoffs stay in this guide and the deployment reference. The deployment agent should recommend a small relevant set, explain it in plain language, and obtain approval through the proposed diff.
 
 ## Compatibility Is a Decision
 
@@ -109,7 +100,8 @@ When compatibility is required, prefer an explicit version boundary, migration p
 
 ## Implementation Discipline
 
-- Choose the simplest implementation that fully meets the current requirement. “Simple” means fewer states, dependencies, failure modes, and maintenance obligations—not merely the smallest diff.
+- Choose the path with the lowest total lifecycle complexity that fully meets the current requirement. “Simple” concerns lifecycle cost, not merely the smallest diff.
+- Before building substantial infrastructure, search for a small set of mature, maintained open-source solutions. Compare direct adoption, composition or adaptation, and a narrow custom MVP. If the choice materially changes architecture, dependencies, or long-term ownership, present concrete options and a recommendation to the user. Reuse proven interfaces and operating patterns even when a focused custom implementation is the better fit.
 - Implement the requested behavior without adding adjacent features, future extension points, or explanatory scaffolding. When unrequested work is removed, remove its narrative residue too: names, comments, tests, commits, and pull-request summaries should describe the delivered behavior, not advertise unrelated omissions.
 - This applies to every delivered surface, including UI, help, and documentation—not just pull requests. User-facing text should explain the product, not repeat the development prompt or display the agent's internal constraints.
 - Use file length, cyclomatic complexity, nesting depth, and dependency count as review signals rather than universal gates. A project-owned limit may be enforced, but do not create a global threshold that merely pushes one responsibility into more files or wrappers.
@@ -125,37 +117,17 @@ When work spans several hosts, projects, or requested outputs, check each target
 
 ## Verification That Serves Delivery
 
-Select the smallest check that can reveal a consequential failure in the changed behavior. Expected behavior, boundary cases, and independent corroboration are available evidence, not a mandatory checklist. Explain missing evidence only when it limits the result, rather than accounting for unused verification categories.
+Define the public behavior and observable outcome, then use the smallest realistic check that can expose a consequential failure. Prefer the real user or caller entry point. A successful command or implementation-shaped assertion is not enough when it does not observe the requested result.
 
-For reversible presentation or wording changes, build or open the actual output, correct obvious technical breakage, and deliver a usable version for human review. The user decides whether the expression, layout, or interaction meets their intent. Do not delay that decision with speculative polishing, new assertion scripts, or full regression suites unrelated to the change. Interface work is not automatically high risk; authentication, data loss, and irreversible actions remain high risk wherever they appear.
+Reuse existing checks and stop when relevant evidence is sufficient. If a check fails, distinguish a product regression from a stale assertion, an environment problem, or an unrelated failure. Do not change correct behavior or build new test infrastructure merely to satisfy the checker; report any material limit.
 
-Keep compilation, review-artifact generation, factual validation, and release checks independently callable. A preview must not depend on assertions about temporary wording, figure selection, or layout. Ordinary missing dependencies should fail through the compiler or existing runtime mechanism. Validate changed research claims against their actual sources; do not substitute a literal-text assertion for factual accuracy. Never write successful validation or human acceptance into generated reports without observing it.
+For UI, figures, documents, and prose, fix obvious technical defects and provide the actual artifact for human review. The user decides whether presentation and expression are satisfactory. Do not write unit tests or permanent assertions for temporary wording, element positions, figure choices, or layout.
 
-Reuse existing checks. Repeat or broaden them only after a relevant change, failure, or unresolved concern. If a small edit repeatedly forces updates to a checker, examine whether the checker freezes an implementation or editorial choice rather than protecting a real invariant. Preserve existing safeguards until their scope is understood and their replacement or removal is authorized.
+Use stricter verification when shared logic, authentication, data safety, irreversible operations, or releases are actually affected. This is a risk decision, not a fixed test count, coverage quota, or default full-suite ritual.
 
-Automation should remove repeated work from the review loop: export the current artifact, reuse the user's selected comparison format, and make the correct running version easy to open. Distinguish ready for review, user-accepted, and released. When investigating slowness, sample representative turns and separate tool execution, repeated agent work, retries, and external waits; do not infer token cost or wasted time from test counts alone.
+## Progressive Project Records
 
-UI verification is an independently selected preference: the [UI-verification module](../templates/optional/ui-verification.md) excludes unit tests for UI components, markup, styles, layouts, and interactions. Use the rendered interface and relevant user flows for acceptance, with browser or end-to-end checks when useful. This does not exclude unit tests for independent business logic or authorize deleting existing tests.
-
-## Optional Three-Directory Workspace Documentation
-
-When a workspace owner selects continuous documentation because a project needs continuity across sessions, maintain only three kinds of documents:
-
-```mermaid
-flowchart LR
-    A["active: read or update the current spec/plan"] --> B["Implement and verify"]
-    B --> C["design: update only when design changes"]
-    C --> D["worklog: record a completed stage"]
-    D --> A
-```
-
-- `docs/active/` contains current specs or plans with goals, scope, acceptance criteria, progress, and next steps.
-- `docs/design/` contains long-lived algorithm, interface, architecture, and safety design, not daily progress.
-- `docs/worklog/` uses one template to record a completed stage's background, work, results, evidence, problems, and next steps rather than a command transcript.
-- Read the relevant active document before substantial work and related design documents before changing algorithms or interfaces. Small edits do not require a plan or worklog.
-- At task completion, leave the workspace restartable without the prior session: preserve long-lived design in `design/`, actual results in `worklog/`, and any unfinished next step in `active/`; when the plan is complete, move it out of `active/`. Reuse an existing archive if present; do not create one just for this workflow.
-- Project `AGENTS.md` stores only stable rules and paths to these folders, not current progress.
-- Never delete pre-existing user documents or history without authorization; clean up only task-created scratch whose useful information has already been retained.
+At the end of a meaningful stage, inspect the project's existing documentation and update only the authoritative records affected by the work. Preserve verified results, durable design changes, unresolved risks, and the next action where the project already keeps them. Do not create fixed `active`, `design`, or `worklog` directories merely to satisfy this workflow. Small edits and tasks with no durable result require no close-out record.
 
 ## Packaging Gate
 

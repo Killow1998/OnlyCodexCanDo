@@ -1,4 +1,4 @@
 interface:
   display_name: "organizedProj"
-  short_description: "按本次改动整理项目文档、保存证据与经验，让下一次开发容易接续"
-  default_prompt: "Use $organized-proj to reconcile this stage's affected project docs and preserve verified results and reusable lessons."
+  short_description: "重要阶段结束后，按现有结构整理项目记录，让后续开发容易接续"
+  default_prompt: "Use $organized-proj to close this meaningful stage in the project's existing records without installing a new documentation workflow."

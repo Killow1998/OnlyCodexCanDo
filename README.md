@@ -12,21 +12,21 @@ Reusable rules, templates, and tools are maintained here and deployed to selecte
 | --- | --- |
 | Understand judgment, execution, verification, and collaboration | [Agent workflow](docs/agent-workflow.md) |
 | Configure a host's global `AGENTS.md` | [Rule explanations and options](docs/global-agents.md), [minimal core template](templates/AGENTS.global.md) |
-| Resume project development after an interruption | [Workspace continuous documentation](docs/workspace-continuous-documentation.md), [project rule snippet](templates/workspace/AGENTS.docs-workflow.md) |
+| Preserve project context after a meaningful stage | [Progressive project records](docs/workspace-continuous-documentation.md), [`organized-proj`](skills/organized-proj/SKILL.md) |
 | Select useful Skills and control their triggers | [Skill selection across hosts](docs/skill-management.md), the Skills list below |
 
-Keep local documents current as development progresses: `active/` holds current plans, `design/` preserves stable design, and `worklog/` records stage results, evidence, and lessons. Update when information materially changes; small edits do not require new documents. Cloud archiving, including Feishu/Lark, is a separate on-demand action and does not block local development.
+After a meaningful stage, `organized-proj` updates the project's existing records on demand. It does not require every repository to install a workflow or adopt fixed directories. Small edits need no record. Cloud archiving, including Feishu/Lark, remains a separate action.
 
 ## Deploy the Workflow
 
-There are two independent deployment paths:
+The normal setup has one host-global entry point:
 
 | Path | Scope | Source |
 | --- | --- | --- |
-| Host-global behavior | One agent host, across its workspaces | [Core and option explanations](docs/global-agents.md), [minimal core](templates/AGENTS.global.md), and user-selected optional or platform modules |
-| Workspace workflows | One repository, across agents and hosts | [Three-directory workflow](docs/workspace-continuous-documentation.md), independently selected [workspace modules](templates/workspace/), and that repository's existing `AGENTS.md` and `docs/` |
+| Host-global behavior | One agent host, across its workspaces | [Core and option explanations](docs/global-agents.md), [minimal core](templates/AGENTS.global.md), selected optional modules, and global `organized-proj` when stage records are enabled |
+| Domain references | Loaded only when a task needs them | [Workspace references](templates/workspace/) for experiments, robotics, UI, and optional worklog formatting |
 
-Global configuration defines how the agent works; workspace configuration maintains the project's plans, designs, and work records. We recommend using them together, though either can be deployed on its own.
+Projects keep their own facts and records, but they need no separate workflow installation. Add a project-local rule only for a stable convention that cannot be discovered from existing files.
 
 ### Configure a PC's global AGENTS.md
 
@@ -37,30 +37,17 @@ Configure this PC's global Codex AGENTS.md from the public repository https://gi
 
 1. Read templates/AGENTS.global.md as the only automatically recommended cross-platform core. Also read docs/global-agents.md to understand the available choices.
 2. Inspect the actual runtime environment and the existing global AGENTS.md before proposing anything. Classify existing rules as keep, rehome behind progressive disclosure, or propose for removal; identify conflicts and do not preserve discoverable, drift-prone, or one-off details merely because they do not conflict. Do not overwrite the whole file blindly.
-3. Consider only relevant host modules and explain behavior, benefit, and cost. Reuse my stated preferences; batch remaining questions through an available interactive choice tool with free-text answers. Do not ask once per module or treat recommended/preselected options as consent. If no choice tool is available, ask one concise question. Language, names, session titles, delegation/context policy, worktrees, RTK, time zones, and other host policies remain independent choices.
-4. For names, ask for the user name and agent nickname and keep them in private host configuration. For record or title time zones, confirm the IANA zone and replace the relevant placeholders. For session titles, verify metadata and rename capabilities; do not present an instruction template as an installed hook. Verify prerequisites for RTK, resource limits, and platform modules too; detection is not approval.
-5. Keep project workflows and domain rules out of the host-global file. Workspace documentation, experiments, and robotics validation are selected separately inside each workspace.
-6. Show the exact merged diff, selected modules and parameters, and every proposed rule removal or rehome; explain any change in authority. Obtain confirmation through the supported approval mechanism, back up, then apply without repeating unchanged approved decisions. Verify unique core/module inclusion, resolved parameters, and preserved approved local rules; validate actual behavior for functional modules. Preference answers are not filesystem permission escalation.
+3. Consider only relevant host modules and explain behavior, benefit, and cost. Reuse my stated preferences; batch remaining questions through an available interactive choice tool with free-text answers. Do not ask once per module or treat recommended/preselected options as consent. If no choice tool is available, ask one concise question. Language, names, subagent policy, worktrees, time zones, and other host policies remain independent choices.
+4. For names, ask for the user name and agent nickname and keep them in private host configuration. For recorded time zones, confirm the IANA zone and replace the relevant placeholder. Subagents require explicit authorization for the current task or scope; environment detection and generic requests do not provide it.
+5. If the core will route meaningful stage close-out to organizedProj, check whether `skills/organized-proj` is already installed globally. If absent, explain the behavior and ask once whether to install it globally. If declined, omit the Skill reference and use a generic instruction to update existing project records. Do not configure this again per project.
+6. Show the exact merged diff, selected modules and parameters, and every proposed removal; explain any change in authority. Obtain confirmation through the supported approval mechanism, back up, then apply. Verify the final file and any authorized Skill installation.
 
-Do not modify project repositories, remote hosts, or install any Skill unless I separately authorize it.
+Do not modify project repositories or remote hosts. Install organizedProj only if I select it above; other Skills require separate authorization.
 ```
 
-### Configure optional agent workflows in a workspace
+### Progressive project records
 
-Run this prompt from the target workspace. It can configure continuous documentation, experiment records, robotics validation, or any relevant subset, and it does not modify the host's global `AGENTS.md`:
-
-```text
-Configure selected agent workflows in this workspace using https://github.com/Killow1998/OnlyCodexCanDo.git.
-
-1. Read docs/workspace-continuous-documentation.md and inspect this workspace's branch, working tree, AGENTS.md or equivalent instructions, README, and existing docs before proposing changes. Preserve unrelated work and reuse equivalent documents instead of creating duplicates.
-2. Treat each workspace module as an independent choice. Explain the relevant benefit and maintenance cost of continuous documentation (templates/workspace/AGENTS.docs-workflow.md plus the worklog template), explicit experiment records (templates/workspace/experiments.md), and robotics evidence levels (templates/workspace/robotics-validation.md). Recommend only modules supported by the actual project, but do not infer approval from a repository name or technology alone.
-3. Reuse stated choices and batch remaining relevant preferences through an available interactive choice tool. Continuous documentation, experiment discipline, robotics validation, and UI conventions (templates/workspace/ui-conventions.md) do not imply one another.
-4. If continuous documentation is selected, show how existing documents map to three roles: current specs/plans -> docs/active/, stable algorithm and technical design -> docs/design/, and completed-stage records -> docs/worklog/. Reuse equivalent paths instead of copying content merely to match directory names.
-5. Create only missing structures required by selected modules. For continuous documentation, place the template at docs/worklog/worklog-template.md and merge only stable routing rules into the nearest applicable project AGENTS.md; do not require a plan or worklog for every small edit.
-6. Show the workspace-only diff and selected-module list before writing. Apply only after I confirm, then verify referenced paths, rules, and templates, and confirm there is no duplicate workflow or task-created scratch left behind.
-
-Do not modify the host's global AGENTS.md, other workspaces, remote hosts, or install any Skill unless I separately authorize it.
-```
+No per-project setup is required. After a meaningful stage, the global rule loads `organized-proj`, which inspects the project and updates only existing relevant records. Domain references under `templates/workspace/` are read only when the task needs them.
 
 ## Skills
 
@@ -80,7 +67,7 @@ Select by task; installing everything is unnecessary. Each entry owns its detail
 Give this prompt to the agent on the target host or workspace:
 
 ```text
-Install organizedProj from https://github.com/Killow1998/OnlyCodexCanDo.git using skills/organized-proj (display name organizedProj, invocation $organized-proj). Compare existing copies and preserve local edits. Ask whether it should be available globally or only in this workspace; install only the selected scope, then run its scripts/check.py. Do not scan or rewrite project docs as part of installation. Report discovery checks separately from behavioral validation.
+Install organizedProj globally from https://github.com/Killow1998/OnlyCodexCanDo.git using skills/organized-proj (display name organizedProj, invocation $organized-proj). Compare existing copies and preserve local edits, then run its scripts/check.py. Do not scan or rewrite project docs as part of installation. Report discovery checks separately from behavioral validation.
 ```
 
 ### `codex-home-audit`

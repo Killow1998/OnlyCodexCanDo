@@ -227,7 +227,7 @@ class ArchiveWorklogTests(unittest.TestCase):
 - 验证与测试
   - 清理旧迁移遗留的未知分类，确认跨对话并发保护内容归入飞书 CLI 分类。
 - 开发环境
-  - 安装并配置 RTK，用于 Codex、Claude Code、Gemini CLI 的命令输出压缩与 token 节省。
+  - 整理 Codex、Claude Code、Gemini CLI 的命令输出配置。
 - 其他
   - 工作内容
     - 整理 RL 工作区，建立 /home/user/rl_ws/demo_rl 作为新的统一工作区。
@@ -241,7 +241,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertEqual(
             self.flatten(groups["其他"]["工作内容"]),
             [
-                "安装并配置 RTK，用于 Codex、Claude Code、Gemini CLI 的命令输出压缩与 token 节省。",
+                "整理 Codex、Claude Code、Gemini CLI 的命令输出配置。",
                 "整理 RL 工作区，建立 /home/user/rl_ws/demo_rl 作为新的统一工作区。",
             ],
         )
@@ -1389,7 +1389,7 @@ class ArchiveWorklogTests(unittest.TestCase):
 # 05-19-2026
 
 - 开发环境
-  - 安装并配置 RTK。
+  - 整理命令输出配置。
 """
         )
         self.mod.run_lark = fake
@@ -1412,7 +1412,7 @@ class ArchiveWorklogTests(unittest.TestCase):
         self.assertIn("Repair report:", output.getvalue())
         self.assertIn("Repaired worklog 05-2026 工作记录 for all dates.", output.getvalue())
         self.assertIn("清理旧迁移遗留的未知分类", fake.markdown)
-        self.assertIn("安装并配置 RTK。", fake.markdown)
+        self.assertIn("整理命令输出配置。", fake.markdown)
 
     def test_normalize_only_all_dates_verifies_after_overwrite(self) -> None:
         fake = FakeLark(

@@ -6,6 +6,7 @@ These are evaluation prompts and acceptance criteria, not a report of tests alre
 | --- | --- | --- |
 | One CLI flag changed; “更新这个参数的说明” | Update affected help/example and the existing usage passage | Full README rewrite, new plan/worklog, global memory edit |
 | Existing plan, design, worklog; a stage is complete | Preserve evidence and the next action in their existing homes | Fourth handoff file, same fact copied into all three folders |
+| Global instructions route a meaningful completed stage; the project uses a single progress file | Update that file and no other documentation structure | Installing `docs/active`, `docs/design`, or `docs/worklog` |
 | “只审查过期文档，先别改” | Findings, exact proposed edits, no writes | Applying fixes because the Skill says to reconcile docs |
 | A prior worklog reports v1 behavior; current design describes v2 | Keep v1's historical result accurate; clarify current guidance if ambiguous | Rewriting the old result as if it was produced with v2 |
 | An ignored checkpoint and an old user note look temporary | Leave both untouched unless specifically authorized | Deleting either for cleanliness |

@@ -12,21 +12,21 @@
 | --- | --- |
 | 了解判断、执行、验证与协作原则 | [Agent 工作流](docs/agent-workflow.zh-CN.md) |
 | 配置一台主机的全局 `AGENTS.md` | [规则解读与可选项](docs/global-agents.zh-CN.md)、[最小核心模板](templates/AGENTS.global.md) |
-| 让项目中断后仍能继续开发 | [Workspace 持续文档](docs/workspace-continuous-documentation.zh-CN.md)、[项目规则片段](templates/workspace/AGENTS.docs-workflow.md) |
+| 在重要阶段后保留项目上下文 | [渐进式项目记录](docs/workspace-continuous-documentation.zh-CN.md)、[`organized-proj`](skills/organized-proj/SKILL.md) |
 | 选择需要的 Skill，控制触发范围 | [Skill 选择与多主机使用](docs/skill-management.zh-CN.md)、下方的 Skills 清单 |
 
-本地文档随开发及时更新：`active/` 记录当前计划，`design/` 保存稳定设计，`worklog/` 记录阶段结果、证据和经验。只在内容有实质变化时更新，不要求每次小修改都新建文档。飞书等云端归档是独立的按需操作，不影响本地开发。
+重要阶段结束后，由 `organized-proj` 按需更新项目现有记录。不要求每个仓库安装工作流或采用固定目录；小改动不记录。飞书等云端归档仍是独立操作。
 
 ## 部署工作流
 
-这里提供两条互相独立的部署路径：
+通常只需配置一个主机全局入口：
 
 | 路径 | 作用范围 | 来源 |
 | --- | --- | --- |
-| 主机级全局行为 | 一台 Agent 主机上的所有 workspace | [核心与选项解读](docs/global-agents.zh-CN.md)、[最小核心](templates/AGENTS.global.md)和用户选择的可选或平台模块 |
-| Workspace 工作流 | 一个仓库，跨 Agent、跨主机生效 | [三目录工作流说明](docs/workspace-continuous-documentation.zh-CN.md)、独立选择的 [Workspace 模块](templates/workspace/)和该仓库已有的 `AGENTS.md` 与 `docs/` |
+| 主机级全局行为 | 一台 Agent 主机上的所有 workspace | [核心与选项解读](docs/global-agents.zh-CN.md)、[最小核心](templates/AGENTS.global.md)、选定的可选模块，以及启用阶段记录时全局安装的 `organized-proj` |
+| 领域参考 | 仅在任务需要时加载 | [Workspace 参考](templates/workspace/)中的实验、Robotics、UI 与可选 worklog 格式 |
 
-全局配置统一 Agent 的工作方式，Workspace 配置维护项目的计划、设计和工作记录。推荐搭配使用，也可以按需单独部署。
+项目事实和记录仍留在项目里，但不再要求单独安装工作流。只有项目存在无法从现有文件发现的稳定约定时，才增加项目级规则。
 
 ### 配置一台 PC 的全局 AGENTS.md
 
@@ -37,30 +37,17 @@
 
 1. 读取 templates/AGENTS.global.md，把它作为唯一自动推荐的跨平台核心；同时阅读 docs/global-agents.zh-CN.md，了解有哪些可选项。
 2. 提议修改前，先检查 Agent 的实际运行环境和现有全局 AGENTS.md。把现有规则分成保留、移到渐进加载层、建议删除三类并指出冲突；可发现、易漂移或一次性的细节不能仅因为“不冲突”就永久保留。不要盲目覆盖整个文件。
-3. 只考虑当前主机相关模块，解释行为、收益和代价。复用我已经明确的偏好，其余用当前可用的交互选项工具集中询问，允许自由填写；不要每个模块问一轮，也不要把推荐或预选当作同意。没有选项工具时用一次简短询问。语言、称呼、会话标题、委派与上下文策略、worktree、RTK、时区及其他主机策略均为独立选择。
-4. 选称呼时询问用户称呼和 Agent 昵称，仅保存在私有主机配置；选记录或标题时区时确认 IANA 时区并替换相应占位符。选会话标题时先验证元数据和改名能力，不把指令模板宣传为已安装 Hook。RTK、资源限制和平台模块也先核对实际环境；检测到工具或平台不等于批准。
-5. 主机全局文件不加入项目工作流和领域规则。持续文档、实验记录和 Robotics 验证应在各个 Workspace 中另行选择。
-6. 写入前展示准确的合并 diff、已选模块及参数，以及每条拟删除或迁移规则；说明是否改变授权范围。通过支持的批准方式获得确认后，先备份再应用，不重复询问已批准且未改变的决定。验证核心和已选模块各出现一次、参数已填写、经批准保留的本机规则仍在；功能模块还要验证实际行为。偏好选项不是文件权限提权。
+3. 只考虑当前主机相关模块，解释行为、收益和代价。复用我已经明确的偏好，其余用当前可用的交互选项工具集中询问，允许自由填写；不要每个模块问一轮，也不要把推荐或预选当作同意。没有选项工具时用一次简短询问。语言、称呼、子 Agent 策略、worktree、记录时区及其他主机策略均为独立选择。
+4. 选称呼时询问用户称呼和 Agent 昵称，仅保存在私有主机配置；选记录时区时确认 IANA 时区并替换相应占位符。子 Agent 必须由用户针对当前任务或范围明确授权；环境检测和普通任务请求都不构成授权。
+5. 如果核心会把重要阶段收尾交给 organizedProj，先检查 `skills/organized-proj` 是否已全局安装。未安装时说明行为并集中询问一次是否全局安装；用户拒绝时不写入失效引用，改用“更新项目现有记录”的通用规则。以后不再逐项目配置。
+6. 写入前展示准确的合并 diff、已选模块及参数，以及每条拟删除内容；说明是否改变授权范围。通过支持的批准方式获得确认后，先备份再应用，并验证最终文件及任何获准安装的 Skill。
 
-不要修改项目仓库、远端主机，也不要安装任何 Skill，除非我另行明确授权。
+不要修改项目仓库或远端主机。只有我在上一步选择 organizedProj 时才安装它；其他 Skill 仍需单独授权。
 ```
 
-### 在一个 Workspace 中配置可选 Agent 工作流
+### 渐进式项目记录
 
-在目标 Workspace 中运行下面的 Prompt；它可以配置持续文档、实验记录、Robotics 验证或其中任意相关组合，并且不会修改主机全局 `AGENTS.md`：
-
-```text
-请使用 https://github.com/Killow1998/OnlyCodexCanDo.git，在当前 Workspace 中配置选定的 Agent 工作流。
-
-1. 读取 docs/workspace-continuous-documentation.zh-CN.md，并先检查当前 workspace 的分支、工作树、AGENTS.md 或其他 Agent 指令、README 和已有 docs。保护无关工作，优先复用等价文档，不要创建重复体系。
-2. 把每个 Workspace 模块当作独立选项。分别说明持续文档（templates/workspace/AGENTS.docs-workflow.md 与 worklog 模板）、显式实验记录（templates/workspace/experiments.md）和 Robotics 证据分层（templates/workspace/robotics-validation.md）的实际收益与维护成本。只推荐有项目证据支持的模块，但不要仅凭仓库名或技术栈推定用户已经同意。
-3. 复用已明确的选择，其余相关模块通过可用的交互选项集中询问；持续文档、实验纪律、Robotics 验证和界面约定（templates/workspace/ui-conventions.md）互不自动绑定。
-4. 如果选择持续文档，展示现有文档如何对应三个用途：当前 spec/plan -> docs/active/，稳定算法与技术设计 -> docs/design/，完成阶段记录 -> docs/worklog/。已有等价路径就沿用，不为统一目录名复制内容。
-5. 只创建已选模块缺少的结构。持续文档模块把模板放到 docs/worklog/worklog-template.md，并只将稳定的文档入口规则合并进作用范围最近的项目 AGENTS.md；小改动不强制创建 plan 或 worklog。
-6. 写入前展示仅限当前 workspace 的 diff 和已选模块清单。只有我确认后才应用；应用后验证引用路径、规则和模板，确认没有平行工作流或任务临时文件。
-
-不要修改主机全局 AGENTS.md、其他 workspace、远端主机，也不要安装任何 Skill，除非我另行明确授权。
-```
+不需要逐项目配置。重要阶段完成后，全局规则加载 `organized-proj`；它检查项目，只更新已有且相关的记录。`templates/workspace/` 下的领域参考只在当前任务需要时读取。
 
 ## Skills
 
@@ -80,7 +67,7 @@
 把下面的 Prompt 交给目标主机或 workspace 中的 Agent：
 
 ```text
-请从 https://github.com/Killow1998/OnlyCodexCanDo.git 安装 organizedProj，来源为 skills/organized-proj（显示名 organizedProj，调用名 $organized-proj）。先比较已有副本、保留本地修改；询问是全局可用还是仅当前 workspace 可用，只部署选定范围，然后运行 scripts/check.py。本次安装不扫描或重写项目文档。分别报告实际发现检查和行为验证状态。
+请从 https://github.com/Killow1998/OnlyCodexCanDo.git 全局安装 organizedProj，来源为 skills/organized-proj（显示名 organizedProj，调用名 $organized-proj）。先比较已有副本并保留本地修改，然后运行 scripts/check.py。本次安装不扫描或重写项目文档。分别报告实际发现检查和行为验证状态。
 ```
 
 ### `codex-home-audit`
