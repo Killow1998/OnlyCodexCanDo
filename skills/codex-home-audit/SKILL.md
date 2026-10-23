@@ -71,9 +71,9 @@ Use these conclusions carefully:
 
 ## Plan cleanup only after approval
 
-When the user explicitly asks to clean, read [references/cleanup-playbook.md](references/cleanup-playbook.md) completely. Resolve exact absolute targets, close relevant clients, preserve recoverable backups when appropriate, and verify every Git worktree for tracked, untracked, ignored, and secret-bearing files before removal.
+When the user explicitly asks to clean, read the relevant section of [references/cleanup-playbook.md](references/cleanup-playbook.md). Resolve exact targets and check active writers and recovery needs. For worktrees, identify the owner and inspect tracked, untracked, and ignored work before choosing the app-managed or ordinary Git removal path.
 
-Never treat reinstalling as the first diagnostic step. Never recursively delete the whole Codex home. Prefer app-supported archiving, Git-native worktree management, and reversible quarantine over direct deletion.
+Never treat reinstalling as the first diagnostic step or recursively delete the whole Codex home.
 
 ## Report
 

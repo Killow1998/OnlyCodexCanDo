@@ -37,7 +37,7 @@
 ## 接口与模块
 
 - 前后端仅通过明确接口交互，各自管理内部实现与状态。权限、校验和业务规则由后端负责。
-- 分离核心逻辑与外部适配器，让模块能独立运行和验证。
+- 优先深模块：用小接口封装复杂行为，让修改集中在所属模块；外部依赖通过适配器接入，以便独立运行和验证。
 - 明确请求、响应、错误与兼容约定。共享契约或生成客户端，不让调用方依赖内部实现或直接访问后端数据库。
 
-参考：[CMake 按目标构建](https://cmake.org/cmake/help/latest/manual/cmake.1.html#build-a-project)、[catkin build](https://catkin-tools.readthedocs.io/en/stable/verbs/catkin_build.html)、[colcon 包选择](https://colcon.readthedocs.io/en/released/reference/package-selection-arguments.html)、[colcon 构建参数](https://colcon.readthedocs.io/en/main/reference/verb/build.html)、[工作区环境](https://colcon.readthedocs.io/en/main/user/quick-start.html)、[ccache](https://ccache.dev/manual/latest.html)。
+参考：[CMake 按目标构建](https://cmake.org/cmake/help/latest/manual/cmake.1.html#build-a-project)、[catkin build](https://catkin-tools.readthedocs.io/en/stable/verbs/catkin_build.html)、[colcon 包选择](https://colcon.readthedocs.io/en/released/reference/package-selection-arguments.html)、[colcon 构建参数](https://colcon.readthedocs.io/en/main/reference/verb/build.html)、[工作区环境](https://colcon.readthedocs.io/en/main/user/quick-start.html)、[ccache](https://ccache.dev/manual/latest.html)、[深模块](https://github.com/mattpocock/skills/blob/main/skills/engineering/codebase-design/SKILL.md)。

@@ -22,7 +22,7 @@ Windows 下只使用全局 goal 终态邮件 hook，不部署 workspace-local tr
 
 重新部署时先核对[当前官方 Hooks 文档](https://learn.chatgpt.com/docs/hooks)、实际客户端版本和 Hook 信任状态，再验证一次真实终态。普通 `Stop` 只说明一轮结束，不说明 goal 完成。若该客户端没有可靠触发，再评估绑定特定任务的外部监控；不直接编辑内部数据库，不把旧配置示例当作当前能力证明。
 
-安装或刷新全局 hook：
+先选邮件传输方式：Agent Mail 按[配置说明](agent-mail.zh-CN.md)创建私有配置，再运行 `--hook-only`；SMTP 使用下面的安装命令：
 
 ```bash
 export TASKWATCH_SENDER_PASSWORD='smtp-app-password'
@@ -39,12 +39,12 @@ python skills/taskwatch/scripts/install_global_hook.py \
 python skills/taskwatch/scripts/install_global_hook.py --hook-only
 ```
 
-`--hook-only` 要求该配置文件已经存在；干净环境必须先提供完整 SMTP 参数。安装器会把 `taskwatch.env` 收紧为 `0600`，把私有 state 目录收紧为 `0700`。
+`--hook-only` 要求该配置文件已经存在。干净环境先配置 Agent Mail，或提供完整 SMTP 参数；Agent Mail 不需要 SMTP 授权码。安装器会把 `taskwatch.env` 收紧为 `0600`，把私有 state 目录收紧为 `0700`。
 
 安装后会写入：
 
 - `~/.codex/config.toml`：托管的 `Stop` hook block；
-- `~/.codex/taskwatch.env`：SMTP 配置；
+- `~/.codex/taskwatch.env`：所选邮件传输方式的配置；
 - `~/.codex/taskwatch-state/`：发送去重状态。
 - `~/.codex/taskwatch-state/taskwatch-hook-audit.log`：hook 调起、终态识别、去重和发送结果审计日志。
 
@@ -52,7 +52,7 @@ python skills/taskwatch/scripts/install_global_hook.py --hook-only
 
 - Codex 正常触发 `Stop` hook；
 - transcript 中能识别 goal 终态；
-- `~/.codex/taskwatch.env` 存在且 SMTP 配置有效；
+- `~/.codex/taskwatch.env` 存在，且所选 Agent Mail 或 SMTP 配置有效；
 - 同一个 `session_id + status + updated_at + turn_id + source` 没有发送过。
 
 目前识别两类 goal 终态来源：
@@ -93,6 +93,8 @@ hook 只做确定性、快速、只读的信息抽取，不调用 LLM 二次总�
 ## Linux Workspace-Local Monitor
 
 workspace-local monitor 用于训练、评测、批处理等真正长时间运行的 Linux 任务。安装前应先确认真实任务命令、日志、artifact 目录和可选 user service。
+
+先生成脚手架，再按[Agent Mail 配置说明](agent-mail.zh-CN.md)设置实际监控目录内的 `email.env`；SMTP 可使用安装器的 sender/recipient/password 参数。更新时保留现有邮件配置。
 
 示例：
 
@@ -157,25 +159,19 @@ python skills/taskwatch/scripts/install_global_hook.py --remove
 
 ## 验证
 
-仓库内检查：
-
-```bash
-python -B skills/taskwatch/scripts/check.py
-```
-
-只检查源码，不比较全局安装副本：
+修改 Skill 源码后运行发布检查；这不启用真实监控，也不比较全局安装副本：
 
 ```bash
 python -B skills/taskwatch/scripts/check.py --skip-global
 ```
 
-全局 hook smoke test 应使用一个包含终态事件的临时 transcript，并把 payload 通过 stdin 传给：
+启用通知时，按[验收与恢复](agent-mail.zh-CN.md#验收与恢复)检查实际任务、客户端触发和送达。直接调用下面的脚本只能验证事件解析与发送链路，不能证明客户端会自动触发 Hook；它可能真实发信，只用于已授权的测试：
 
 ```bash
 python -B ~/.codex/skills/taskwatch/scripts/taskwatch_stop_hook.py
 ```
 
-测试真实 SMTP 时，确认 `~/.codex/taskwatch-state/` 出现新的 state JSON，且 stderr 没有 `taskwatch: failed to send goal email`。
+只更新 Skill 文件或保持禁用时，到源码检查为止，不安装 Hook、启用 timer 或发送测试邮件。
 
 ## 故障排查
 
@@ -185,6 +181,7 @@ python -B ~/.codex/skills/taskwatch/scripts/taskwatch_stop_hook.py
 - 没收到邮件但 hook 已安装：检查 transcript 中是否有 `thread_goal_updated` 或 `update_goal` 输出。
 - 重复运行不再发：这是去重状态生效；删除对应 `~/.codex/taskwatch-state/*.json` 后才会重发同一终态。
 - SMTP 失败：检查 `SMTP_HOST`、`SMTP_PORT`、`SMTP_SECURITY`、授权码和发件邮箱是否匹配。
+- Agent Mail 失败：按[验收与恢复](agent-mail.zh-CN.md#验收与恢复)检查后台运行环境、已选身份和发送回执；不把 SMTP 授权码作为修复前提。
 - Windows 下 workspace-local installer 报错：这是预期行为；Windows 只安装全局 goal hook。
 - Linux 下没有 hourly report：检查 `systemd --user`、timer 状态、`CODEX_MONITOR_CODEX_BIN` 和任务日志路径。
 

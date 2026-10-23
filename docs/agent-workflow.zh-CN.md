@@ -34,7 +34,7 @@
 - Skills：需要丰富说明、scripts、references、assets 或检查器的可重复流程。
 - Memories 与会话索引：本机私有上下文。应提炼或建立索引，不把原始历史复制到公开仓库。
 
-保持 `AGENTS.md` 小而稳定。规则应该因为长期、反复适用而进入其中，而不是因为它在某一次任务中很重要。Codex 官方定制说明也把 `AGENTS.md`、memories、Skills、MCP 和 subagents 视为互补层，而不是互相替代：<https://learn.chatgpt.com/docs/customization/overview>。
+同一规则只保留一处权威说明。入口保留共同要求，条件性细节通过写明触发条件的链接按需读取；改写过时段落，删除重复解释。这适用于 `AGENTS.md`、规范和 Skill；参见 [writing for agents](https://github.com/mattpocock/skills/blob/main/skills/productivity/writing-for-agents/SKILL.md)。
 
 一条常驻规则只有同时满足以下条件，才值得占用 instruction budget：在当前作用域长期稳定；难以或不值得每次重新发现；几乎每个任务都相关；遗漏后果明确。把 `/init` 和其他自动生成的 `AGENTS.md` 当作候选清单，而不是成品：仓库结构图、当前文件或 Service 位置、实现细节、当前进度、一次性纠正，以及可由代码搜索、manifest、子目录 `AGENTS.md`、项目文档或 Skill 按需披露的语言与领域流程，都应删除或迁移。审计旧规则时也使用同一准入标准，不因为某行“不冲突”就永久保留。参见 Codex 官方 [AGENTS.md 发现规则](https://learn.chatgpt.com/docs/agent-configuration/agents-md)和实用的[渐进式披露说明](https://www.aihero.dev/a-complete-guide-to-agents-md)。
 

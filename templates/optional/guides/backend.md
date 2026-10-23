@@ -37,7 +37,7 @@ Read for backend services, compiled projects, or algorithm development.
 ## Interfaces and modules
 
 - Connect frontend and backend only through explicit interfaces. Each owns its internal implementation and state. The backend owns authorization, validation, and business rules.
-- Separate core logic from external adapters so modules can run and be verified independently.
+- Prefer deep modules: hide complex behavior behind a small interface and keep changes local to the owning module. Isolate external dependencies through adapters so modules can run and be verified independently.
 - Specify requests, responses, errors, and compatibility. Share contracts or generated clients; keep callers independent of internal implementations and direct backend database access.
 
-References: [CMake target builds](https://cmake.org/cmake/help/latest/manual/cmake.1.html#build-a-project), [catkin build](https://catkin-tools.readthedocs.io/en/stable/verbs/catkin_build.html), [colcon package selection](https://colcon.readthedocs.io/en/released/reference/package-selection-arguments.html), [colcon build arguments](https://colcon.readthedocs.io/en/main/reference/verb/build.html), [workspace environment](https://colcon.readthedocs.io/en/main/user/quick-start.html), [ccache](https://ccache.dev/manual/latest.html).
+References: [CMake target builds](https://cmake.org/cmake/help/latest/manual/cmake.1.html#build-a-project), [catkin build](https://catkin-tools.readthedocs.io/en/stable/verbs/catkin_build.html), [colcon package selection](https://colcon.readthedocs.io/en/released/reference/package-selection-arguments.html), [colcon build arguments](https://colcon.readthedocs.io/en/main/reference/verb/build.html), [workspace environment](https://colcon.readthedocs.io/en/main/user/quick-start.html), [ccache](https://ccache.dev/manual/latest.html), [deep modules](https://github.com/mattpocock/skills/blob/main/skills/engineering/codebase-design/SKILL.md).

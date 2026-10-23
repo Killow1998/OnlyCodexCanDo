@@ -25,7 +25,7 @@ Before any move, deletion, worktree removal, uninstall, process stop, or securit
 
 1. Record the resolved absolute `CODEX_HOME` and exact target.
 2. Verify that the target stays inside the intended state directory or exact Git worktree.
-3. Finish or pause active tasks and close all clients that may write the state.
+3. Check for active tasks and writers. Use the app's supported lifecycle for managed worktrees; close writers before direct filesystem or database cleanup.
 4. Decide whether the item is a cache, log, transcript, credential store, project checkout, or unknown state.
 5. Choose a rollback path. Prefer app-supported archive, backup, or quarantine before deletion.
 6. Obtain explicit approval for the exact action and target.
@@ -56,7 +56,13 @@ For every removal candidate, check:
 - ignored files such as `.env`, local credentials, generated data, or downloaded assets; and
 - whether an active or pinned Codex task still owns it.
 
-Only after exact approval, use the owning repository's normal `git worktree remove` flow on that one path. Do not use force to bypass unresolved changes. Run `git worktree prune --dry-run` again before any prune, then verify the repository and retained worktrees.
+After approval for the exact target, choose the removal path by ownership:
+
+- **Codex-managed worktree:** use the app's supported worktree archive/restore flow when available. It saves a recoverable snapshot before removing the checkout; preserve needed ignored files separately. Keep the chat open unless archiving the chat is also requested. If the app refuses because the worktree is pinned, shared, primary, or otherwise protected, resolve the stated condition rather than bypassing it with Git or filesystem deletion.
+- **Ordinary Git worktree:** use the owning repository's `git worktree remove` on that path. Do not force removal past unresolved changes. Run `git worktree prune --dry-run` before any prune.
+- **Ownership unclear or app support unavailable:** identify the owner and a recoverable path before removal.
+
+Verify the operation result and retained repository state. Chat archiving can also trigger managed-worktree cleanup; an archived chat alone does not prove how much space was reclaimed. See the official [worktree cleanup behavior](https://learn.chatgpt.com/docs/environments/git-worktrees#worktree-cleanup).
 
 ## Databases, logs, sessions, and caches
 

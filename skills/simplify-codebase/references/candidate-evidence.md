@@ -1,6 +1,6 @@
 # Simplification Candidate Evidence
 
-Use this reference only when a candidate needs more than the core workflow.
+Read only the section relevant to an unresolved consumer, trust, lifecycle, dependency, or compatibility question.
 
 ## Consumer classes
 
@@ -27,7 +27,7 @@ Look for adapters with one implementation, configuration with one valid value, r
 
 ### Defensive scaffolding
 
-Draw the trust and ownership path. Several sentinels, readiness promises, copies, caches, or terminal-state flags may mirror one lifecycle fact. Consolidate only after preserving distinct publication, cancellation, rollback, containment, or ownership transitions that have real failure cases.
+Trace the trust and ownership path, the concrete failure prevented, and what existing guarantees already cover. Several sentinels, readiness promises, copies, caches, or terminal-state flags may mirror one lifecycle fact. Preserve distinct publication, cancellation, rollback, containment, or ownership transitions that have real failure cases.
 
 ### Hand-rolled infrastructure
 
@@ -49,10 +49,4 @@ Do not approve a candidate from any one of these alone:
 - a preference for fewer files; or
 - "this looks over-engineered."
 
-## Candidate decision record
-
-Use a compact table when several candidates exist:
-
-| Candidate | Production consumers | Behavior delta | Net reduction | Risk and verification | Decision |
-| --- | --- | --- | --- | --- | --- |
-| Exact symbol or surface | Calls or none, with evidence | Preserved or deliberately changed | Removed obligations minus glue | Concrete boundary and check | Implement, propose, reject |
+Record only evidence that changes the decision or is needed to review the result. Use a comparison table when it helps choose among candidates.

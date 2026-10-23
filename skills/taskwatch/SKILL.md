@@ -34,11 +34,8 @@ Command examples assume a repo checkout. When running from the installed copy, r
    - artifact directories that should be watched;
    - process pattern or user systemd service if one exists;
    - current `.codex_monitor` files if this is an upgrade.
-2. Keep deployment user-facing and minimal. The user should normally only need to provide:
-   - sender email;
-   - recipient email;
-   - sender password or SMTP authorization code.
-3. Generate or refresh the monitor with the installer:
+2. Reuse the selected sender identity and recipient. For Agent Mail, follow [mail setup](references/agent-mail.md) and configure the generated monitor's `email.env`; no SMTP password is needed. For SMTP, use the sender address and its authorization code.
+3. Generate or refresh the monitor. This example configures SMTP; for Agent Mail, omit the password export and sender/recipient flags, then configure `email.env` as above:
 
    ```bash
    export TASKWATCH_SENDER_PASSWORD='smtp-app-password'
@@ -61,21 +58,22 @@ Command examples assume a repo checkout. When running from the installed copy, r
 
    Add `--central` to keep the workspace clean: the whole scaffold, including `run_with_monitor.sh`, is created under `~/.codex/taskwatch/jobs/<systemd-basename>/` and no files are written into the workspace. The scaffold records the target workspace through `CODEX_MONITOR_WORKSPACE` in `monitor.env`; start the job with `~/.codex/taskwatch/jobs/<systemd-basename>/run_with_monitor.sh`. Use `--job-dir` for a custom scaffold location.
 
-4. `SMTP_HOST`, `SMTP_PORT`, and security mode are inferred automatically from common sender domains. Use overrides only if the sender domain is unusual or the provider uses a nonstandard endpoint.
+4. For SMTP, host, port, and security mode are inferred from common sender domains; override only for a nonstandard endpoint.
 5. Use `--dry-run` to preview managed file paths without writing. Use `--force` only when intentionally replacing managed monitor files in an existing workspace.
 6. Preserve runtime-only files such as `.codex_monitor/email.env`, reports, snapshots, and state outputs.
-7. Verify after generation:
+7. Check the generated report without delivery (use the selected scaffold path for central jobs):
 
    ```bash
-   python skills/taskwatch/scripts/check.py
    CODEX_MONITOR_SKIP_EMAIL=1 /abs/workspace/.codex_monitor/scripts/hourly_check.sh
    ```
+
+   This runs a Codex report, so use it only for an authorized monitor deployment. Validate enabled notifications through the actual job/client as described in [verification and recovery](references/agent-mail.md#verification-and-recovery). Updating Skill files alone does not enable delivery or require a live notification test.
 
 ## Global Goal-Terminal Hook
 
 When updating a goal through code-mode, forward the complete structured result to the transcript, for example `text(await tools.update_goal({status: "complete"}))`. Do not replace that result with a hand-written summary. The Stop hook needs the returned goal status and timestamps; a completion sentence is insufficient. Include this instruction in the selected host's goal-notification guidance when deploying the hook.
 
-Install or refresh the Codex `Stop` hook:
+For Agent Mail, create the private mail configuration using [mail setup](references/agent-mail.md), then install with `--hook-only`. For SMTP, install or refresh with:
 
 ```bash
 export TASKWATCH_SENDER_PASSWORD='smtp-app-password'
