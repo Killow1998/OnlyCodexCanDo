@@ -36,14 +36,14 @@ Add only preferences the user has actually selected:
 | Module | Behavior |
 | --- | --- |
 | [Chinese-first](../templates/optional/chinese-first.md) | Uses Chinese prose while preserving technical identifiers. |
-| [Collaboration names](../templates/optional/collaboration-names.md) | Uses private user and agent names. |
+| [Collaboration names](../templates/optional/collaboration-names.md) | Sets private names and a collaborative opening that encourages independent judgment. |
 | [Subagents by explicit request](../templates/optional/subagent-context.md) | Prevents delegation until the user authorizes the current task or scope. |
 | [No Git worktrees by default](../templates/optional/no-worktrees.md) | Keeps work in the current checkout unless requested otherwise. |
 | [Recorded time zone](../templates/optional/timezone.md) | Applies a chosen IANA zone to agent-created records. |
 | [Repository safety](../templates/optional/repository-safety.md) | Adds stricter Git and unrelated-work protections. |
 | [UI verification](../templates/optional/ui-verification.md) | Avoids UI unit tests and gives visual acceptance to the user. |
 
-Personal names and resolved host values stay out of the public template.
+When selected, place the naming instruction first, followed by the collaborative opening, in the user's chosen language. Personal names and resolved host values stay out of the public template.
 
 ## On-demand development guides
 

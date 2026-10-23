@@ -36,14 +36,14 @@
 | 模块 | 行为 |
 | --- | --- |
 | [中文优先](../templates/optional/chinese-first.md) | 中文交流和说明，技术标识保留原文。 |
-| [协作称呼](../templates/optional/collaboration-names.md) | 使用私有的用户称呼和 Agent 昵称。 |
+| [协作称呼](../templates/optional/collaboration-names.md) | 设置私有称呼，以协作开头鼓励独立判断。 |
 | [仅在明确要求时使用子 Agent](../templates/optional/subagent-context.md) | 用户未授权当前任务或范围时不委派。 |
 | [默认不使用 Git worktree](../templates/optional/no-worktrees.md) | 除非用户要求，否则留在当前 checkout。 |
 | [记录时区](../templates/optional/timezone.md) | Agent 创建的记录使用选定 IANA 时区。 |
 | [仓库安全](../templates/optional/repository-safety.md) | 增加 Git 与无关工作保护。 |
 | [UI 验证](../templates/optional/ui-verification.md) | 不写 UI 单元测试，视觉验收交给用户。 |
 
-个人称呼和已填写的主机参数不进入公共模板。
+选用后，按用户选定的语言，将称呼说明放在首句，协作开头紧随其后。个人称呼和已填写的主机参数不进入公共模板。
 
 ## 按需开发规范
 
