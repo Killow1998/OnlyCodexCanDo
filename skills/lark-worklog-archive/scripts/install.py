@@ -111,7 +111,7 @@ def main() -> int:
     copy_skill(source, target, args.dry_run)
     print(f"[ok] skill target: {target}")
     print("This installer only copies the skill. It does not create a Feishu/Lark app or monthly worklog.")
-    print("Restart Codex so the newly installed or updated skill is loaded.")
+    print("Codex detects skill changes automatically; restart only if the update does not appear.")
     return 0
 
 

@@ -4,8 +4,9 @@
 
 ### Current stable CLI checks
 
-- Checked `lark-cli 1.0.93` on Windows through the helper: version, local auth-metadata parsing, and auth/document command availability. The offline release checks pass; authenticated cloud acceptance remains unverified on this version.
+- Verified `lark-cli 1.0.98` on Windows on 2026-10-23 through the helper's CLI passthrough: user authorization, temporary document creation, fetch, XML append, exact-content readback, and deletion. Offline release checks pass. The official updater preserved the selected subset of Skills.
 - Keep version-specific evidence in setup guidance, rather than pinning the Skill entry point to an older CLI release. An upgrade does not renew expired user consent.
+- Corrected the installer completion message: Codex detects Skill changes automatically; restart only if the update does not appear.
 
 ### On-demand auth diagnosis
 

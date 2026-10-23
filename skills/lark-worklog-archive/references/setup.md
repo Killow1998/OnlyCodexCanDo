@@ -29,7 +29,7 @@ npx @larksuite/cli@latest install
 lark-cli --version
 ```
 
-Use the current stable CLI and record the version actually checked. `lark-cli 1.0.93` passed Windows version/passthrough checks, local auth-metadata parsing, the auth and document command-help checks, and the helper's offline release checks. Its official Skills were also confirmed in sync. Authenticated cloud read/write acceptance has not been rerun on this version; the last live auth/doctor baseline remains `lark-cli 1.0.87`. Do not treat an upgrade as restored authorization or prompt for consent merely to complete an offline check.
+Use the current stable CLI and record the version actually checked. On 2026-10-23, `lark-cli 1.0.98` passed Windows version/passthrough checks and the helper's offline release checks. After user reauthorization, live acceptance through the helper's CLI passthrough passed: verified user identity, temporary document creation, fetch, XML append, exact-content readback, and deletion. This covers CLI document access; monthly worklog merging was not exercised by this cloud test. The official updater preserved the selected subset of Skills. An upgrade does not renew expired user consent.
 
 The helper expects the `auth status --json --verify` identity/token shape and bypasses the npm `.cmd` shim internally so URL arguments containing `&` remain intact. Record the installed version before diagnosing auth; do not use an upgrade or reinstall as the first repair. For a requested upgrade, use `lark-cli update`; it also syncs official Skills. Preserve customized files before updating and keep existing app/config and credentials. Recheck the helper's commands and release checks, and verify authenticated document access when a cloud archive is next requested.
 
