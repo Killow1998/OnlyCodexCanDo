@@ -12,6 +12,7 @@ The [minimal core](../templates/AGENTS.global.md) keeps cross-task judgment, ini
 - Explain broad changes, learn from corrections, and require matching authority for external or hard-to-reverse actions.
 - Test observable behavior and stop when evidence is sufficient.
 - After a meaningful stage, commit only when authorized or preserve the result in existing project records.
+- At task completion, remove temporary artifacts and obsolete backups; ask the user first if unsure whether to keep them.
 
 The core does not prescribe a shell, operating system, directory layout, or fixed test ritual.
 
