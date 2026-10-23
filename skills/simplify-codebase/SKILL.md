@@ -28,7 +28,7 @@ For a candidate, establish what obligation disappears and what required behavior
 - Remove or consolidate the implementation together with obsolete callers, tests, configuration, and documentation.
 - Prefer existing language and platform facilities; adopt a maintained dependency when it reduces total ownership cost.
 - Keep useful interface behavior covered. Replace implementation-coupled tests with behavior checks where needed, instead of stacking another test layer.
-- Keep comments that explain surviving constraints. Remove narrative residue from deleted work and keep the change within the requested scope.
+- Keep comments for intent and constraints the code does not express; remove code restatements, stale explanations, change-history logs, and unnecessary location markers. Preserve license notices and tool-required comments.
 
 ## Verify and finish
 
