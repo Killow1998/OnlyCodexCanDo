@@ -29,6 +29,7 @@ Use each layer for one kind of information:
 
 - Global `~/.codex/AGENTS.md`: the minimal core plus only the stable language, reporting, tool, platform, and host modules selected for that machine.
 - Repository or nested `AGENTS.md`: durable team and codebase rules, commands, and boundaries that cannot be discovered reliably from the project itself.
+- Selected Markdown guides beside the global file: backend, frontend, or Git preferences read for the relevant work. See [on-demand routing](global-agents.md#on-demand-development-guides). Review-only requests produce findings; simplification requests authorize scoped changes.
 - Project documentation: the project's existing plans, design records, progress notes, and worklogs; no fixed directory layout is required.
 - Skills: repeatable procedures that benefit from richer instructions, scripts, references, assets, or checks.
 - Memories and session indexes: private local context. Curate or index them; do not copy raw histories into public repositories.
