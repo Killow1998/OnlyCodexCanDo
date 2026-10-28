@@ -5,7 +5,7 @@ description: Reconcile affected project documentation after a meaningful develop
 
 # organizedProj
 
-Make the project easy to resume without requiring a project-specific workflow installation. A reader should find the current task, understand relevant design, and see what was actually verified without reconstructing a conversation.
+Keep development records easy to resume and public guidance useful to its audience. Reuse the project's documentation without installing a new workflow.
 
 ## Establish the scope
 
@@ -20,7 +20,8 @@ For unclear document placement or conflicting records, read [the editing guide](
 - Verify claims against the relevant code, configuration, tests, artifacts, or actual interface. Distinguish completed, verified, and still unverified work; a chat claim alone is not proof of an implementation result.
 - Update the existing authoritative passage instead of appending a competing correction. Link to it from other entry points; do not copy implementation details into `AGENTS.md` as a second record.
 - In a selected three-directory workflow, `active/` holds the current spec/plan, `design/` the stable algorithm/interface/architecture, and `worklog/` a completed stage's results and lessons. Update a category only when its content materially changes. A small edit may need only one existing paragraph—or no documentation change.
-- Check affected user-facing instructions as part of the feature: relevant `--help`, setup instructions, examples, UI text, or tool descriptions. Do not rewrite the rest of a README for one changed option.
+- Keep the README a public entry point: purpose, capabilities, quick start, and current limitations that affect use. Link to detailed documentation; place change history, diagnostics, and validation evidence in their existing records.
+- Update affected help, setup instructions, examples, and UI text. Do not rewrite unrelated README sections for one changed option.
 - Keep useful explanations of constraints and design choices. Remove debate transcripts, abandoned options, and commentary about features that were never required from current guidance. Preserve dated historical records rather than rewriting history to match today's design.
 - Capture a reusable lesson as: what happened, supporting evidence, when the lesson applies, and what to do next time. Put ongoing design consequences in design documentation; keep incident-specific evidence in the worklog. Do not turn one mistake into a global ban.
 - Use the project's worklog template when a substantial stage deserves a record. Retain supported dates, results, evidence, remaining work, and the next action; do not invent a date or generate a command transcript.

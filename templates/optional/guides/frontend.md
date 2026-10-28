@@ -4,9 +4,10 @@ Read when designing or changing an interface. Follow an existing design system. 
 
 ## Information and layout
 
-- Organize the screen around the main task. Express structure through grouping, spacing, and action priority.
+- **Respect User Intent:** Put content and user goals first; promotions and monetization must not crowd out the primary action. Express structure through grouping, spacing, and action priority.
 - Remove repeated labels, taglines, explanations, and decorative eyebrows. Preserve necessary instructions, errors, and accessible names.
 - Use language familiar to the audience. Place choices where users actually make the decision.
+- **Non-intrusive:** Integrate guidance into the current interaction without stealing focus, covering content, or interrupting the main task.
 
 ## Presentation and interaction
 
@@ -14,7 +15,7 @@ Read when designing or changing an interface. Follow an existing design system. 
 - Start with three or four type sizes. Distinguish secondary information through weight, space, and color. Keep body text comfortable to read and reserve small text for supporting information.
 - Use optical alignment and consistent spacing. Use concentric corners for nested containers. Reduce purely decorative separators, shadows, and colored sidebars.
 - Start thin dividers at 0.5–1px and check visibility under zoom.
-- Keep motion that helps explain state changes. Start transitions at 250ms ease-out and honor reduced-motion preferences.
+- **Subtle Motion:** Use motion only to explain state changes. Keep it natural and restrained; avoid abrupt, disorienting, or overwhelming effects. Honor reduced-motion preferences.
 - Keep keyboard focus visible. Scroll at viewport edges to reveal the active list item and nearby content.
 
 ## Behavior and delivery

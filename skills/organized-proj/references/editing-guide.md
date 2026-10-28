@@ -4,12 +4,15 @@ Start from the project's existing owners and entry points. These roles do not re
 
 | Information | Primary home | What other files should contain |
 | --- | --- | --- |
+| Project introduction and first successful use | README | A link to the public entry point |
 | Goal, scope, open decision, next action | Current spec or plan; `docs/active/` when selected | A link where readers need it |
 | Stable algorithm, interface, architectural reason | Existing design document; `docs/design/` when selected | A concise usage implication, not a copy of the design |
 | Completed-stage result, verification, failure cause | Existing worklog; `docs/worklog/` when selected | Links to the evidence or lasting design consequence |
 | How a user invokes the changed capability | Relevant help, usage guide, or example | Consistent observable behavior; not a full duplicate specification |
 | Stable agent constraint or where to find context | Nearest applicable `AGENTS.md` | Only the hard-to-rediscover constraint or routing instruction |
 | Version, path, or generated state already exposed by tools | Manifest, code, or live inspection | How to discover it, unless a documented supported version is itself a contract |
+
+State material limitations once, beside the affected capability. Replace stale current-status passages instead of appending defensive qualifications; keep the supporting evidence in its existing record. Agent instructions belong in the applicable instruction file, not the public README.
 
 The three-directory workflow and template are maintained in OCCD's [workspace guide](https://github.com/Killow1998/OnlyCodexCanDo/blob/main/docs/workspace-continuous-documentation.md) and [worklog template](https://github.com/Killow1998/OnlyCodexCanDo/blob/main/templates/workspace/worklog-template.md). Use the target project's own documentation and template during a close-out; these background links do not require a network lookup or a replacement layout.
 
