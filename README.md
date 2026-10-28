@@ -36,14 +36,13 @@ Give the following prompt to the Codex agent running on that PC:
 ```text
 Configure this PC's global Codex AGENTS.md from the public repository https://github.com/Killow1998/OnlyCodexCanDo.git.
 
-1. Read templates/AGENTS.global.md as the only automatically recommended cross-platform core. Also read docs/global-agents.md to understand the available choices.
-2. Inspect the actual runtime environment and the existing global AGENTS.md before proposing anything. Classify existing rules as keep, rehome behind progressive disclosure, or propose for removal; identify conflicts and do not preserve discoverable, drift-prone, or one-off details merely because they do not conflict. Do not overwrite the whole file blindly.
-3. Consider only relevant host modules and explain behavior, benefit, and cost. Reuse my stated preferences; batch remaining questions through an available interactive choice tool with free-text answers. Do not ask once per module or treat recommended/preselected options as consent. If no choice tool is available, ask one concise question. Language, names, subagent policy, worktrees, time zones, and other host policies remain independent choices. If on-demand development guides are selected, copy only the selected guides and language beside the global file as described in docs/global-agents.md; include their read triggers, not their bodies, in AGENTS.md.
-4. For names, ask for the user name and agent nickname and keep them in private host configuration. For recorded time zones, confirm the IANA zone and replace the relevant placeholder. Subagents require explicit authorization for the current task or scope; environment detection and generic requests do not provide it.
-5. If the core will route meaningful stage close-out to organizedProj, check whether `skills/organized-proj` is already installed globally. If absent, explain the behavior and ask once whether to install it globally. If declined, omit the Skill reference and use a generic instruction to update existing project records. Do not configure this again per project.
-6. Show the exact merged diff, selected modules and parameters, and every proposed removal; explain any change in authority. Obtain confirmation through the supported approval mechanism, back up, then apply. Verify the final file and any authorized Skill installation.
+1. Read templates/AGENTS.global.md and docs/global-agents.md. Inspect this host and its existing global AGENTS.md; identify rules to keep, move behind progressive disclosure, or remove, including conflicts and obsolete details.
+2. Reuse my confirmed preferences. Explain relevant options and batch unresolved choices in one question; recommendations are not consent. Names, language, time zone, and other options are independent; resolve selected placeholders without publishing private values.
+3. Compose the core and selected preferences by meaning. Merge overlaps and shorten wording while preserving authorization and read triggers. Default to a short opening and compact list; omit module headings, explanations, and examples. Respect my explicit format preferences.
+4. Copy only selected guides in the selected language as described in docs/global-agents.md; keep one routing line in AGENTS.md. If organized-proj is absent, ask once whether to install it globally; if declined, use “update existing project records” without a Skill reference. No per-project setup is needed.
+5. Show the exact diff, selected options, and proposed removals, including any authorization changes. After approval, back up, apply, and read back to verify the file and any authorized installation.
 
-Do not modify project repositories or remote hosts. Install organizedProj only if I select it above; other Skills require separate authorization.
+Do not modify project repositories or remote hosts. Subagents require explicit task or scope authorization. Install only authorized Skills.
 ```
 
 ### Progressive project records

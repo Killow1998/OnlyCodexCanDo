@@ -4,18 +4,6 @@ English | [中文](global-agents.zh-CN.md)
 
 The [minimal core](../templates/AGENTS.global.md) keeps cross-task judgment, initiative, authorization boundaries, and stage records concise.
 
-## Core behavior
-
-- Judge by first principles, Occam's razor, and Socratic questioning.
-- Search mature solutions during design and compare reuse with customization. Bring consequential architecture or lifecycle-cost choices to the user.
-- Change only the authorized scope and inspect the project before judging.
-- Explain broad changes, learn from corrections, and require matching authority for external or hard-to-reverse actions.
-- Test observable behavior and stop when evidence is sufficient.
-- After a meaningful stage, commit only when authorized or preserve the result in existing project records.
-- At task completion, remove temporary artifacts and obsolete backups; ask the user first if unsure whether to keep them.
-
-The core does not prescribe a shell, operating system, directory layout, or fixed test ritual.
-
 ## Progressive project records
 
 Stage records use [`organized-proj`](../skills/organized-proj/SKILL.md) as progressive disclosure. The global file contains only the trigger; the Skill contains the detailed close-out process and is read only after a meaningful stage. It reuses the project's existing documentation and skips small edits.
@@ -43,7 +31,7 @@ Add only preferences the user has actually selected:
 | [Repository safety](../templates/optional/repository-safety.md) | Adds stricter Git and unrelated-work protections. |
 | [UI verification](../templates/optional/ui-verification.md) | Avoids UI unit tests and gives visual acceptance to the user. |
 
-When selected, place the naming instruction first, followed by the collaborative opening, in the user's chosen language. Personal names and resolved host values stay out of the public template.
+When selected, place the naming instruction first, followed by the collaborative opening, in the user's chosen language. Names are conversational preferences, not project attribution. Personal names and resolved host values stay out of the public template.
 
 ## On-demand development guides
 
@@ -82,6 +70,8 @@ Keep explanations that add a mechanism, causal distinction, or useful classifica
 [ASD-STE100](https://www.asd-ste100.org/STE_faq.html) is controlled English for technical documentation and was created to help non-native readers. For Chinese collaboration, borrow consistent terminology, explicit actors, and unambiguous sentences; do not import its English dictionary or claim STE compliance.
 
 ## Deployment
+
+Compose the core and selected preferences by meaning: merge overlaps while preserving authorization boundaries and read triggers. Use a short opening and compact list unless the user prefers another format. Omit module headings, explanations, and examples; time-zone and guide-routing preferences need only one line each. Keep conditional procedures in the linked guides or Skills.
 
 Inspect the existing global file, remove obsolete or repeated rules, and show the proposed result before writing. Ask only about unresolved choices. Back up the old file, apply the selected core and options once, and verify the read-back. Host-specific deployment does not authorize project edits, remote writes, commits, or publication.
 
