@@ -9,5 +9,6 @@ Optimize the code as a whole rather than settling for locally optimal improvemen
 ## Commit and push
 
 - Inspect the staged diff for unrelated edits, credentials, and temporary artifacts.
+- Review READMEs affected by this task: foreground the project's purpose, core capabilities, and getting-started path; place work records and maintenance instructions in the appropriate documents and update stale status.
 - Group commits by intent. Follow repository conventions and explain what changed and why.
 - Use the authorized branch and remote. Review alone does not authorize a push. Force-pushing or rewriting shared history requires matching authority; existing authorization remains valid within its scope.
