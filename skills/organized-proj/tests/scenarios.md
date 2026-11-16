@@ -13,3 +13,7 @@ These are evaluation prompts and acceptance criteria, not a report of tests alre
 | A fix passes unit tests but the external service was unavailable | Record local test result and missing integration evidence separately | “功能已验证” without the actual acceptance result |
 | “整理一下这批照片” or a trivial code edit | Do not invoke this project-document workflow | Reading global memories and every Markdown file |
 | A new config name affects help and docs; existing release checks pass | Verify those affected surfaces, report results, stop | Repeated unrelated tests or automatic cloud archiving |
+| “复述当前进度，不要再测”; applicable evidence is already recorded | Answer from the current record and note material gaps | New acceptance runs or a duplicate report |
+| Two old handoffs disagree with the maintained plan | Correct or redirect stale current guidance; preserve dated evidence | Reading every session, rewriting history, or adding a third competing handoff |
+| A feature is implemented locally; an agreed remote installation is pending | Keep deployment pending and name the next action in the existing entry | Marking the task complete because the commit or local test passed |
+| A prototype permits only compilation and real-use inspection | Record that evidence and the remaining uncertainty | Adding unit tests or a coverage gate during documentation cleanup |

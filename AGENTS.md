@@ -5,8 +5,8 @@ This is a public repository of reusable agent skills and workflow guidance. Keep
 ## Repository Rules
 
 - Never commit secrets, tokens, SMTP passwords, Feishu/Lark document URLs, OpenID values, app IDs, or local registry values.
-- After changing a skill, run its release checks: `python -B skills/<skill>/scripts/check.py`.
-- Treat skill source changes and host deployment separately. Sync only explicitly authorized installations; use a checker's `--skip-global` option for source-only validation when available, and report deployment drift rather than overwriting installed copies to make a check pass.
+- After changing a skill, run `python -B skills/<skill>/scripts/check.py` from source. After authorized deployment, add `--check-global` or `--global-skill <path>` to compare the installation; report drift instead of overwriting local edits to pass.
+- For release-check CLI changes, run `ruff check`, `ruff format --check`, and `python -B tests/check_release_cli.py`; the CLI scenarios include each Skill's release checks.
 - When changing installer flags, email templates, or hook trigger logic, extend the skill's tests in the same change.
 
 ## Workflow Documentation

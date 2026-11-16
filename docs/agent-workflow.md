@@ -106,8 +106,9 @@ When compatibility is required, prefer an explicit version boundary, migration p
 - Implement the requested behavior without adding adjacent features, future extension points, or explanatory scaffolding. When unrequested work is removed, remove its narrative residue too: names, comments, tests, commits, and pull-request summaries should describe the delivered behavior, not advertise unrelated omissions.
 - This applies to every delivered surface, including UI, help, and documentation—not just pull requests. User-facing text should explain the product, not repeat the development prompt or display the agent's internal constraints.
 - Use file length, cyclomatic complexity, nesting depth, and dependency count as review signals rather than universal gates. A project-owned limit may be enforced, but do not create a global threshold that merely pushes one responsibility into more files or wrappers.
+- Following [poteto's development guide](https://github.com/cursor/plugins/blob/bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7/pstack/docs/guide/09-make-it-yours.md#fix-the-environment-with-correct), prevent invalid states through architecture or types first. For remaining statically detectable errors, reuse project lint rules with actionable diagnostics; add a custom rule only when it covers a consequential gap and remove it when the structure makes the error impossible. Check that a real violation fails and valid code passes; unit tests do not replace static enforcement. Runtime failures need implementation fixes and focused E2E verification.
 - Do not add hashes, frozen contracts, baselines, gates, shadow state, or bespoke validation by default. First name the concrete failure they prevent and why Git, versioning, primary keys, transactions, uniqueness, types, or ordinary targeted tests are insufficient. Preserve existing safeguards and use stricter controls at authentication, data-safety, irreversible-operation, release, and other demonstrated high-risk boundaries.
-- For a non-obvious problem, use evidence to locate the broken responsibility, constraint, invariant, or data flow before choosing a fix. Restore the correct model with the smallest precise change; do not preserve a tiny diff by stacking temporary patches.
+- For a non-obvious problem, use evidence to locate the broken responsibility, constraint, invariant, or data flow. Scope the repair by that root cause, crossing module boundaries when necessary and removing related workarounds. Explain broad changes before implementation; a quick patch that leaves the cause intact becomes a pattern future agents may copy.
 - Grow working systems in verified layers. Each layer should run end to end before the next capability is added.
 - Keep concerns separated, but do not add speculative abstractions, configuration, or extension points.
 - Preserve unrelated work and touch only files traceable to the request or a necessary induced fix.
@@ -120,15 +121,15 @@ When work spans several hosts, projects, or requested outputs, check each target
 
 Define the public behavior and observable outcome, then use the smallest realistic check that can expose a consequential failure. Prefer the real user or caller entry point. A successful command or implementation-shaped assertion is not enough when it does not observe the requested result.
 
-Reuse existing checks and stop when relevant evidence is sufficient. If a check fails, distinguish a product regression from a stale assertion, an environment problem, or an unrelated failure. Do not change correct behavior or build new test infrastructure merely to satisfy the checker; report any material limit.
+Reuse evidence that still applies to the affected version, configuration, and environment. Repeat or broaden checks for relevant changes, new failures or doubts, or an explicit request; status recaps and handoffs do not start another acceptance cycle. If a check fails, distinguish a product regression from a stale assertion, an environment problem, or an unrelated failure. Preserve correct expectations and stop when the requested result has sufficient evidence.
 
 For UI, figures, documents, and prose, fix obvious technical defects and provide the actual artifact for human review. The user decides whether presentation and expression are satisfactory. Do not write unit tests or permanent assertions for temporary wording, element positions, figure choices, or layout.
 
-Use stricter verification when shared logic, authentication, data safety, irreversible operations, or releases are actually affected. This is a risk decision, not a fixed test count, coverage quota, or default full-suite ritual.
+Use the agreed acceptance method and existing relevant checks, preferring focused E2E checks for user flows. Increase verification for demonstrated risks in affected shared logic, authentication, data safety, irreversible operations, or releases, not for a fixed test count or coverage quota. Present a necessary change to an agreed acceptance boundary before applying it.
 
 ## Progressive Project Records
 
-At the end of a meaningful stage, inspect the project's existing documentation and update only the authoritative records affected by the work. Preserve verified results, durable design changes, unresolved risks, and the next action where the project already keeps them. Do not create fixed `active`, `design`, or `worklog` directories merely to satisfy this workflow. Small edits and tasks with no durable result require no close-out record.
+After a meaningful stage, use [`organized-proj`](../skills/organized-proj/SKILL.md) to reconcile existing project records. See [deployment and optional references](workspace-continuous-documentation.md).
 
 ## Packaging Gate
 

@@ -1,44 +1,43 @@
 ---
 name: organized-proj
-description: Reconcile affected project documentation after a meaningful development stage, preserving verified results, design changes, and the next action in existing project records. Use when the user asks for organizedProj or project-doc cleanup, or when global instructions route a completed stage here. Small edits do not trigger it.
+description: Reconcile project records after a meaningful stage or an explicit request for organizedProj, documentation cleanup, or a handoff. Keep current state, evidence, and the next action in existing records. Small edits and status recaps alone do not trigger document changes or fresh acceptance runs.
 ---
 
 # organizedProj
 
-Keep development records easy to resume and public guidance useful to its audience. Reuse the project's documentation without installing a new workflow.
+Leave one maintained entry from which work can resume, with links to supporting detail. Reuse the project's documentation.
 
 ## Establish the scope
 
-1. Confirm that a meaningful stage completed or that the user requested document reconciliation. A small edit with no durable result, design change, or next action stops here. Identify the owning workspace and whether the request is review-only or authorizes edits. Inspect applicable instructions and the current branch/diff; protect unrelated work.
-2. Start from the affected code, user-facing behavior, and existing document entry points. Read the relevant plan, design, worklog, and usage guidance—not every document or every project mentioned in chat.
-3. Reuse existing equivalent paths. Do not install a documentation layout or project `AGENTS.md` workflow merely because this Skill ran. Do not edit global instructions or deploy this Skill as a side effect of a project close-out.
+1. Identify the current goal, owning workspace, and requested result. Review-only requests produce findings; small edits with no durable result need no record. Preserve unrelated work.
+2. Start at the existing current plan or progress entry and follow only relevant links. Reuse stage evidence tied to the affected version and environment; inspect changes or unresolved claims, not the entire project or conversation history.
+3. Reuse existing paths. If no record exists and continuity needs one, create one project-local note. This Skill does not install a directory layout, edit global instructions, or deploy itself.
 
-For unclear document placement or conflicting records, read [the editing guide](references/editing-guide.md). It explains how to keep one maintained source for each fact.
+For unclear placement, stale records, or handoff needs, read [the editing guide](references/editing-guide.md).
 
 ## Reconcile only what changed
 
-- Verify claims against the relevant code, configuration, tests, artifacts, or actual interface. Distinguish completed, verified, and still unverified work; a chat claim alone is not proof of an implementation result.
-- Update the existing authoritative passage instead of appending a competing correction. Link to it from other entry points; do not copy implementation details into `AGENTS.md` as a second record.
-- In a selected three-directory workflow, `active/` holds the current spec/plan, `design/` the stable algorithm/interface/architecture, and `worklog/` a completed stage's results and lessons. Update a category only when its content materially changes. A small edit may need only one existing paragraph—or no documentation change.
-- Keep the README a public entry point: purpose, capabilities, quick start, and current limitations that affect use. Link to detailed documentation; place change history, diagnostics, and validation evidence in their existing records.
-- Update affected help, setup instructions, examples, and UI text. Do not rewrite unrelated README sections for one changed option.
-- Keep useful explanations of constraints and design choices. Remove debate transcripts, abandoned options, and commentary about features that were never required from current guidance. Preserve dated historical records rather than rewriting history to match today's design.
-- Capture a reusable lesson as: what happened, supporting evidence, when the lesson applies, and what to do next time. Put ongoing design consequences in design documentation; keep incident-specific evidence in the worklog. Do not turn one mistake into a global ban.
-- Use the project's worklog template when a substantial stage deserves a record. Retain supported dates, results, evidence, remaining work, and the next action; do not invent a date or generate a command transcript.
+- Update the authoritative passage; link to details instead of copying them into another report or `AGENTS.md`. Touch only records whose content changed.
+- Keep the current entry sufficient to continue: goal, relevant state and decisions, evidence locations, unfinished work, and the next action. Include the active worktree or runtime entry when needed to avoid resuming in the wrong place.
+- Distinguish implementation, validation, deployment, and user acceptance wherever their states differ. Cover every agreed target; a local fix or documentation update does not prove delivery elsewhere. An assistant's claim alone is not implementation evidence.
+- Update superseded current guidance in place. Preserve dated historical results with their applicable version or conditions; add a supersession link where readers could mistake them for current instructions. Age alone does not make a record obsolete.
+- Keep README content focused on purpose, capabilities, first use, and material limitations. Update affected help and examples; put diagnostics and stage history in their existing records.
+- Retain useful design reasons; remove abandoned debate and repeated qualifications from current guidance. Record reusable lessons with their evidence and scope in the owning project, without turning an isolated error into a global rule.
+- Use an existing worklog only when there is new durable history to preserve. Record supported dates and outcomes, not command transcripts or a second copy of the current plan.
 
 ## Leave a clean, restartable workspace
 
-- Close a completed plan according to the existing project convention. If moving or deleting a pre-existing file is not authorized, mark its state and propose the exact move instead of doing it silently. Do not create an extra handoff or archive hierarchy just for this Skill.
+- Close the plan using the project's convention. The maintained entry serves ordinary handoff; create a separate handoff only when requested or required by the destination, linking to maintained facts rather than duplicating them. Moves and deletions need matching authorization.
 - Remove only task-created scratch that is within the cleanup authorization and whose useful content is already retained. Preserve existing documents, ignored data, experiments, and checkpoints unless separately authorized.
 - Keep private sessions, credentials, host inventories, and local configuration out of public documents. Project-generated docs stay in the owning workspace, not an agent's state directory.
 - Local documentation is sufficient to finish. Cloud archiving, publishing, Git operations, remote edits, and global Skill deployment require matching authorization; they are not implied by document cleanup.
 
 ## Verify and finish
 
-Review the focused diff, changed links, and affected examples. Run the relevant documented command or interface check when practical and safe; state any missing evidence. Do not rerun unrelated suites or demand a new test count for prose changes.
+Review the changed passages and links. Reuse applicable acceptance evidence; rerun a command only for a changed behavior or example, a concrete evidence gap that matters to this task, or an explicit request. A recap or handoff is not a new acceptance cycle. State missing evidence instead of expanding documentation cleanup into implementation work.
 
-Report the changed documents, the useful lesson retained, and anything still unverified or requiring a decision. A review-only request ends with findings and concrete proposed edits, not filesystem changes. Stop once this scope is reconciled.
+Report the maintained entry, relevant result, and any remaining decision or evidence gap. Stop when this scope is reconciled.
 
 ## Maintaining this Skill
 
-Run `python -B skills/organized-proj/scripts/check.py --skip-global` from the source repository. The check validates packaging and links, not whether an agent followed the workflow. Use [behavioral scenarios](tests/scenarios.md) to evaluate trigger accuracy and editing judgment in isolated fixtures before claiming behavioral validation. Source edits and installation are separate operations.
+Run `python -B skills/organized-proj/scripts/check.py` from source; add `--check-global` after authorized installation. The check validates packaging and links. Use [behavioral scenarios](tests/scenarios.md) when evaluating trigger accuracy and editing judgment.

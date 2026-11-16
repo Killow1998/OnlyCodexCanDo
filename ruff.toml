@@ -1,0 +1,6 @@
+target-version = "py310"
+line-length = 160
+include = ["skills/*/scripts/check.py", "tests/check_release_cli.py"]
+
+[lint]
+extend-select = ["I"]

@@ -10,7 +10,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 SKILL_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = SKILL_DIR.parents[1]
 DEFAULT_GLOBAL_SKILL = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")) / "skills" / SKILL_DIR.name
@@ -41,7 +40,11 @@ def content_check() -> bool:
     skill = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
     metadata = (SKILL_DIR / "agents" / "openai.yaml").read_text(encoding="utf-8")
     problems: list[str] = []
-    for marker in ("[TODO:", "Structuring This Skill", "Replace with the first main section"):
+    for marker in (
+        "[TODO:",
+        "Structuring This Skill",
+        "Replace with the first main section",
+    ):
         if marker in skill:
             problems.append(f"placeholder remains: {marker}")
     if len(skill.splitlines()) > 150:
@@ -72,7 +75,6 @@ def cache_check() -> bool:
 
 
 def digest(path: Path) -> str:
-    # The installed copy is outside Git; digests detect stale or partial syncs.
     value = hashlib.sha256()
     value.update(path.read_bytes())
     return value.hexdigest()
@@ -85,8 +87,8 @@ def manifest(root: Path) -> dict[str, str]:
 def global_consistency(target: Path) -> bool:
     print("[run] global skill consistency")
     if not target.exists():
-        print(f"[warn] global skill missing: {target}")
-        return True
+        print(f"[fail] global skill missing: {target}; install the authorized copy or omit the installation check")
+        return False
     source = manifest(SKILL_DIR)
     installed = manifest(target)
     if source == installed:
@@ -96,7 +98,10 @@ def global_consistency(target: Path) -> bool:
     for label, values in (
         ("missing", sorted(set(source) - set(installed))),
         ("extra", sorted(set(installed) - set(source))),
-        ("changed", sorted(key for key in set(source) & set(installed) if source[key] != installed[key])),
+        (
+            "changed",
+            sorted(key for key in set(source) & set(installed) if source[key] != installed[key]),
+        ),
     ):
         if values:
             print(f"  {label}: {', '.join(values[:20])}")
@@ -105,24 +110,62 @@ def global_consistency(target: Path) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--global-skill", default=str(DEFAULT_GLOBAL_SKILL))
-    parser.add_argument("--skip-global", action="store_true")
+    installation = parser.add_mutually_exclusive_group()
+    installation.add_argument(
+        "--check-global",
+        action="store_true",
+        help="Compare source with the default global installation.",
+    )
+    installation.add_argument("--global-skill", help="Compare source with this installed Skill directory.")
+    installation.add_argument("--skip-global", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+
+    if (args.check_global or args.global_skill) and not global_consistency(Path(args.global_skill or DEFAULT_GLOBAL_SKILL).expanduser()):
+        return 1
 
     python = sys.executable
     syntax_code = "import pathlib, sys; [compile(pathlib.Path(p).read_text(encoding='utf-8'), p, 'exec') for p in sys.argv[1:]]"
     checks = [
         content_check(),
         cache_check(),
-        run("unit tests", [python, "-B", "-m", "unittest", "discover", "-s", str(SKILL_DIR / "tests")]),
-        run("syntax check", [python, "-B", "-c", syntax_code, str(SKILL_DIR / "scripts" / "audit_codex_home.py"), str(SKILL_DIR / "scripts" / "check.py")]),
+        run(
+            "unit tests",
+            [
+                python,
+                "-B",
+                "-m",
+                "unittest",
+                "discover",
+                "-s",
+                str(SKILL_DIR / "tests"),
+            ],
+        ),
+        run(
+            "syntax check",
+            [
+                python,
+                "-B",
+                "-c",
+                syntax_code,
+                str(SKILL_DIR / "scripts" / "audit_codex_home.py"),
+                str(SKILL_DIR / "scripts" / "check.py"),
+            ],
+        ),
     ]
     if QUICK_VALIDATE.exists():
-        checks.append(run("skill validate", [python, "-B", str(QUICK_VALIDATE), str(SKILL_DIR.relative_to(REPO_ROOT))]))
+        checks.append(
+            run(
+                "skill validate",
+                [
+                    python,
+                    "-B",
+                    str(QUICK_VALIDATE),
+                    str(SKILL_DIR.relative_to(REPO_ROOT)),
+                ],
+            )
+        )
     else:
         print(f"[warn] skill validate skipped; not found: {QUICK_VALIDATE}")
-    if not args.skip_global:
-        checks.append(global_consistency(Path(args.global_skill).expanduser()))
     return 0 if all(checks) else 1
 
 

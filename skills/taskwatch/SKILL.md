@@ -134,7 +134,7 @@ With `--central`, the same scaffold lives under `~/.codex/taskwatch/jobs/<system
 
 ## Maintenance
 
-- After source changes, run `check.py --skip-global`. Deploying to `~/.codex/skills/taskwatch` or changing hooks, services, and mail configuration is a separate authorized operation; compare and preserve local edits first.
+- After source changes, run `check.py`; add `--check-global` after authorized Skill deployment. Updating Skill files is separate from enabling hooks, services, or mail; preserve local edits.
 - When changing email templates, installer flags, or hook trigger logic, extend `tests/test_taskwatch_hook.py` or `tests/test_install.py`.
 - Never commit `taskwatch.env`, SMTP secrets, reports, or state files.
 

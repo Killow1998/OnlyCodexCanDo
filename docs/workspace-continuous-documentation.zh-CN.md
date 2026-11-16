@@ -2,7 +2,7 @@
 
 [English](workspace-continuous-documentation.md) | 中文
 
-项目不再需要单独安装文档工作流。主机全局 `AGENTS.md` 可以在重要阶段完成时转入全局安装的 [`organized-proj`](../skills/organized-proj/SKILL.md) Skill。只有此时才加载完整流程；Skill 复用项目现有记录，小改动直接跳过。
+项目不再需要单独安装文档工作流。主机全局 `AGENTS.md` 可以在重要阶段完成时转入全局安装的 [`organized-proj`](../skills/organized-proj/SKILL.md) Skill。阶段收尾或用户明确要求整理文档、交接时才加载，复用现有记录，小改动直接跳过。
 
 ## 什么是重要阶段
 
@@ -19,7 +19,9 @@
 
 不要为了匹配本仓库而新建 `docs/active`、`docs/design`、`docs/worklog`、项目 `AGENTS.md` 片段或另一套文档体系。项目已经采用这些路径时继续沿用。按目标记录结果与证据，不复制命令流水和对话原文。
 
-Git 提交、云端归档、发布、远程写入和删除文档仍需要各自对应的授权。本地项目记录已经足以完成阶段收尾。
+## 从当前状态接续
+
+证据适用性、文档关联与旧记录替代关系由 Skill 的[当前状态与交接指南](../skills/organized-proj/references/editing-guide.md#current-state-and-handoff)统一说明。整理阶段记录时，按 [Skill 流程](../skills/organized-proj/SKILL.md)执行。
 
 ## 全局部署
 

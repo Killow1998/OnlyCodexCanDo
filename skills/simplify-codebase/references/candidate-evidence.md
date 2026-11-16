@@ -1,6 +1,10 @@
 # Simplification Candidate Evidence
 
-Read only the section relevant to an unresolved consumer, trust, lifecycle, dependency, or compatibility question.
+Read only the section relevant to an unresolved consumer, trust, lifecycle, dependency, compatibility, or comment-removal question.
+
+## Required comment removal
+
+Implementation leaves the requested scope free of code comments, including explanations of intent or constraints. This is a required result, not a judgment about whether a comment is redundant. Use language-aware edits to preserve comment markers inside string data. Move necessary rationale and notices into appropriate project documentation; replace functional directives with equivalent code or configuration. If removal conflicts with required behavior, report that concrete conflict as unfinished work instead of retaining comments and claiming completion.
 
 ## Consumer classes
 
@@ -28,6 +32,16 @@ Look for adapters with one implementation, configuration with one valid value, r
 ### Defensive scaffolding
 
 Trace the trust and ownership path, the concrete failure prevented, and what existing guarantees already cover. Several sentinels, readiness promises, copies, caches, or terminal-state flags may mirror one lifecycle fact. Preserve distinct publication, cancellation, rollback, containment, or ownership transitions that have real failure cases.
+
+For repeated validation, identify where an invariant is established and where it can become false. Rechecking the same immutable typed value in each internal layer is a candidate; checking a changed authorization, concurrent state, or new external input is a separate responsibility. A hypothetical failure alone does not justify new defensive infrastructure.
+
+For exception handling, identify the recovery, boundary translation, or cleanup each handler owns. Merge handlers that only repeat logging or rethrow unchanged errors. Preserve the original cause; returning an empty value or success after failure may change behavior rather than simplify it.
+
+### Implementation-coupled tests
+
+Ask which incorrect user-visible result an assertion rejects. Internal call counts, private structure, source-string matches, and duplicate happy paths often miss real defects or break on a behavior-preserving refactor. Keep contractual protocol or generated-format assertions where the representation itself is the public behavior.
+
+Reuse the existing behavior check before adding another. A relevant existing failure or a representative wrong-result comparison can show that it detects a regression; do not require a mutation campaign for every test. Keep mandatory release checks and follow the user's agreed acceptance method.
 
 ### Hand-rolled infrastructure
 

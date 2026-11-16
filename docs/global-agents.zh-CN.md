@@ -6,7 +6,7 @@
 
 ## 渐进式项目记录
 
-阶段记录通过 [`organized-proj`](../skills/organized-proj/SKILL.md) 渐进加载。全局文件只保存触发条件；完整收尾流程留在 Skill 中，只有重要阶段完成时才读取。Skill 复用项目现有文档，小改动直接跳过。
+全局文件将重要阶段及明确的文档整理、交接请求转入 [`organized-proj`](../skills/organized-proj/SKILL.md)，需要时才加载完整流程。
 
 配置全局文件时：
 
@@ -30,6 +30,7 @@
 | [记录时区](../templates/optional/timezone.md) | Agent 创建的记录使用选定 IANA 时区。 |
 | [仓库安全](../templates/optional/repository-safety.md) | 增加 Git 与无关工作保护。 |
 | [UI 验证](../templates/optional/ui-verification.md) | 不写 UI 单元测试，视觉验收交给用户。 |
+| [C++ / Python / Rust lint](../templates/optional/lint-toolchains.md) | 默认使用 clang-tidy/clang-format、Ruff、Clippy/rustfmt；开发对应语言时自动安装配置缺失工具。 |
 
 选用后，按用户选定的语言，将称呼说明放在首句，协作开头紧随其后。称呼是对话偏好，不作为项目署名。个人称呼和已填写的主机参数不进入公共模板。
 
@@ -53,11 +54,13 @@
 
 只保留指向已安装规范的引用。这是要求 Agent 按条件主动读文件，不应假定 `@file.md` 自带条件加载功能；规范正文不复制进常驻核心。`templates/workspace/` 下的领域参考仍按需选用，避免重复安装内容重叠的 UI 规则。
 
-规范明确要求快速迭代、有效且有上限的日志、独立接口和可用的用户流程。前端尺寸与时长作为实际预览的起点；文件长度用于检查职责，不强制按数字拆分。复用成熟检查工具和能省去重复劳动的短脚本。要求简化时主动改善结构，只要求审阅时给出意见；普通提交或推送不额外触发简化流程。
+选用 `simplify-codebase` 时，若尚未安装，集中提供一次安装选项。Git 规范优先使用已安装的 Skill，未安装时也能直接执行。详见[安装提示词](../README.zh-CN.md#simplify-codebase)。
 
 需要让日常编码偏好常驻时，可选用这一句：
 
-> 遵循单一职责，采用可检索命名；注释仅补充代码未表达的信息。
+> 遵循单一职责，采用可检索命名，禁止新增代码注释。
+
+工具配置与静态错误约束归入选定的 [lint 模块](../templates/optional/lint-toolchains.md)，部署时与已有偏好合并。
 
 ## 简洁、坦诚地表达
 

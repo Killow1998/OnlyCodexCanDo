@@ -162,7 +162,7 @@ python skills/taskwatch/scripts/install_global_hook.py --remove
 修改 Skill 源码后运行发布检查；这不启用真实监控，也不比较全局安装副本：
 
 ```bash
-python -B skills/taskwatch/scripts/check.py --skip-global
+python -B skills/taskwatch/scripts/check.py
 ```
 
 启用通知时，按[验收与恢复](agent-mail.zh-CN.md#验收与恢复)检查实际任务、客户端触发和送达。直接调用下面的脚本只能验证事件解析与发送链路，不能证明客户端会自动触发 Hook；它可能真实发信，只用于已授权的测试：
@@ -171,7 +171,7 @@ python -B skills/taskwatch/scripts/check.py --skip-global
 python -B ~/.codex/skills/taskwatch/scripts/taskwatch_stop_hook.py
 ```
 
-只更新 Skill 文件或保持禁用时，到源码检查为止，不安装 Hook、启用 timer 或发送测试邮件。
+获准更新全局 Skill 文件后，从源码加 `--check-global` 核对安装副本。保持禁用时，不安装 Hook、启用 timer 或发送测试邮件。
 
 ## 故障排查
 
@@ -188,5 +188,5 @@ python -B ~/.codex/skills/taskwatch/scripts/taskwatch_stop_hook.py
 ## 维护规则
 
 - 不要把 `taskwatch.env`、SMTP 密码、运行报告、state 文件提交到 Git。
-- 修改源码后运行 `check.py --skip-global`；同步全局副本、部署 Hook/服务和修改邮件配置分别获得对应授权，保留本机修改。
+- 修改源码后运行 `check.py`；获准同步全局副本后加 `--check-global`。部署 Hook/服务和修改邮件配置分别获得对应授权，保留本机修改。
 - 修改邮件模板或 hook 触发逻辑时，必须补充 `tests/test_taskwatch_hook.py` 或 `tests/test_install.py`。

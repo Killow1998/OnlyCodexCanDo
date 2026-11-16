@@ -14,7 +14,17 @@ Start from the project's existing owners and entry points. These roles do not re
 
 State material limitations once, beside the affected capability. Replace stale current-status passages instead of appending defensive qualifications; keep the supporting evidence in its existing record. Agent instructions belong in the applicable instruction file, not the public README.
 
-The three-directory workflow and template are maintained in OCCD's [workspace guide](https://github.com/Killow1998/OnlyCodexCanDo/blob/main/docs/workspace-continuous-documentation.md) and [worklog template](https://github.com/Killow1998/OnlyCodexCanDo/blob/main/templates/workspace/worklog-template.md). Use the target project's own documentation and template during a close-out; these background links do not require a network lookup or a replacement layout.
+Use the project's own record format. OCCD's [worklog template](https://github.com/Killow1998/OnlyCodexCanDo/blob/main/templates/workspace/worklog-template.md) is an optional reference when no suitable format exists.
+
+## Current state and handoff
+
+Use the existing plan or progress page as the current entry. Keep only what the next task needs: current objective, applicable decisions, relevant result and evidence, unfinished work, and next action. Link to designs and dated experiments where detail matters, labeling the relationship: depends on, evidenced by, or superseded by. Prefer relative paths and section anchors. Do not require new fields, a fixed filename, or a graph service; Markdown links already express these relationships.
+
+A record is applicable when its version, configuration, environment, and acceptance conditions still cover the claim.
+
+When two documents claim to be current, update the maintained entry and redirect the superseded passage. Keep historical findings intact and dated. Remove stale current-status claims instead of appending another correction. Unfinished work stays visible rather than disappearing into an archive.
+
+A separate handoff, when required, points to this entry and carries only otherwise missing transient context. Git history preserves changes, but a commit alone does not explain the current goal or next action.
 
 ## Conflicting facts
 

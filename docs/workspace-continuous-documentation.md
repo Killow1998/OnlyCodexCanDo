@@ -2,7 +2,7 @@
 
 English | [中文](workspace-continuous-documentation.zh-CN.md)
 
-Projects do not need to install a documentation workflow. The host-global `AGENTS.md` may route a meaningful completed stage to the globally installed [`organized-proj`](../skills/organized-proj/SKILL.md) Skill. The Skill is loaded only then, reuses the project's existing records, and skips small edits.
+Projects do not need to install a documentation workflow. The host-global `AGENTS.md` may route a meaningful completed stage to the globally installed [`organized-proj`](../skills/organized-proj/SKILL.md) Skill. Load it for that stage or an explicit documentation or handoff request, reuse existing records, and skip small edits.
 
 ## What counts as a meaningful stage
 
@@ -19,7 +19,9 @@ Inspect the affected project and update only existing authoritative documents wh
 
 Do not create `docs/active`, `docs/design`, `docs/worklog`, a project `AGENTS.md` section, or another documentation hierarchy merely to match this repository. If a project already uses those paths, keep using them. Record results and evidence by objective rather than copying commands or chat history.
 
-Git commits, cloud archives, publishing, remote writes, and document deletion still require their own authority. A local project record is enough to close the stage.
+## Resume from current state
+
+The Skill's [current-state and handoff guide](../skills/organized-proj/references/editing-guide.md#current-state-and-handoff) owns evidence applicability, linked context, and superseded records. Follow the [Skill procedure](../skills/organized-proj/SKILL.md) when reconciling a stage.
 
 ## Global deployment
 

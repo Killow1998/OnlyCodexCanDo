@@ -6,6 +6,8 @@ Read for review, simplification, commit, or push work. A review-only request pro
 
 Optimize the code as a whole rather than settling for locally optimal improvements. Perform ablation experiments to remove meaningless abstractions, designs, and tests. Preserve readability and extensibility, strengthen modularity, and eliminate the need to debug the entire system whenever a module is changed or added. Add no new features at this stage; focus on code optimization and reduce the length of individual source files where possible. E2E tests are recommended to confirm functional completeness.
 
+Use `simplify-codebase` when installed for this simplification or review; otherwise follow this section directly.
+
 ## Commit and push
 
 - Inspect the staged diff for unrelated edits, credentials, and temporary artifacts.

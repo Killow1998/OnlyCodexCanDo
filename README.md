@@ -39,7 +39,7 @@ Configure this PC's global Codex AGENTS.md from the public repository https://gi
 1. Read templates/AGENTS.global.md and docs/global-agents.md. Inspect this host and its existing global AGENTS.md; identify rules to keep, move behind progressive disclosure, or remove, including conflicts and obsolete details.
 2. Reuse my confirmed preferences. Explain relevant options and batch unresolved choices in one question; recommendations are not consent. Names, language, time zone, and other options are independent; resolve selected placeholders without publishing private values.
 3. Compose the core and selected preferences by meaning. Merge overlaps and shorten wording while preserving authorization and read triggers. Default to a short opening and compact list; omit module headings, explanations, and examples. Respect my explicit format preferences.
-4. Copy only selected guides in the selected language as described in docs/global-agents.md; keep one routing line in AGENTS.md. If organized-proj is absent, ask once whether to install it globally; if declined, use “update existing project records” without a Skill reference. No per-project setup is needed.
+4. Copy only selected guides in the selected language as described in docs/global-agents.md; keep one routing line in AGENTS.md. Offer missing organized-proj for stage records and simplify-codebase for requested simplification once during setup. Keep references only to authorized installations. Run each installation's check.py from source with --check-global. No per-project setup is needed.
 5. Show the exact diff, selected options, and proposed removals, including any authorization changes. After approval, back up, apply, and read back to verify the file and any authorized installation.
 
 Do not modify project repositories or remote hosts. Subagents require explicit task or scope authorization. Install only authorized Skills.
@@ -58,6 +58,7 @@ Select by task; installing everything is unnecessary. Each entry owns its detail
 | `codex-home-audit` | Diagnose Codex state size and startup issues | On-demand read-only inspection; cleanup needs separate approval. [Instructions](skills/codex-home-audit/SKILL.md) |
 | `lark-worklog-archive` | Archive selected development results to Feishu/Lark | Use on explicit request; project docs remain the daily record. [Instructions](skills/lark-worklog-archive/SKILL.md) · [Setup, authorization, and validation status](skills/lark-worklog-archive/references/setup.md) |
 | `organizedProj` | Reconcile affected project docs and preserve verified lessons | Bounded stage close-out; reuse existing documents. [Instructions](skills/organized-proj/SKILL.md) |
+| `simplify-codebase` | Review or implement code simplification | Preserves required behavior and removes comments in the requested implementation scope. [Instructions](skills/simplify-codebase/SKILL.md) |
 | `TaskWatch` | Long-job failure and completion notifications | Supports Agent Mail and SMTP. [Agent Mail setup](skills/taskwatch/references/agent-mail.md) · [Usage guide](skills/taskwatch/references/usage.md) |
 
 ## Install A Skill
@@ -67,7 +68,13 @@ Select by task; installing everything is unnecessary. Each entry owns its detail
 Give this prompt to the agent on the target host or workspace:
 
 ```text
-Install organizedProj globally from https://github.com/Killow1998/OnlyCodexCanDo.git using skills/organized-proj (display name organizedProj, invocation $organized-proj). Compare existing copies and preserve local edits, then run its scripts/check.py. Do not scan or rewrite project docs as part of installation. Report discovery checks separately from behavioral validation.
+Install organizedProj globally from https://github.com/Killow1998/OnlyCodexCanDo.git using skills/organized-proj (display name organizedProj, invocation $organized-proj). Compare existing copies and preserve local edits, then run python -B skills/organized-proj/scripts/check.py --check-global from source. Do not scan or rewrite project docs as part of installation. Report discovery checks separately from behavioral validation.
+```
+
+### `simplify-codebase`
+
+```text
+Install simplify-codebase globally from https://github.com/Killow1998/OnlyCodexCanDo.git using skills/simplify-codebase. Compare existing copies and preserve local edits, then run python -B skills/simplify-codebase/scripts/check.py --check-global from source. Installation does not run a code cleanup. Read the Skill when I request simplification or a relevant review; ordinary commits and pushes do not trigger it.
 ```
 
 ### `codex-home-audit`
@@ -75,7 +82,7 @@ Install organizedProj globally from https://github.com/Killow1998/OnlyCodexCanDo
 Give this prompt to Codex on the target host:
 
 ```text
-Install codex-home-audit from https://github.com/Killow1998/OnlyCodexCanDo.git, deploying only skills/codex-home-audit and preserving other Skills. Compare any installed copy with the source first, preserve local changes, and show conflicts. After installation, run its scripts/check.py and report results; do not blindly overwrite files to eliminate differences. Do not scan or clean the actual CODEX_HOME. Tell me whether a new task is needed to discover the updated Skill.
+Install codex-home-audit from https://github.com/Killow1998/OnlyCodexCanDo.git, deploying only skills/codex-home-audit and preserving other Skills. Compare any installed copy with the source first, preserve local changes, and show conflicts. After installation, run python -B skills/codex-home-audit/scripts/check.py --check-global from source and report results; do not blindly overwrite files to eliminate differences. Do not scan or clean the actual CODEX_HOME. Tell me whether a new task is needed to discover the updated Skill.
 ```
 
 ### `lark-worklog-archive`
@@ -83,7 +90,7 @@ Install codex-home-audit from https://github.com/Killow1998/OnlyCodexCanDo.git, 
 Set up local capability first; cloud authorization and archiving wait until needed:
 
 ```text
-Install lark-worklog-archive from https://github.com/Killow1998/OnlyCodexCanDo.git and use the current official stable lark-cli. Inspect the existing installation, app/config, and customized files first. Use the official update command for CLI upgrades and preserve configuration and credentials. Do not overwrite unreviewed local Skill changes. This setup is local only: do not start login, create a Feishu/Lark app or monthly document, upload work records, or schedule uploads or token keepalive. Project docs remain the daily record. When I explicitly request a Feishu/Lark archive, check authorization and the target document, requesting browser consent only when necessary. Report local checks and cloud validation separately; never put private configuration or credentials in Git.
+Install lark-worklog-archive from https://github.com/Killow1998/OnlyCodexCanDo.git and use the current official stable lark-cli. Inspect the existing installation, app/config, and customized files first. Use the official update command for CLI upgrades and preserve configuration and credentials. Do not overwrite unreviewed local Skill changes. Run python -B skills/lark-worklog-archive/scripts/check.py --check-global from source after installation. This setup is local only: do not start login, create a Feishu/Lark app or monthly document, upload work records, or schedule uploads or token keepalive. Project docs remain the daily record. When I explicitly request a Feishu/Lark archive, check authorization and the target document, requesting browser consent only when necessary. Report local checks and cloud validation separately; never put private configuration or credentials in Git.
 ```
 
 See the [setup guide](skills/lark-worklog-archive/references/setup.md) for commands, auth troubleshooting, and validated versions.
@@ -92,7 +99,7 @@ See the [setup guide](skills/lark-worklog-archive/references/setup.md) for comma
 
 Use [Agent Mail setup](skills/taskwatch/references/agent-mail.md) for command-exit and goal-terminal alerts, or the [usage guide](skills/taskwatch/references/usage.md) for SMTP and Linux progress reports. Select the recipient and notification content before enabling delivery.
 
-After deployment, verify event detection and actual email delivery. Keep credentials in private local configuration.
+After copying the Skill, run `python -B skills/taskwatch/scripts/check.py --check-global` from source. After enabling notifications, verify event detection and actual email delivery. Keep credentials in private local configuration.
 
 ## Keep Improving
 

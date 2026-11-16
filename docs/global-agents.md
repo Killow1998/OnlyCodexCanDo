@@ -6,7 +6,7 @@ The [minimal core](../templates/AGENTS.global.md) keeps cross-task judgment, ini
 
 ## Progressive project records
 
-Stage records use [`organized-proj`](../skills/organized-proj/SKILL.md) as progressive disclosure. The global file contains only the trigger; the Skill contains the detailed close-out process and is read only after a meaningful stage. It reuses the project's existing documentation and skips small edits.
+The global file routes meaningful stages and explicit documentation or handoff requests to [`organized-proj`](../skills/organized-proj/SKILL.md); its procedure loads only when needed.
 
 During global setup:
 
@@ -30,6 +30,7 @@ Add only preferences the user has actually selected:
 | [Recorded time zone](../templates/optional/timezone.md) | Applies a chosen IANA zone to agent-created records. |
 | [Repository safety](../templates/optional/repository-safety.md) | Adds stricter Git and unrelated-work protections. |
 | [UI verification](../templates/optional/ui-verification.md) | Avoids UI unit tests and gives visual acceptance to the user. |
+| [C++ / Python / Rust lint](../templates/optional/lint-toolchains.md) | Defaults to clang-tidy/clang-format, Ruff, and Clippy/rustfmt; installs and configures missing tools during relevant development. |
 
 When selected, place the naming instruction first, followed by the collaborative opening, in the user's chosen language. Names are conversational preferences, not project attribution. Personal names and resolved host values stay out of the public template.
 
@@ -53,11 +54,13 @@ If all three guides are selected, the global file needs one routing line:
 
 Keep references only to installed guides. These are explicit instructions to read a file when needed; do not assume that an `@file.md` mention implements conditional loading. Keep the guide bodies out of the always-loaded core. Existing domain references under `templates/workspace/` remain optional; avoid installing overlapping UI instructions twice.
 
-The guides set concrete outcomes: fast iteration, useful bounded logs, independent interfaces, and working user flows. Frontend sizes and timings are starting choices for rendered review. File length guides responsibility review rather than mandatory splitting. Reuse established checks and useful short scripts. A simplification request calls for active structural improvement; a review-only request produces findings. Ordinary commits and pushes do not trigger a separate simplification pass.
+If `simplify-codebase` is selected, offer installation once when absent. The Git guide uses it when installed and works directly otherwise. See the [install prompt](../README.md#simplify-codebase).
 
 For an always-loaded coding preference, select this sentence:
 
-> Follow the single-responsibility principle and use searchable names. Comments add only information that the code does not express.
+> Follow the single-responsibility principle, use searchable names, and add no code comments.
+
+The selected [lint module](../templates/optional/lint-toolchains.md) owns tooling and static-error prevention; merge its wording with existing preferences during deployment.
 
 ## Concise, candid reporting
 

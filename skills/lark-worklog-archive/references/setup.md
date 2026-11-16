@@ -20,6 +20,7 @@ Install the repo and local skill:
 git clone https://github.com/Killow1998/OnlyCodexCanDo.git
 cd OnlyCodexCanDo
 python skills/lark-worklog-archive/scripts/install.py
+python -B skills/lark-worklog-archive/scripts/check.py --check-global
 ```
 
 Install or check `lark-cli`:
