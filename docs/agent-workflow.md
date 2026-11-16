@@ -27,14 +27,16 @@ Ask the user only when an unresolved answer materially changes architecture, dat
 
 Use each layer for one kind of information:
 
-- Global `~/.codex/AGENTS.md`: the minimal core plus only the stable language, reporting, tool, platform, and host modules selected for that machine.
+- Global `~/.codex/AGENTS.md`: the minimal core, selected collaboration preferences, and conditional guide entry points.
 - Repository or nested `AGENTS.md`: durable team and codebase rules, commands, and boundaries that cannot be discovered reliably from the project itself.
-- Selected Markdown guides beside the global file: backend, frontend, or Git preferences read for the relevant work. See [on-demand routing](global-agents.md#on-demand-development-guides). Review-only requests produce findings; simplification requests authorize scoped changes.
+- Selected Markdown guides beside the global file: coding/lint, backend, frontend, or Git preferences read for the relevant work. See [on-demand routing](global-agents.md#on-demand-development-guides). Review-only requests produce findings; simplification requests authorize scoped changes.
 - Project documentation: the project's existing plans, design records, progress notes, and worklogs; no fixed directory layout is required.
 - Skills: repeatable procedures that benefit from richer instructions, scripts, references, assets, or checks.
 - Memories and session indexes: private local context. Curate or index them; do not copy raw histories into public repositories.
 
 Keep each instruction in one authoritative place. Keep shared guidance in the entry point; route conditional detail through a link that says when to read it. Replace stale passages and remove repeated explanations. This applies to guides and Skills as well as `AGENTS.md`; see [writing for agents](https://github.com/mattpocock/skills/blob/main/skills/productivity/writing-for-agents/SKILL.md).
+
+Scope repository development and release procedures to work on that repository. Load coding guidance for code changes and record procedures for durable project stages; routine queries need neither.
 
 An always-loaded rule earns its instruction budget only when it is stable at that scope, hard or costly to rediscover, relevant to nearly every task there, and consequential when missed. Treat `/init` and other generated `AGENTS.md` output as candidate inventory, not a finished instruction file: remove or rehome repository maps, current file or service locations, implementation details, progress, one-off corrections, and language or domain procedures that code search, manifests, nested `AGENTS.md`, project documentation, or a Skill can disclose when needed. Audit existing rules with the same admission test instead of preserving every non-conflicting line. See the official [AGENTS.md discovery rules](https://learn.chatgpt.com/docs/agent-configuration/agents-md) and the practical [progressive-disclosure guide](https://www.aihero.dev/a-complete-guide-to-agents-md).
 

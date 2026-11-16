@@ -27,14 +27,16 @@
 
 每一层只保存适合自己的内容：
 
-- 全局 `~/.codex/AGENTS.md`：最小公共核心，加上这台主机明确选择的语言、报告、工具、平台和主机模块。
+- 全局 `~/.codex/AGENTS.md`：最小公共核心、已选协作偏好与条件性规范入口。
 - 仓库或子目录 `AGENTS.md`：无法从项目中可靠发现的长期团队与代码库规则、命令和边界。
-- 全局文件旁的选定 Markdown 规范：后端、前端或 Git 偏好，在相关工作时读取。参见[按需读取入口](global-agents.zh-CN.md#按需开发规范)。只要求审阅时给意见，要求简化时在授权范围内修改。
+- 全局文件旁的选定 Markdown 规范：编码与 lint、后端、前端或 Git 偏好，在相关工作时读取。参见[按需读取入口](global-agents.zh-CN.md#按需开发规范)。只要求审阅时给意见，要求简化时在授权范围内修改。
 - 项目文档：项目原有的计划、设计记录、进度说明和 worklog；不要求固定目录结构。
 - Skills：需要丰富说明、scripts、references、assets 或检查器的可重复流程。
 - Memories 与会话索引：本机私有上下文。应提炼或建立索引，不把原始历史复制到公开仓库。
 
 同一规则只保留一处权威说明。入口保留共同要求，条件性细节通过写明触发条件的链接按需读取；改写过时段落，删除重复解释。这适用于 `AGENTS.md`、规范和 Skill；参见 [writing for agents](https://github.com/mattpocock/skills/blob/main/skills/productivity/writing-for-agents/SKILL.md)。
+
+仓库开发与发布流程只用于该仓库的工作；代码变更才读取编码规范，需要延续的项目阶段才进入记录流程，普通查询不触发这些步骤。
 
 一条常驻规则只有同时满足以下条件，才值得占用 instruction budget：在当前作用域长期稳定；难以或不值得每次重新发现；几乎每个任务都相关；遗漏后果明确。把 `/init` 和其他自动生成的 `AGENTS.md` 当作候选清单，而不是成品：仓库结构图、当前文件或 Service 位置、实现细节、当前进度、一次性纠正，以及可由代码搜索、manifest、子目录 `AGENTS.md`、项目文档或 Skill 按需披露的语言与领域流程，都应删除或迁移。审计旧规则时也使用同一准入标准，不因为某行“不冲突”就永久保留。参见 Codex 官方 [AGENTS.md 发现规则](https://learn.chatgpt.com/docs/agent-configuration/agents-md)和实用的[渐进式披露说明](https://www.aihero.dev/a-complete-guide-to-agents-md)。
 

@@ -6,7 +6,7 @@
 
 ## 渐进式项目记录
 
-全局文件将重要阶段及明确的文档整理、交接请求转入 [`organized-proj`](../skills/organized-proj/SKILL.md)，需要时才加载完整流程。
+全局文件将项目重要阶段及明确的文档整理、交接请求转入 [`organized-proj`](../skills/organized-proj/SKILL.md)，需要时才加载完整流程。
 
 配置全局文件时：
 
@@ -30,7 +30,6 @@
 | [记录时区](../templates/optional/timezone.md) | Agent 创建的记录使用选定 IANA 时区。 |
 | [仓库安全](../templates/optional/repository-safety.md) | 增加 Git 与无关工作保护。 |
 | [UI 验证](../templates/optional/ui-verification.md) | 不写 UI 单元测试，视觉验收交给用户。 |
-| [C++ / Python / Rust lint](../templates/optional/lint-toolchains.md) | 默认使用 clang-tidy/clang-format、Ruff、Clippy/rustfmt；开发对应语言时自动安装配置缺失工具。 |
 
 选用后，按用户选定的语言，将称呼说明放在首句，协作开头紧随其后。称呼是对话偏好，不作为项目署名。个人称呼和已填写的主机参数不进入公共模板。
 
@@ -40,33 +39,30 @@
 
 | 规范 | 读取时机 | 内容 |
 | --- | --- | --- |
+| [编码与 lint](../templates/optional/lint-toolchains.zh-CN.md) | 编写或修改代码 | 单一职责、可检索命名、禁止代码注释与项目 lint；默认使用 clang-tidy/clang-format、Ruff、Clippy/rustfmt。 |
 | [后端](../templates/optional/guides/backend.zh-CN.md) | 后端或编译型算法开发 | CMake/catkin/colcon 快速迭代、诊断日志限额、接口独立。 |
 | [前端](../templates/optional/guides/frontend.zh-CN.md) | 设计或修改界面 | 信息层级、克制表达、交互与人的视觉验收。 |
 | [审阅、提交与推送](../templates/optional/guides/git.zh-CN.md) | 代码收尾、审阅、提交或推送 | “收尾推送”先执行完整代码简化再发布；普通 Git 操作跳过简化。 |
 
-只把选定语言的所选规范复制到实际全局 `AGENTS.md` 同目录下的 `guides/`，统一命名为 `backend.md`、`frontend.md`、`git.md`。仓库中文源文件带 `.zh-CN.md`，安装时改成上述名称；更新时保留本地修改。采用规范时先检查项目现有约定。
+只把选定语言的所选规范复制到实际全局 `AGENTS.md` 同目录下的 `guides/`，统一命名为 `code.md`、`backend.md`、`frontend.md`、`git.md`。选定的 `lint-toolchains.md` 或 `lint-toolchains.zh-CN.md` 安装为 `code.md`；其他中文规范同样改为上述统一名称。更新时保留本地修改。采用规范时先检查项目现有约定。
 
-三份都选用时，全局文件只需增加一条读取入口：
+全局文件只需一条入口，列出已选规范：
 
 ```markdown
-- 按任务读取本文件同目录下的 `guides/backend.md`（后端或算法）、`guides/frontend.md`（界面）或 `guides/git.md`（代码审阅、简化、提交或推送）。
+- 按任务读取本文件同目录规范：编码→`guides/code.md`；后端或算法→`guides/backend.md`；界面→`guides/frontend.md`；审阅、简化或 Git→`guides/git.md`。
 ```
 
 只保留指向已安装规范的引用。这是要求 Agent 按条件主动读文件，不应假定 `@file.md` 自带条件加载功能；规范正文不复制进常驻核心。`templates/workspace/` 下的领域参考仍按需选用，避免重复安装内容重叠的 UI 规则。
 
 选用 `simplify-codebase` 时，若尚未安装，集中提供一次安装选项。Git 规范优先使用已安装的 Skill，未安装时也能直接执行。详见[安装提示词](../README.zh-CN.md#simplify-codebase)。
 
-需要让日常编码偏好常驻时，可选用这一句：
-
-> 遵循单一职责，采用可检索命名，禁止新增代码注释。
-
-工具配置与静态错误约束归入选定的 [lint 模块](../templates/optional/lint-toolchains.md)，部署时与已有偏好合并。
+采用 `code.md` 后，将选定的编码和 lint 规则移出常驻全局文件；代码任务仍会读取，普通查询无需加载。
 
 ## 简洁、坦诚地表达
 
 选择此偏好时，替换原有报告规则，不另加同义条目：
 
-> 自然、直接地交流，术语一致、结论先行；已知直说，未知直说，需要时联网核实，没查到就直说；推论明确标注为“推测”并简述依据；仅保留影响理解或决策的限制，删除重复解释和免责措辞；即时消息句末不加句号
+> 自然直接、术语一致，结论先行，按需保留依据与明细；事实与未知直说，推论标注“推测”并简述依据；仅说明影响判断的限制，避免重复；即时消息句末不加句号
 
 公共模板使用通用的推论标记；个人配置可使用用户选定的助手昵称。句末标点偏好独立选择，仅用于即时消息。
 

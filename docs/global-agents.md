@@ -6,7 +6,7 @@ The [minimal core](../templates/AGENTS.global.md) keeps cross-task judgment, ini
 
 ## Progressive project records
 
-The global file routes meaningful stages and explicit documentation or handoff requests to [`organized-proj`](../skills/organized-proj/SKILL.md); its procedure loads only when needed.
+The global file routes meaningful project stages and explicit documentation or handoff requests to [`organized-proj`](../skills/organized-proj/SKILL.md); its procedure loads only when needed.
 
 During global setup:
 
@@ -30,7 +30,6 @@ Add only preferences the user has actually selected:
 | [Recorded time zone](../templates/optional/timezone.md) | Applies a chosen IANA zone to agent-created records. |
 | [Repository safety](../templates/optional/repository-safety.md) | Adds stricter Git and unrelated-work protections. |
 | [UI verification](../templates/optional/ui-verification.md) | Avoids UI unit tests and gives visual acceptance to the user. |
-| [C++ / Python / Rust lint](../templates/optional/lint-toolchains.md) | Defaults to clang-tidy/clang-format, Ruff, and Clippy/rustfmt; installs and configures missing tools during relevant development. |
 
 When selected, place the naming instruction first, followed by the collaborative opening, in the user's chosen language. Names are conversational preferences, not project attribution. Personal names and resolved host values stay out of the public template.
 
@@ -40,33 +39,30 @@ These optional guides are ordinary Markdown files. Select the relevant guides on
 
 | Guide | Read when | Focus |
 | --- | --- | --- |
+| [Coding and lint](../templates/optional/lint-toolchains.md) | Writing or changing code | Single responsibility, searchable names, no code comments, and project lint; defaults to clang-tidy/clang-format, Ruff, and Clippy/rustfmt. |
 | [Backend](../templates/optional/guides/backend.md) | Backend or compiled algorithm work | Fast CMake/catkin/colcon iteration, bounded diagnostic logs, and independent interfaces. |
 | [Frontend](../templates/optional/guides/frontend.md) | Designing or changing an interface | Information hierarchy, restrained presentation, interaction, and human visual acceptance. |
 | [Review, commits, and pushes](../templates/optional/guides/git.md) | Code closeout, review, commits, or pushes | “收尾推送” runs full code simplification before publication; Git-only operations skip simplification. |
 
-Copy only the selected language and guides to `guides/` beside the actual global `AGENTS.md`, using the canonical names `backend.md`, `frontend.md`, and `git.md`. Chinese sources use `.zh-CN.md` in this repository; rename them to the canonical names when installing. Preserve local edits during updates. Inspect existing project conventions when applying a guide.
+Copy only the selected language and guides to `guides/` beside the actual global `AGENTS.md`, using the canonical names `code.md`, `backend.md`, `frontend.md`, and `git.md`. Install the selected `lint-toolchains.md` or `lint-toolchains.zh-CN.md` as `code.md`; Chinese guide sources likewise use the canonical names when installed. Preserve local edits during updates. Inspect existing project conventions when applying a guide.
 
-If all three guides are selected, the global file needs one routing line:
+For the selected guides, the global file needs one routing line:
 
 ```markdown
-- Read the relevant guide beside this file: `guides/backend.md` for backend or algorithm work, `guides/frontend.md` for interfaces, and `guides/git.md` for code review, simplification, commits, or pushes.
+- Read the relevant guide beside this file: coding → `guides/code.md`; backend or algorithms → `guides/backend.md`; interfaces → `guides/frontend.md`; review, simplification, or Git → `guides/git.md`.
 ```
 
 Keep references only to installed guides. These are explicit instructions to read a file when needed; do not assume that an `@file.md` mention implements conditional loading. Keep the guide bodies out of the always-loaded core. Existing domain references under `templates/workspace/` remain optional; avoid installing overlapping UI instructions twice.
 
 If `simplify-codebase` is selected, offer installation once when absent. The Git guide uses it when installed and works directly otherwise. See the [install prompt](../README.md#simplify-codebase).
 
-For an always-loaded coding preference, select this sentence:
-
-> Follow the single-responsibility principle, use searchable names, and add no code comments.
-
-The selected [lint module](../templates/optional/lint-toolchains.md) owns tooling and static-error prevention; merge its wording with existing preferences during deployment.
+When adopting `code.md`, move the selected coding and lint rules out of the always-loaded global file. Their behavior remains available for code work without loading it for unrelated queries.
 
 ## Concise, candid reporting
 
 For this selected preference, replace the existing reporting line rather than append a second rule:
 
-> Communicate naturally and directly with consistent terminology, leading with the result. State facts and unknowns plainly; verify online when useful and say when a search finds no answer. Label inferences and briefly explain their basis. Include only limitations that affect understanding or decisions; remove repetitive explanations and disclaimers. In instant messages, omit sentence-final periods.
+> Communicate naturally and directly with consistent terminology. Lead with the result and retain useful evidence and detail. State facts and unknowns plainly; label inferences and briefly explain their basis. Mention only limitations that affect judgment and avoid repetition. In instant messages, omit sentence-final periods.
 
 Keep inference labels generic in public templates; a private configuration may use the user's selected assistant nickname. Select the sentence-punctuation preference independently; it applies to instant messages.
 
