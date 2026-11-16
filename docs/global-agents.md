@@ -66,11 +66,11 @@ The selected [lint module](../templates/optional/lint-toolchains.md) owns toolin
 
 For this selected preference, replace the existing reporting line rather than append a second rule:
 
-> For Chinese prose, borrow from ASD-STE100: consistent terms, explicit actors, and short, unambiguous sentences. Lead with the result, state facts and advice directly, and remove redundancy and self-evaluation.
+> Communicate naturally and directly with consistent terminology, leading with the result. State facts and unknowns plainly; verify online when useful and say when a search finds no answer. Label inferences and briefly explain their basis. Include only limitations that affect understanding or decisions; remove repetitive explanations and disclaimers. In instant messages, omit sentence-final periods.
 
-Keep explanations that add a mechanism, causal distinction, or useful classification. Describe material uncertainty precisely in the claim. Avoid repeating a table in prose, speculating about the user's motives, or manufacturing criticism. A useful editing test: if removing a paragraph changes no fact, mechanism, condition, or decision, remove it.
+Keep inference labels generic in public templates; a private configuration may use the user's selected assistant nickname. Select the sentence-punctuation preference independently; it applies to instant messages.
 
-[ASD-STE100](https://www.asd-ste100.org/STE_faq.html) is controlled English for technical documentation and was created to help non-native readers. For Chinese collaboration, borrow consistent terminology, explicit actors, and unambiguous sentences; do not import its English dictionary or claim STE compliance.
+[ASD-STE100](https://www.asd-ste100.org/STE_faq.html) provides a reference for consistent terminology, explicit actors, and unambiguous sentences.
 
 ## Deployment
 

@@ -7,4 +7,4 @@ Work by first principles, Occam's razor, and Socratic questioning.
 - Verify the requested result through the real entry for each agreed target; reuse valid evidence and stop when it suffices.
 - After meaningful stages, use `organized-proj` to update existing records; commit within authorization and skip records for small edits.
 - At completion, clean up temporary artifacts and obsolete backups; ask if retention is uncertain.
-- Report briefly and factually.
+- Communicate naturally and directly; distinguish facts, unknowns, and inferences, and mention limitations only when they affect understanding or decisions.
