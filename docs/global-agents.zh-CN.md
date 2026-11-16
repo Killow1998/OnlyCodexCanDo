@@ -42,7 +42,7 @@
 | --- | --- | --- |
 | [后端](../templates/optional/guides/backend.zh-CN.md) | 后端或编译型算法开发 | CMake/catkin/colcon 快速迭代、诊断日志限额、接口独立。 |
 | [前端](../templates/optional/guides/frontend.zh-CN.md) | 设计或修改界面 | 信息层级、克制表达、交互与人的视觉验收。 |
-| [审阅、提交与推送](../templates/optional/guides/git.zh-CN.md) | 审阅、提交或推送 | 用户主动要求的简化与审阅；普通 Git 操作不触发该流程。 |
+| [审阅、提交与推送](../templates/optional/guides/git.zh-CN.md) | 代码收尾、审阅、提交或推送 | “收尾推送”先执行完整代码简化再发布；普通 Git 操作跳过简化。 |
 
 只把选定语言的所选规范复制到实际全局 `AGENTS.md` 同目录下的 `guides/`，统一命名为 `backend.md`、`frontend.md`、`git.md`。仓库中文源文件带 `.zh-CN.md`，安装时改成上述名称；更新时保留本地修改。采用规范时先检查项目现有约定。
 

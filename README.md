@@ -58,7 +58,7 @@ Select by task; installing everything is unnecessary. Each entry owns its detail
 | `codex-home-audit` | Diagnose Codex state size and startup issues | On-demand read-only inspection; cleanup needs separate approval. [Instructions](skills/codex-home-audit/SKILL.md) |
 | `lark-worklog-archive` | Archive selected development results to Feishu/Lark | Use on explicit request; project docs remain the daily record. [Instructions](skills/lark-worklog-archive/SKILL.md) · [Setup, authorization, and validation status](skills/lark-worklog-archive/references/setup.md) |
 | `organizedProj` | Reconcile affected project docs and preserve verified lessons | Bounded stage close-out; reuse existing documents. [Instructions](skills/organized-proj/SKILL.md) |
-| `simplify-codebase` | Review or implement code simplification | Preserves required behavior and removes comments in the requested implementation scope. [Instructions](skills/simplify-codebase/SKILL.md) |
+| `simplify-codebase` | Code closeout, simplification, and structural review | Preserves required behavior and removes comments in the requested implementation scope. [Instructions](skills/simplify-codebase/SKILL.md) |
 | `TaskWatch` | Long-job failure and completion notifications | Supports Agent Mail and SMTP. [Agent Mail setup](skills/taskwatch/references/agent-mail.md) · [Usage guide](skills/taskwatch/references/usage.md) |
 
 ## Install A Skill
@@ -74,7 +74,7 @@ Install organizedProj globally from https://github.com/Killow1998/OnlyCodexCanDo
 ### `simplify-codebase`
 
 ```text
-Install simplify-codebase globally from https://github.com/Killow1998/OnlyCodexCanDo.git using skills/simplify-codebase. Compare existing copies and preserve local edits, then run python -B skills/simplify-codebase/scripts/check.py --check-global from source. Installation does not run a code cleanup. Read the Skill when I request simplification or a relevant review; ordinary commits and pushes do not trigger it.
+Install simplify-codebase globally from https://github.com/Killow1998/OnlyCodexCanDo.git using skills/simplify-codebase. Compare existing copies and preserve local edits, then run python -B skills/simplify-codebase/scripts/check.py --check-global from source. Installation does not run a code cleanup. Read the Skill for explicit code closeout (including “收尾推送”), simplification, or related review; Git-only commits and pushes do not trigger it.
 ```
 
 ### `codex-home-audit`

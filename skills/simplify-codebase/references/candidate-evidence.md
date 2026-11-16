@@ -33,7 +33,7 @@ Look for adapters with one implementation, configuration with one valid value, r
 
 Trace the trust and ownership path, the concrete failure prevented, and what existing guarantees already cover. Several sentinels, readiness promises, copies, caches, or terminal-state flags may mirror one lifecycle fact. Preserve distinct publication, cancellation, rollback, containment, or ownership transitions that have real failure cases.
 
-For repeated validation, identify where an invariant is established and where it can become false. Rechecking the same immutable typed value in each internal layer is a candidate; checking a changed authorization, concurrent state, or new external input is a separate responsibility. A hypothetical failure alone does not justify new defensive infrastructure.
+For repeated validation, identify where an invariant is established and where it can become false. Rechecking the same immutable typed value in each internal layer is a candidate; checking a changed authorization, concurrent state, or new external input is a separate responsibility. Before adding complexity for a hypothetical low-probability concurrency or security scenario, agree with the user on the concrete risk, likelihood, and code cost.
 
 For exception handling, identify the recovery, boundary translation, or cleanup each handler owns. Merge handlers that only repeat logging or rethrow unchanged errors. Preserve the original cause; returning an empty value or success after failure may change behavior rather than simplify it.
 

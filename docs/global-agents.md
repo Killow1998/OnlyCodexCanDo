@@ -42,7 +42,7 @@ These optional guides are ordinary Markdown files. Select the relevant guides on
 | --- | --- | --- |
 | [Backend](../templates/optional/guides/backend.md) | Backend or compiled algorithm work | Fast CMake/catkin/colcon iteration, bounded diagnostic logs, and independent interfaces. |
 | [Frontend](../templates/optional/guides/frontend.md) | Designing or changing an interface | Information hierarchy, restrained presentation, interaction, and human visual acceptance. |
-| [Review, commits, and pushes](../templates/optional/guides/git.md) | Review, commit, or push work | Requested simplification and review; ordinary Git operations do not trigger that pass. |
+| [Review, commits, and pushes](../templates/optional/guides/git.md) | Code closeout, review, commits, or pushes | “收尾推送” runs full code simplification before publication; Git-only operations skip simplification. |
 
 Copy only the selected language and guides to `guides/` beside the actual global `AGENTS.md`, using the canonical names `backend.md`, `frontend.md`, and `git.md`. Chinese sources use `.zh-CN.md` in this repository; rename them to the canonical names when installing. Preserve local edits during updates. Inspect existing project conventions when applying a guide.
 

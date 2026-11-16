@@ -1,6 +1,6 @@
 ---
 name: simplify-codebase
-description: Review or implement code simplification and structural refactoring. Use for code bloat, repeated validation, needless wrappers, coupled modules, comments, or implementation-coupled tests. Ordinary commits, pushes, and formatting-only edits do not trigger a cleanup pass.
+description: Review or implement code simplification, structural refactoring, or explicit code closeout, including “代码收尾” and “收尾推送”. Use for code bloat, repeated validation, needless wrappers, coupled modules, comments, or implementation-coupled tests. Git-only commits or pushes, documentation closeout, and formatting-only edits do not trigger a cleanup pass.
 ---
 
 # Simplify a Codebase
@@ -10,6 +10,7 @@ Reduce maintenance obligations, not line count alone.
 ## Scope
 
 - **Audit:** propose simplifications without edits. **Implementation:** apply requested simplifications. **Review:** assess an existing diff.
+- Explicit code closeout implements the full reduction below across the current codebase within existing functionality. “收尾推送” includes that work before committing and pushing; use the applicable Git guide for publication.
 - Lock the requested behavior and acceptance scope. Inspect the current diff and relevant callers; preserve unrelated work and required compatibility.
 - Reuse existing project decisions and evidence. Ask only about unresolved product or architecture choices.
 - Simplification does not itself authorize publication, data migration, compatibility breaks, or removal of required security controls.

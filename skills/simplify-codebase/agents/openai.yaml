@@ -1,4 +1,4 @@
 interface:
   display_name: "Simplify Codebase"
   short_description: "Find and apply evidence-backed code simplifications."
-  default_prompt: "Use $simplify-codebase to review or implement the requested code simplification while preserving required behavior."
+  default_prompt: "Use $simplify-codebase for the requested code closeout, simplification, or structural review while preserving required behavior."

@@ -58,7 +58,7 @@
 | `codex-home-audit` | 诊断 Codex 状态目录占用与启动问题 | 按需只读检查；清理另行批准。[入口](skills/codex-home-audit/SKILL.md) |
 | `lark-worklog-archive` | 把选定的开发成果归档到飞书 | 主动要求时使用；日常以项目 docs 为主。[入口](skills/lark-worklog-archive/SKILL.md) · [安装、授权与验证状态](skills/lark-worklog-archive/references/setup.md) |
 | `organizedProj` | 整理本次影响的项目文档，保留已验证经验 | 有范围的阶段收尾，复用现有文档。[入口](skills/organized-proj/SKILL.md) |
-| `simplify-codebase` | 审阅或实施代码简化 | 保留必要行为，实施时清除请求范围内的注释。[入口](skills/simplify-codebase/SKILL.md) |
+| `simplify-codebase` | 代码收尾、简化与结构审阅 | 保留必要行为，实施时清除请求范围内的注释。[入口](skills/simplify-codebase/SKILL.md) |
 | `TaskWatch` | 长任务失败与完成通知 | 支持 Agent Mail 和 SMTP。[Agent Mail 配置](skills/taskwatch/references/agent-mail.zh-CN.md) · [使用说明](skills/taskwatch/references/usage.md) |
 
 ## 安装 Skill
@@ -74,7 +74,7 @@
 ### `simplify-codebase`
 
 ```text
-请从 https://github.com/Killow1998/OnlyCodexCanDo.git 全局安装 skills/simplify-codebase。先比较已有副本并保留本地修改，然后从源码运行 python -B skills/simplify-codebase/scripts/check.py --check-global。安装本身不执行代码清理；我要求简化或相关审阅时才读取 Skill，普通提交和推送不触发。
+请从 https://github.com/Killow1998/OnlyCodexCanDo.git 全局安装 skills/simplify-codebase。先比较已有副本并保留本地修改，然后从源码运行 python -B skills/simplify-codebase/scripts/check.py --check-global。安装本身不执行代码清理；我要求代码收尾（包括“收尾推送”）、简化或相关审阅时读取 Skill，普通提交和推送不触发。
 ```
 
 ### `codex-home-audit`
