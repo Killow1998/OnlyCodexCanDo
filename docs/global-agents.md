@@ -58,11 +58,11 @@ If `simplify-codebase` is selected, offer installation once when absent. The Git
 
 When adopting `code.md`, move the selected coding and lint rules out of the always-loaded global file. Their behavior remains available for code work without loading it for unrelated queries.
 
-## Concise, candid reporting
+## Writing for the reader
 
 For this selected preference, replace the existing reporting line rather than append a second rule:
 
-> Communicate naturally and directly with consistent terminology. Lead with the result and retain useful evidence and detail. State facts and unknowns plainly; label inferences and briefly explain their basis. Mention only limitations that affect judgment and avoid repetition. In instant messages, omit sentence-final periods.
+> Organize replies and documents around the reader’s question. Use familiar technical terms for findings from tools and working notes. Lead with the result and keep useful evidence and detail. State facts and unknowns directly, label inferences with their basis, and state each limitation that affects judgment once. In instant messages, omit sentence-final periods.
 
 Keep inference labels generic in public templates; a private configuration may use the user's selected assistant nickname. Select the sentence-punctuation preference independently; it applies to instant messages.
 

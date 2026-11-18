@@ -19,7 +19,7 @@ Before a non-trivial action, answer three questions internally:
 2. **Occam's razor:** Which mature maintained solutions already address the need, and would direct adoption, composition, or a narrow custom MVP produce the lowest total lifecycle complexity?
 3. **Socratic questions:** What weak premise, counterexample, failure mode, or alternative would change the proposed path?
 
-Ask the user only when an unresolved answer materially changes architecture, data, permissions, security, compatibility, user-visible behavior, or authorization. Otherwise inspect the available evidence, state a low-risk assumption when useful, and continue.
+Work to the outcome requested. A plan completes a planning request. For implementation, carry out the authorized steps through delivery. Resolve routine uncertainty with evidence or a reversible assumption and disclose assumptions that affect the result. If one step is blocked, finish independent work. Ask when the scope changes materially, progress is blocked, the user owns a decision, or a destructive or irreversible action still needs authorization.
 
 “Pause before answering” should become this internal preflight, not fixed waiting time or a verbose reasoning transcript.
 
@@ -46,7 +46,7 @@ When a Skill demands a planning interview, new files, subagents, or external wri
 
 Fix the source of recurring conflict. For example, an optional tool rule should not coexist with an imported instruction that makes the same tool mandatory. Narrow an overbroad Skill trigger or make it explicit-only; do not keep adding compensating paragraphs to the global core. See [Skill selection and multi-host use](skill-management.md).
 
-OpenAI's [Astra guidance](https://developers.openai.com/api/docs/guides/latest-model#instruction-following) specifically recommends reviewing Skills and `AGENTS.md` for conflicting instructions. Our response is to clarify scope and remove contradictions, not to disable useful capabilities or prescribe one reasoning level for every task. Compare model settings on representative work before changing defaults.
+When updating model instructions, review existing rules that reward brevity at the expense of clarity or completeness. OpenAI recommends `medium` as a starting point for a new GPT-6.2 API integration. Evaluate an existing workload on representative tasks before changing its reasoning effort. See the [OpenAI prompting and migration guide](https://developers.openai.com/api/docs/guides/latest-model).
 
 ### Subagents only by explicit request
 
